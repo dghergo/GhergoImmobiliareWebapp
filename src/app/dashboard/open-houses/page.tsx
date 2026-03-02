@@ -290,11 +290,9 @@ export default function OpenHousesManagement() {
     return timeString.slice(0, 5)
   }
 
-  const isUpcoming = (dateString: string) => {
-    const eventDate = new Date(dateString + 'T00:00:00')
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return eventDate >= today
+  const getEventStatus = (dateString: string, oraFine: string): 'upcoming' | 'past' => {
+    const endDateTime = new Date(`${dateString}T${oraFine}`)
+    return endDateTime > new Date() ? 'upcoming' : 'past'
   }
 
   if (loading) {
@@ -575,15 +573,18 @@ export default function OpenHousesManagement() {
             </div>
           ) : (
             <div className="space-y-4 p-6">
-              {openHouses.map((openHouse) => (
+              {openHouses.map((openHouse) => {
+                const eventStatus = getEventStatus(openHouse.data_evento, openHouse.ora_fine)
+
+                return (
                 <div
                   key={openHouse.id}
                   className={`border rounded-lg p-4 ${
-                    isUpcoming(openHouse.data_evento)
+                    eventStatus === 'upcoming'
                       ? openHouse.is_active
                         ? 'border-green-200 bg-green-50'
                         : 'border-yellow-200 bg-yellow-50'
-                      : 'border-gray-200 bg-gray-50'
+                      : 'border-gray-300 bg-gray-100'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -597,9 +598,13 @@ export default function OpenHousesManagement() {
                         }`}>
                           {openHouse.is_active ? 'ATTIVO' : 'DISATTIVO'}
                         </span>
-                        {isUpcoming(openHouse.data_evento) && (
+                        {eventStatus === 'upcoming' ? (
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 text-xs font-semibold rounded-full">
                             PROSSIMO
+                          </span>
+                        ) : (
+                          <span className="bg-gray-200 text-gray-600 px-2 py-1 text-xs font-semibold rounded-full">
+                            CONCLUSO
                           </span>
                         )}
                       </div>
@@ -670,7 +675,8 @@ export default function OpenHousesManagement() {
                     </span>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
