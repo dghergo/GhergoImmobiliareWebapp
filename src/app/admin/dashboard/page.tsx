@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     totalProperties: 0,
     totalOpenHouses: 0
   })
+  const [sendingFeedback, setSendingFeedback] = useState(false)
 
   // Redirect se non è admin
   useEffect(() => {
@@ -210,9 +211,9 @@ export default function AdminDashboard() {
             Azioni Rapide
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <button className="btn-primary p-4 text-left">
-              <h3 className="font-semibold mb-2">➕ Nuovo Agente</h3>
+              <h3 className="font-semibold mb-2">Nuovo Agente</h3>
               <p className="text-sm opacity-90">Aggiungi un nuovo collaboratore</p>
             </button>
 
@@ -220,13 +221,39 @@ export default function AdminDashboard() {
               onClick={() => router.push('/admin/properties')}
               className="btn-secondary p-4 text-left hover:opacity-90 transition-opacity"
             >
-              <h3 className="font-semibold mb-2">🏠 Gestisci Immobili</h3>
+              <h3 className="font-semibold mb-2">Gestisci Immobili</h3>
               <p className="text-sm opacity-90">Visualizza tutti gli immobili</p>
             </button>
 
             <button className="btn-primary p-4 text-left">
-              <h3 className="font-semibold mb-2">📊 Report Globale</h3>
+              <h3 className="font-semibold mb-2">Report Globale</h3>
               <p className="text-sm opacity-90">Statistiche complete</p>
+            </button>
+
+            <button
+              onClick={async () => {
+                setSendingFeedback(true)
+                try {
+                  const response = await fetch('/api/cron/send-feedback-requests', {
+                    headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}` }
+                  })
+                  const result = await response.json()
+                  if (response.ok) {
+                    alert(`Email feedback inviate: ${result.emailsSent}\nErrori: ${result.errors}`)
+                  } else {
+                    alert('Errore: ' + (result.error || 'Errore sconosciuto'))
+                  }
+                } catch (error) {
+                  alert('Errore nell\'invio delle email feedback')
+                } finally {
+                  setSendingFeedback(false)
+                }
+              }}
+              disabled={sendingFeedback}
+              className="btn-primary p-4 text-left disabled:opacity-50"
+            >
+              <h3 className="font-semibold mb-2">{sendingFeedback ? 'Invio in corso...' : 'Invia Email Feedback'}</h3>
+              <p className="text-sm opacity-90">Trigger manuale email post-visita</p>
             </button>
           </div>
         </div>

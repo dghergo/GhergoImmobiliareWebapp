@@ -63,7 +63,6 @@ export async function POST(request: Request) {
           })
 
           if (calendarResult.success) {
-            // Aggiorna il database con l'ID dell'evento e il tracking della conferma email
             await supabase
               .from('gre_bookings')
               .update({
@@ -75,34 +74,99 @@ export async function POST(request: Request) {
 
             console.log(`✅ Calendar event created: ${calendarResult.eventId}`)
           } else {
-            // Se la creazione del calendario fallisce, aggiorna solo l'email
             await supabase
               .from('gre_bookings')
               .update({ confirmation_email_sent: true })
               .eq('id', bookingId)
           }
         } else {
-          // Aggiorna solo il tracking della conferma email
           await supabase
             .from('gre_bookings')
             .update({ confirmation_email_sent: true })
             .eq('id', bookingId)
-
-          console.log('📅 Calendar event already exists')
         }
       } catch (calendarError) {
         console.error('❌ Calendar creation error:', calendarError)
-
-        // Aggiorna comunque il tracking della conferma email
         await supabase
           .from('gre_bookings')
           .update({ confirmation_email_sent: true })
           .eq('id', bookingId)
-
-        console.log('⚠️ Email sent but calendar event creation failed')
       }
 
       console.log(`✅ Email di conferma inviata a ${client.email}`)
+    }
+
+    // Template email di conferma unificata (conferma + brochure)
+    if (type === 'client_confirmation_with_brochure') {
+      const template = createEmailTemplate('confirmation_with_brochure', {
+        client,
+        property,
+        openHouse,
+        timeSlot,
+        agent
+      })
+
+      await sendEmail({
+        to: client.email,
+        subject: template.subject,
+        html: template.html
+      })
+
+      // Crea evento calendario se non esiste già
+      try {
+        if (!bookingData.calendar_event_id) {
+          console.log('📅 Creating calendar event for Open House...')
+
+          const calendarResult = await createOpenHouseEvent({
+            client,
+            property,
+            openHouse,
+            timeSlot,
+            agent
+          })
+
+          if (calendarResult.success) {
+            await supabase
+              .from('gre_bookings')
+              .update({
+                confirmation_email_sent: true,
+                brochure_email_sent: true,
+                calendar_event_id: calendarResult.eventId,
+                calendar_event_link: calendarResult.eventLink
+              })
+              .eq('id', bookingId)
+
+            console.log(`✅ Calendar event created: ${calendarResult.eventId}`)
+          } else {
+            await supabase
+              .from('gre_bookings')
+              .update({
+                confirmation_email_sent: true,
+                brochure_email_sent: true
+              })
+              .eq('id', bookingId)
+          }
+        } else {
+          await supabase
+            .from('gre_bookings')
+            .update({
+              confirmation_email_sent: true,
+              brochure_email_sent: true
+            })
+            .eq('id', bookingId)
+        }
+      } catch (calendarError) {
+        console.error('❌ Calendar creation error:', calendarError)
+        await supabase
+          .from('gre_bookings')
+          .update({
+            confirmation_email_sent: true,
+            brochure_email_sent: true
+          })
+          .eq('id', bookingId)
+      }
+
+      console.log(`✅ Email conferma + brochure inviata a ${client.email}`)
     }
 
     // Template email di notifica per l'agente
@@ -157,6 +221,45 @@ export async function POST(request: Request) {
       })
 
       console.log(`✅ Email notifica inviata all'agente ${agent.email}`)
+    }
+
+    // Template email per richiesta feedback
+    if (type === 'feedback_request') {
+      const template = createEmailTemplate('feedback_request', {
+        client,
+        property,
+        openHouse,
+        agent,
+        bookingId
+      })
+
+      await sendEmail({
+        to: client.email,
+        subject: template.subject,
+        html: template.html
+      })
+
+      console.log(`✅ Email richiesta feedback inviata a ${client.email}`)
+    }
+
+    // Template email per notifica offerta all'agente
+    if (type === 'agent_offer_notification') {
+      const { commenti } = await request.json().catch(() => ({ commenti: '' }))
+
+      const template = createEmailTemplate('agent_offer_notification', {
+        client,
+        property,
+        agent,
+        commenti
+      })
+
+      await sendEmail({
+        to: agent.email,
+        subject: template.subject,
+        html: template.html
+      })
+
+      console.log(`✅ Email notifica offerta inviata all'agente ${agent.email}`)
     }
 
     return NextResponse.json({

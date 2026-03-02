@@ -172,6 +172,33 @@ export default function OpenHousesManagement() {
         if (!response.ok) {
           console.error('Error generating slots:', result.error)
           alert('Open House salvato ma errore nella generazione slot: ' + result.error)
+        } else if (result.action === 'warning') {
+          // Timing cambiato con prenotazioni attive: chiedi conferma
+          const conferma = confirm(
+            `Attenzione: ci sono ${result.activeBookings} prenotazioni attive per questo Open House.\n\n` +
+            `Modificando gli orari o la durata degli slot, tutte le prenotazioni esistenti verranno eliminate.\n\n` +
+            `Vuoi procedere con la rigenerazione degli slot?`
+          )
+
+          if (conferma) {
+            // Retry con forceRegenerate
+            const retryResponse = await fetch('/api/generate-time-slots', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ openHouseId, forceRegenerate: true })
+            })
+            const retryResult = await retryResponse.json()
+
+            if (!retryResponse.ok) {
+              alert('Errore nella rigenerazione slot: ' + retryResult.error)
+            } else {
+              console.log(`Regenerated ${retryResult.slotsCreated} time slots (forced)`)
+            }
+          } else {
+            alert('Modifica annullata. Le prenotazioni esistenti sono state mantenute.\nNota: la capacità è stata comunque aggiornata se modificata.')
+          }
+        } else if (result.action === 'updated_capacity') {
+          console.log(`Updated capacity for ${result.slotsUpdated} slots`)
         } else {
           console.log(`Generated ${result.slotsCreated} time slots`)
         }

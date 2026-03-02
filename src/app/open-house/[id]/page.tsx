@@ -19,6 +19,7 @@ interface Property {
   indirizzo: string
   caratteristiche: any
   immagini: string[]
+  brochure_url?: string
 }
 
 interface OpenHouse {
@@ -68,6 +69,14 @@ interface BookingForm {
   marketing_accepted: boolean
 }
 
+interface QuestionnaireData {
+  vendita_immobile: string
+  necessita_mutuo: string
+  stato_mutuo: string
+  tempistiche_acquisto: string
+  corrispondenza_immobile: string
+}
+
 export default function OpenHouseDetail() {
   const params = useParams()
   const router = useRouter()
@@ -88,6 +97,19 @@ export default function OpenHouseDetail() {
     messaggio: '',
     privacy_accepted: false,
     marketing_accepted: false
+  })
+
+  // Modal questionnaire state
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false)
+  const [submittingQuestionnaire, setSubmittingQuestionnaire] = useState(false)
+  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
+    vendita_immobile: '',
+    necessita_mutuo: '',
+    stato_mutuo: '',
+    tempistiche_acquisto: '',
+    corrispondenza_immobile: ''
   })
 
   useEffect(() => {
@@ -116,7 +138,7 @@ export default function OpenHouseDetail() {
         .from('gre_open_houses')
         .select(`
           *,
-          gre_properties (id, titolo, descrizione, prezzo, tipologia, zona, indirizzo, caratteristiche, immagini),
+          gre_properties (id, titolo, descrizione, prezzo, tipologia, zona, indirizzo, caratteristiche, immagini, brochure_url),
           gre_agents (id, nome, cognome, email)
         `)
         .eq('id', openHouseId)
@@ -157,7 +179,7 @@ export default function OpenHouseDetail() {
       // Calcola posti occupati per ogni slot
       const slotsWithOccupancy = (slotsData || []).map(slot => {
         const bookings = slot.gre_bookings || []
-        const confirmedBookings = bookings.filter(booking => booking.status === 'confirmed')
+        const confirmedBookings = bookings.filter((booking: any) => booking.status === 'confirmed')
         const maxPartecipanti = slot.max_partecipanti || 1 // default: 1 persona per slot
 
         return {
@@ -167,7 +189,6 @@ export default function OpenHouseDetail() {
         }
       })
 
-      console.log('🔄 Slots with occupancy:', slotsWithOccupancy)
       setTimeSlots(slotsWithOccupancy)
     } catch (error) {
       console.error('Error:', error)
@@ -230,20 +251,13 @@ export default function OpenHouseDetail() {
 
         if (clientError) {
           console.error('Error creating client:', clientError)
-          console.error('Form data being sent:', {
-            nome: formData.nome,
-            cognome: formData.cognome,
-            email: formData.email,
-            telefono: formData.telefono,
-            gdpr_consent: formData.privacy_accepted
-          })
           alert(`Errore durante la creazione dell'account cliente: ${clientError.message}`)
           return
         }
         clientId = newClient.id
       }
 
-      // 2. Crea prenotazione con struttura corretta della tabella
+      // 2. Crea prenotazione (questionnaire_completed: false)
       const { data: newBooking, error: bookingError } = await supabase
         .from('gre_bookings')
         .insert({
@@ -261,59 +275,105 @@ export default function OpenHouseDetail() {
 
       if (bookingError) {
         console.error('Error creating booking:', bookingError)
-        console.error('Booking data being sent:', {
-          open_house_id: openHouseId,
-          time_slot_id: selectedSlot,
-          client_id: clientId,
-          agent_id: openHouse.agent_id,
-          status: 'confirmed',
-          questionnaire_completed: false,
-          confirmation_email_sent: false,
-          brochure_email_sent: false
-        })
         alert(`Errore durante la prenotazione: ${bookingError.message}`)
         return
       }
 
-      // 3. Invio email di conferma e notifica agente
-      try {
-        // Email di conferma al cliente
-        await fetch('/api/send-booking-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: newBooking.id, type: 'client_confirmation' })
-        })
-
-        // Email di notifica all'agente
-        await fetch('/api/send-booking-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: newBooking.id, type: 'agent_notification' })
-        })
-      } catch (emailError) {
-        console.error('Errore invio email:', emailError)
-        // Non blocchiamo la prenotazione se fallisce l'email
-      }
-
-      // 4. Ricarica gli slot per aggiornare la disponibilità
+      // 3. Ricarica gli slot per aggiornare la disponibilità
       await loadOpenHouseData()
 
-      // 5. Redirect al form prequalifica Google
-      const googleFormUrl = 'https://forms.gle/Gdhg4nyebiofTBE27'
-      window.open(googleFormUrl, '_blank')
-
-      alert('Prenotazione confermata! Ti abbiamo reindirizzato al questionario di prequalifica. Riceverai a breve una email di conferma con la brochure dell\'immobile.')
-
-      // Reset form state
+      // 4. Apri il modal del questionario
+      setCurrentBookingId(newBooking.id)
       setShowBookingForm(false)
-      setSelectedSlot(null)
-      setFormData({ nome: '', cognome: '', email: '', telefono: '', privacy_accepted: false })
+      setShowQuestionnaire(true)
 
     } catch (error) {
       console.error('Error:', error)
       alert('Errore durante la prenotazione. Riprova.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleQuestionnaireSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!currentBookingId) return
+
+    setSubmittingQuestionnaire(true)
+
+    try {
+      // 1. Salva risposte questionario in gre_prequalification_responses
+      const { error: responseError } = await supabase
+        .from('gre_prequalification_responses')
+        .insert({
+          booking_id: currentBookingId,
+          response_data: questionnaireData
+        })
+
+      if (responseError) {
+        console.error('Error saving questionnaire:', responseError)
+        // Non bloccare il flusso se il salvataggio delle risposte fallisce
+      }
+
+      // 2. Aggiorna booking come questionnaire_completed
+      await supabase
+        .from('gre_bookings')
+        .update({ questionnaire_completed: true })
+        .eq('id', currentBookingId)
+
+      // 3. Invia email di conferma unificata (conferma + brochure)
+      try {
+        await fetch('/api/send-booking-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: currentBookingId,
+            type: 'client_confirmation_with_brochure'
+          })
+        })
+
+        // Email di notifica all'agente
+        await fetch('/api/send-booking-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: currentBookingId,
+            type: 'agent_notification'
+          })
+        })
+      } catch (emailError) {
+        console.error('Errore invio email:', emailError)
+      }
+
+      // 4. Chiudi modal e mostra successo
+      setShowQuestionnaire(false)
+      setShowSuccess(true)
+
+      // Reset form
+      setSelectedSlot(null)
+      setFormData({
+        nome: '',
+        cognome: '',
+        email: '',
+        telefono: '',
+        messaggio: '',
+        privacy_accepted: false,
+        marketing_accepted: false
+      })
+      setQuestionnaireData({
+        vendita_immobile: '',
+        necessita_mutuo: '',
+        stato_mutuo: '',
+        tempistiche_acquisto: '',
+        corrispondenza_immobile: ''
+      })
+
+    } catch (error) {
+      console.error('Error submitting questionnaire:', error)
+      alert('Errore nell\'invio del questionario. La prenotazione è comunque confermata.')
+    } finally {
+      setSubmittingQuestionnaire(false)
     }
   }
 
@@ -451,12 +511,12 @@ export default function OpenHouseDetail() {
                     {openHouse.property.titolo}
                   </h1>
                   <p className="text-lg" style={{ color: 'var(--text-gray)' }}>
-                    📍 {openHouse.property.zona}
+                    {openHouse.property.zona}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-4xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-                    € {openHouse.property.prezzo?.toLocaleString('it-IT')}
+                    {openHouse.property.prezzo?.toLocaleString('it-IT')} &euro;
                   </p>
                   <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
                     {openHouse.property.tipologia}
@@ -517,7 +577,7 @@ export default function OpenHouseDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <h3 className="font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
-                      📅 Data e Orario
+                      Data e Orario
                     </h3>
                     <p style={{ color: 'var(--text-dark)' }}>
                       {new Date(openHouse.data_evento).toLocaleDateString('it-IT', {
@@ -534,7 +594,7 @@ export default function OpenHouseDetail() {
 
                   <div className="p-4 bg-green-50 rounded-lg">
                     <h3 className="font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
-                      👨‍💼 Agente di riferimento
+                      Agente di riferimento
                     </h3>
                     <p className="font-medium" style={{ color: 'var(--text-dark)' }}>
                       {openHouse.agent.nome} {openHouse.agent.cognome}
@@ -542,11 +602,6 @@ export default function OpenHouseDetail() {
                     <p className="text-sm" style={{ color: 'var(--text-gray)' }}>
                       {openHouse.agent.email}
                     </p>
-                    {openHouse.agent.telefono && (
-                      <p className="text-sm" style={{ color: 'var(--text-gray)' }}>
-                        📞 {openHouse.agent.telefono}
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -574,11 +629,7 @@ export default function OpenHouseDetail() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {timeSlots.map((slot) => {
-                        // Determina se uno slot è pieno (tutti i posti occupati)
                         const isSlotOccupied = slot.posti_occupati >= slot.posti_disponibili
-
-                        // Debug log per verificare la logica
-                        console.log(`Slot ${slot.ora_inizio}-${slot.ora_fine}: occupati=${slot.posti_occupati}, disponibili=${slot.posti_disponibili}, isOccupied=${isSlotOccupied}`)
 
                         return (
                         <button
@@ -703,7 +754,7 @@ export default function OpenHouseDetail() {
                           className="mt-1"
                         />
                         <span className="text-sm" style={{ color: 'var(--text-dark)' }}>
-                          Accetto l'<a href="#" className="text-blue-600 underline">informativa privacy</a> e
+                          Accetto l&apos;<a href="#" className="text-blue-600 underline">informativa privacy</a> e
                           autorizzo il trattamento dei dati personali per la gestione della prenotazione. *
                         </span>
                       </label>
@@ -730,8 +781,8 @@ export default function OpenHouseDetail() {
                     </button>
 
                     <p className="text-xs text-center" style={{ color: 'var(--text-gray)' }}>
-                      Dopo la conferma verrai reindirizzato al questionario di prequalifica
-                      e riceverai via email la brochure dell'immobile.
+                      Dopo la conferma ti chiederemo di compilare un breve questionario
+                      e riceverai via email la conferma con la brochure dell&apos;immobile.
                     </p>
                   </form>
                 </div>
@@ -740,6 +791,335 @@ export default function OpenHouseDetail() {
           </div>
         </div>
       </div>
+
+      {/* Questionnaire Modal */}
+      {showQuestionnaire && (() => {
+        const answeredCount = [
+          questionnaireData.vendita_immobile,
+          questionnaireData.necessita_mutuo,
+          questionnaireData.stato_mutuo,
+          questionnaireData.tempistiche_acquisto,
+          questionnaireData.corrispondenza_immobile
+        ].filter(v => v !== '').length
+        const progressPercent = (answeredCount / 5) * 100
+
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes scaleIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+            .q-radio-option { transition: all 0.15s ease; }
+            .q-radio-option:hover { transform: translateX(4px); }
+            .q-radio-option input[type="radio"]:checked + span { font-weight: 600; }
+          `}</style>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+            style={{ animation: 'slideUp 0.4s ease-out' }}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 rounded-t-2xl px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Questionario di Prequalifica</h2>
+                  <p className="text-sm text-blue-100 mt-1">
+                    Ci aiuti a prepararci al meglio per la sua visita
+                  </p>
+                </div>
+                <div className="flex-shrink-0 ml-4 bg-white/20 rounded-full px-3 py-1">
+                  <span className="text-sm font-semibold text-white">{answeredCount}/5</span>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPercent}%`, backgroundColor: '#34d399' }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleQuestionnaireSubmit} className="p-6 space-y-5">
+              {/* Domanda 1 - Vendita immobile */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.vendita_immobile ? '#34d399' : '#94a3b8' }}>
+                      {questionnaireData.vendita_immobile ? '\u2713' : '1'}
+                    </span>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
+                      Per procedere con l&apos;acquisto, deve prima vendere un altro immobile?
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  {[
+                    { value: 'no', label: 'No, non devo vendere nulla' },
+                    { value: 'si_in_vendita', label: 'S\u00ec, devo vendere ma l\'immobile \u00e8 gi\u00e0 in vendita' },
+                    { value: 'si_non_in_vendita', label: 'S\u00ec, devo vendere ma non \u00e8 ancora in vendita' },
+                    { value: 'si_posso_acquistare_prima', label: 'S\u00ec, ma posso acquistare anche prima di vendere' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                        questionnaireData.vendita_immobile === option.value
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="vendita_immobile"
+                        value={option.value}
+                        checked={questionnaireData.vendita_immobile === option.value}
+                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, vendita_immobile: e.target.value })}
+                        required
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Domanda 2 - Necessità mutuo */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.necessita_mutuo ? '#34d399' : '#94a3b8' }}>
+                      {questionnaireData.necessita_mutuo ? '\u2713' : '2'}
+                    </span>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
+                      Per l&apos;acquisto è necessario accedere ad un mutuo?
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  {[
+                    { value: 'no', label: 'No, acquisto senza mutuo' },
+                    { value: 'si_parziale', label: 'S\u00ec, per una parte dell\'importo (non superiore all\' 80%)' },
+                    { value: 'si_maggior_parte', label: 'S\u00ec, per la maggior parte dell\'importo (superiore all\' 80%)' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                        questionnaireData.necessita_mutuo === option.value
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="necessita_mutuo"
+                        value={option.value}
+                        checked={questionnaireData.necessita_mutuo === option.value}
+                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, necessita_mutuo: e.target.value })}
+                        required
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Domanda 3 - Stato mutuo */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.stato_mutuo ? '#34d399' : '#94a3b8' }}>
+                      {questionnaireData.stato_mutuo ? '\u2713' : '3'}
+                    </span>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
+                      Se necessita di mutuo, ha già parlato con una banca o un consulente del credito?
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  {[
+                    { value: 'pre_delibera', label: 'S\u00ec, ho gi\u00e0 una pre-delibera' },
+                    { value: 'simulazione', label: 'S\u00ec, ho fatto una simulazione ma non ho ancora una pre-delibera' },
+                    { value: 'appuntamento', label: 'Ho un appuntamento fissato' },
+                    { value: 'non_informato', label: 'No, non mi sono ancora informato' },
+                    { value: 'ricontatto_consulente', label: 'Vorrei essere ricontattato da un consulente mutui' },
+                    { value: 'non_richiedo', label: 'Non richiedo mutuo' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                        questionnaireData.stato_mutuo === option.value
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="stato_mutuo"
+                        value={option.value}
+                        checked={questionnaireData.stato_mutuo === option.value}
+                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, stato_mutuo: e.target.value })}
+                        required
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Domanda 4 - Tempistiche */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.tempistiche_acquisto ? '#34d399' : '#94a3b8' }}>
+                      {questionnaireData.tempistiche_acquisto ? '\u2713' : '4'}
+                    </span>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
+                      In che tempi prevede di acquistare?
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  {[
+                    { value: 'entro_30_giorni', label: 'Entro 30 giorni' },
+                    { value: 'entro_3_mesi', label: 'Entro 3 mesi' },
+                    { value: 'entro_6_mesi', label: 'Entro 6 mesi' },
+                    { value: 'oltre_6_mesi', label: 'Oltre 6 mesi' },
+                    { value: 'solo_valutando', label: 'Sto solo valutando' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                        questionnaireData.tempistiche_acquisto === option.value
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tempistiche_acquisto"
+                        value={option.value}
+                        checked={questionnaireData.tempistiche_acquisto === option.value}
+                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, tempistiche_acquisto: e.target.value })}
+                        required
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Domanda 5 - Corrispondenza immobile */}
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.corrispondenza_immobile ? '#34d399' : '#94a3b8' }}>
+                      {questionnaireData.corrispondenza_immobile ? '\u2713' : '5'}
+                    </span>
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
+                      L&apos;immobile proposto rispecchia le caratteristiche che sta cercando?
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  {[
+                    { value: '100_percento', label: 'S\u00ec, corrisponde al 100%' },
+                    { value: '80_90_percento', label: 'Corrisponde in gran parte (80\u201390%)' },
+                    { value: 'parzialmente', label: 'Parzialmente (mancano alcuni elementi importanti)' },
+                    { value: 'no_altro', label: 'No, sto ancora cercando altro' }
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                        questionnaireData.corrispondenza_immobile === option.value
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="corrispondenza_immobile"
+                        value={option.value}
+                        checked={questionnaireData.corrispondenza_immobile === option.value}
+                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, corrispondenza_immobile: e.target.value })}
+                        required
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingQuestionnaire || answeredCount < 5}
+                  className="w-full py-4 font-bold text-lg text-white rounded-xl disabled:opacity-40 transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ background: answeredCount >= 5 ? 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' : '#94a3b8' }}
+                >
+                  {submittingQuestionnaire ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>
+                      Invio in corso...
+                    </span>
+                  ) : answeredCount < 5 ? (
+                    `COMPLETA TUTTE LE DOMANDE (${answeredCount}/5)`
+                  ) : (
+                    'INVIA MODULO'
+                  )}
+                </button>
+                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-gray)' }}>
+                  Dopo l&apos;invio riceverai un&apos;email di conferma con la brochure dell&apos;immobile.
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+        )
+      })()}
+
+      {/* Success Message */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            style={{ animation: 'scaleIn 0.4s ease-out' }}
+          >
+            <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+              <div className="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">
+                Prenotazione Confermata!
+              </h2>
+              <p className="text-blue-100 text-sm">
+                Grazie per aver completato il questionario
+              </p>
+            </div>
+            <div className="px-8 py-6 text-center">
+              <p className="mb-1" style={{ color: 'var(--text-dark)' }}>
+                Riceverai a breve un&apos;email di conferma
+              </p>
+              <p className="mb-6 text-sm" style={{ color: 'var(--text-gray)' }}>
+                con tutti i dettagli della prenotazione e la brochure dell&apos;immobile.
+              </p>
+              <button
+                onClick={() => setShowSuccess(false)}
+                className="w-full py-3 font-semibold text-white rounded-xl transition-all duration-200 hover:shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}
+              >
+                CHIUDI
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
