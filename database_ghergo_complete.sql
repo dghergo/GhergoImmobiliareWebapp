@@ -51,7 +51,7 @@ CREATE TABLE gre_properties (
   zona TEXT NOT NULL,
   indirizzo TEXT,
   caratteristiche JSONB DEFAULT '{}'::jsonb,
-  immagini ARRAY DEFAULT '{}'::text[],
+  immagini TEXT[] DEFAULT ARRAY[]::TEXT[],
   brochure_url TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
