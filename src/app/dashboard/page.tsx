@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import GoogleConnectionStatus from '@/components/GoogleConnectionStatus'
+import Logo from '@/components/Logo'
 
 export default function AgentDashboard() {
   const { user, agent, loading, signOut } = useAuth()
@@ -87,13 +88,10 @@ export default function AgentDashboard() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4 shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">DASHBOARD AGENTE</span>
-            </div>
+      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex justify-between items-center h-full">
+            <Logo height={56} />
             <div className="flex items-center space-x-4">
               <span className="text-sm">
                 Benvenuto, <strong>{agent.nome} {agent.cognome}</strong>
@@ -177,53 +175,61 @@ export default function AgentDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-              I Miei Immobili
-            </h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-              {stats.myProperties}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-              Proprietà gestite
-            </p>
-          </div>
+          <a href="/dashboard/properties" className="group">
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-600" style={{ color: 'var(--text-dark)' }}>
+                I Miei Immobili
+              </h3>
+              <p className="text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
+                {stats.myProperties}
+              </p>
+              <p className="text-sm mt-1 text-gray-500 group-hover:text-blue-500">
+                Proprietà gestite → Clicca per visualizzare
+              </p>
+            </div>
+          </a>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-              Open House Attivi
-            </h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--accent-blue)' }}>
-              {stats.myOpenHouses}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-              Eventi programmati
-            </p>
-          </div>
+          <a href="/dashboard/open-houses" className="group">
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-green-600" style={{ color: 'var(--text-dark)' }}>
+                Open House Attivi
+              </h3>
+              <p className="text-3xl font-bold" style={{ color: 'var(--accent-blue)' }}>
+                {stats.myOpenHouses}
+              </p>
+              <p className="text-sm mt-1 text-gray-500 group-hover:text-green-500">
+                Eventi programmati → Clicca per gestire
+              </p>
+            </div>
+          </a>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-              Prenotazioni Totali
-            </h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-              {stats.totalBookings}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-              Tutte le prenotazioni
-            </p>
-          </div>
+          <a href="/dashboard/bookings" className="group">
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-purple-600" style={{ color: 'var(--text-dark)' }}>
+                Prenotazioni Totali
+              </h3>
+              <p className="text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
+                {stats.totalBookings}
+              </p>
+              <p className="text-sm mt-1 text-gray-500 group-hover:text-purple-500">
+                Tutte le prenotazioni → Clicca per visualizzare
+              </p>
+            </div>
+          </a>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-              In Attesa
-            </h3>
-            <p className="text-3xl font-bold" style={{ color: 'var(--accent-blue)' }}>
-              {stats.pendingBookings}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-              Da gestire
-            </p>
-          </div>
+          <a href="/dashboard/bookings" className="group">
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <h3 className="text-lg font-semibold mb-2 group-hover:text-orange-600" style={{ color: 'var(--text-dark)' }}>
+                In Attesa
+              </h3>
+              <p className="text-3xl font-bold" style={{ color: 'var(--accent-blue)' }}>
+                {stats.pendingBookings}
+              </p>
+              <p className="text-sm mt-1 text-gray-500 group-hover:text-orange-500">
+                Da gestire → Clicca per visualizzare
+              </p>
+            </div>
+          </a>
         </div>
 
         {/* Quick Actions */}

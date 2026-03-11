@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Logo from '@/components/Logo'
 
 interface BookingData {
   id: string
@@ -140,12 +141,9 @@ export default function FeedbackPage() {
   if (alreadySubmitted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">IMMOBILIARE</span>
-            </div>
+        <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+        <div className="container mx-auto px-4 h-full">
+            <Logo height={56} />
           </div>
         </header>
         <div className="flex items-center justify-center py-20">
@@ -166,12 +164,9 @@ export default function FeedbackPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">IMMOBILIARE</span>
-            </div>
+        <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+        <div className="container mx-auto px-4 h-full">
+            <Logo height={56} />
           </div>
         </header>
         <div className="flex items-center justify-center py-20">
@@ -199,12 +194,9 @@ export default function FeedbackPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center space-x-2">
-            <h1 className="text-2xl font-bold">GHERGO</h1>
-            <span className="nav-text text-sm">IMMOBILIARE</span>
-          </div>
+      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+        <div className="container mx-auto px-4 h-full">
+          <Logo height={56} />
         </div>
       </header>
 

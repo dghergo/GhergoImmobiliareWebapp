@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Logo from '@/components/Logo'
 
 // Helper function per rimuovere i secondi dagli orari
 const formatTime = (timeString: string): string => {
@@ -404,13 +405,10 @@ export default function OpenHouseDetail() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">IMMOBILIARE</span>
-            </div>
+      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex justify-between items-center h-full">
+            <Logo height={56} />
             <button
               onClick={() => router.push('/')}
               className="text-white hover:text-gray-200 transition-colors nav-text text-sm"

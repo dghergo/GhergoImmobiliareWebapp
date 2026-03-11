@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Logo from '@/components/Logo'
 
 interface FeedbackEntry {
   id: string
@@ -164,13 +165,10 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4 shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">OPEN HOUSE</span>
-            </div>
+      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex justify-between items-center h-full">
+            <Logo height={56} />
             <div className="flex items-center space-x-4">
               <span className="text-sm">
                 <strong>{agent.nome} {agent.cognome}</strong>

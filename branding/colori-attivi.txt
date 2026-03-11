@@ -1,0 +1,28 @@
+# Colori attivi nel progetto
+
+## Colori principali (definiti in /src/app/globals.css)
+
+### Blu primario
+--primary-blue: #203162
+Utilizzo: Brand principale, header, bottoni primari
+
+### Blu accent
+--accent-blue: #3b82f6
+Utilizzo: Link, hover states, elementi interattivi
+
+### Grigi
+--light-gray: #f3f4f6
+--text-gray: #6b7280
+--text-dark: #111827
+
+### Verde successo
+- Utilizzato per stati completati
+- Esempio: #10b981 (emerald-500)
+
+### Rosso errori
+- Utilizzato per stati di errore
+- Esempio: #ef4444 (red-500)
+
+---
+
+INSERIRE QUI I CODICI COLORE UFFICIALI DEL BRAND GHERGO IMMOBILIARE

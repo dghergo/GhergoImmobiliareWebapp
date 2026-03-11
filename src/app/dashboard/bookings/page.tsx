@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Logo from '@/components/Logo'
+
+interface QuestionnaireResponse {
+  vendita_immobile: string
+  necessita_mutuo: string
+  stato_mutuo: string
+  tempistiche_acquisto: string
+  corrispondenza_immobile: string
+}
 
 interface Booking {
   id: string
@@ -18,6 +27,7 @@ interface Booking {
   questionnaire_completed: boolean
   confirmation_email_sent: boolean
   brochure_email_sent: boolean
+  questionnaire_data?: QuestionnaireResponse | null
   client: {
     id: string
     nome: string
@@ -50,6 +60,7 @@ export default function AgentBookings() {
   const [loadingData, setLoadingData] = useState(false)
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'completed' | 'no_show' | 'cancelled'>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [hoveredBookingId, setHoveredBookingId] = useState<string | null>(null)
 
   // Redirect se non è agente
   useEffect(() => {
@@ -102,7 +113,8 @@ export default function AgentBookings() {
           gre_open_houses!inner (
             id, data_evento, ora_inizio, ora_fine,
             gre_properties!inner (titolo, zona)
-          )
+          ),
+          gre_prequalification_responses (response_data)
         `)
         .eq('agent_id', agent.id)
         .order('created_at', { ascending: false })
@@ -124,7 +136,8 @@ export default function AgentBookings() {
         open_house: {
           ...booking.gre_open_houses,
           property: booking.gre_open_houses.gre_properties
-        }
+        },
+        questionnaire_data: booking.gre_prequalification_responses?.[0]?.response_data || null
       }))
 
       console.log('✅ Transformed booking data:', transformedData)
@@ -134,6 +147,17 @@ export default function AgentBookings() {
     } finally {
       setLoadingData(false)
     }
+  }
+
+  const getQuestionLabel = (key: string): string => {
+    const labels: { [key: string]: string } = {
+      vendita_immobile: 'Deve vendere un altro immobile?',
+      necessita_mutuo: 'Necessita di mutuo?',
+      stato_mutuo: 'Ha già parlato con una banca?',
+      tempistiche_acquisto: 'Tempistiche di acquisto',
+      corrispondenza_immobile: 'L\'immobile corrisponde alle aspettative?'
+    }
+    return labels[key] || key
   }
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
@@ -263,13 +287,10 @@ export default function AgentBookings() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-4 shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold">GHERGO</h1>
-              <span className="nav-text text-sm">PRENOTAZIONI</span>
-            </div>
+      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex justify-between items-center h-full">
+            <Logo height={56} />
             <div className="flex items-center space-x-4">
               <span className="text-sm">
                 <strong>{agent.nome} {agent.cognome}</strong>
@@ -448,8 +469,48 @@ export default function AgentBookings() {
                           <div className={`flex items-center gap-2 ${booking.confirmation_email_sent ? 'text-green-600' : 'text-gray-500'}`}>
                             {booking.confirmation_email_sent ? '✅' : '⏳'} Email di conferma
                           </div>
-                          <div className={`flex items-center gap-2 ${booking.questionnaire_completed ? 'text-green-600' : 'text-gray-500'}`}>
-                            {booking.questionnaire_completed ? '✅' : '⏳'} Questionario completato
+                          <div
+                            className={`flex items-center gap-2 relative ${booking.questionnaire_completed ? 'text-green-600' : 'text-gray-500'}`}
+                            onMouseEnter={() => booking.questionnaire_completed && booking.questionnaire_data && setHoveredBookingId(booking.id)}
+                            onMouseLeave={() => setHoveredBookingId(null)}
+                          >
+                            <span className={booking.questionnaire_completed && booking.questionnaire_data ? 'cursor-pointer underline decoration-dotted' : ''}>
+                              {booking.questionnaire_completed ? '✅' : '⏳'} Questionario completato
+                            </span>
+
+                            {/* Tooltip with questionnaire answers */}
+                            {booking.questionnaire_completed && booking.questionnaire_data && hoveredBookingId === booking.id && (
+                              <div
+                                className="absolute z-50 bg-white border-2 border-blue-200 rounded-lg shadow-2xl p-4 w-80"
+                                style={{
+                                  bottom: '100%',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  marginBottom: '8px'
+                                }}
+                              >
+                                <div className="text-sm font-semibold mb-3 pb-2 border-b" style={{ color: 'var(--primary-blue)' }}>
+                                  Risposte questionario
+                                </div>
+                                <div className="space-y-2 text-xs">
+                                  {Object.entries(booking.questionnaire_data).map(([key, value]) => (
+                                    <div key={key} className="border-l-2 border-gray-200 pl-2">
+                                      <div className="font-medium text-gray-700">{getQuestionLabel(key)}</div>
+                                      <div className="text-gray-900 mt-0.5">{value as string}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Arrow pointer */}
+                                <div
+                                  className="absolute w-3 h-3 bg-white border-r-2 border-b-2 border-blue-200"
+                                  style={{
+                                    bottom: '-7px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%) rotate(45deg)'
+                                  }}
+                                />
+                              </div>
+                            )}
                           </div>
                           <div className={`flex items-center gap-2 ${booking.brochure_email_sent ? 'text-green-600' : 'text-gray-500'}`}>
                             {booking.brochure_email_sent ? '✅' : '⏳'} Brochure inviata
