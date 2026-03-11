@@ -249,7 +249,7 @@ export default function AgentBookings() {
       cancelled: 'bg-red-100 text-red-800'
     }
 
-    let status = booking.status
+    let status: 'confirmed' | 'completed' | 'no_show' | 'cancelled' = booking.status
     let label = ''
 
     if (status === 'confirmed') {

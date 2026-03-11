@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from '@/lib/auth'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 
-export default function AdminLogin() {
+function AdminLoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -164,5 +164,17 @@ export default function AdminLogin() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminLogin() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <AdminLoginContent />
+    </Suspense>
   )
 }

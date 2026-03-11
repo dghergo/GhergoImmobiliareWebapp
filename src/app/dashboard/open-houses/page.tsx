@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
@@ -29,7 +29,7 @@ interface OpenHouse {
   gre_properties: Property
 }
 
-export default function OpenHousesManagement() {
+function OpenHousesManagementContent() {
   const { user, agent, loading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -681,5 +681,17 @@ export default function OpenHousesManagement() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function OpenHousesManagement() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <OpenHousesManagementContent />
+    </Suspense>
   )
 }

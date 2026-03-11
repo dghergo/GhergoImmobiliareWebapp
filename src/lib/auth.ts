@@ -6,6 +6,9 @@ export interface AuthUser {
   role: 'admin' | 'agent' | 'collaborator'
   nome: string
   cognome: string
+  password_changed?: boolean
+  is_active?: boolean
+  google_oauth_enabled?: boolean
 }
 
 // Login con email e password
