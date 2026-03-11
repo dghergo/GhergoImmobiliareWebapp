@@ -27,11 +27,16 @@ export default function AgentsManagement() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    email: string
+    nome: string
+    cognome: string
+    role: 'admin' | 'agent' | 'collaborator'
+  }>({
     email: '',
     nome: '',
     cognome: '',
-    role: 'agent' as const
+    role: 'agent'
   })
 
   // Redirect se non è admin
