@@ -16,7 +16,7 @@ export function getAuthUrl(oauth2Client: any, scopes: string[]) {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent'
+    prompt: 'select_account' // Mostra selezione account ma non richiede consenso ogni volta
   })
 
   return authUrl
