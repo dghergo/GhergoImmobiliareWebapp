@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createOAuth2Client } from '@/lib/google-auth'
 import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 
 export async function GET(request: Request) {
@@ -79,11 +80,6 @@ export async function GET(request: Request) {
 
     console.log('✅ Google OAuth enabled for agent:', agent.email)
 
-    // Crea sessione Supabase
-    // Nota: Per usare OAuth Google con Supabase, dovremmo configurare il provider in Supabase
-    // Per ora, creiamo una sessione manualmente usando il service role
-    // In produzione, configurerai Google OAuth direttamente in Supabase
-
     // Salva i token Google nel database
     const googleTokens = {
       access_token: tokens.access_token,
@@ -102,32 +98,82 @@ export async function GET(request: Request) {
     if (updateError) {
       console.error('⚠️  Warning: Could not save Google tokens:', updateError)
       // Non blocchiamo il login se non riusciamo a salvare i token
-      // L'utente potrà comunque accedere
     } else {
       console.log('💾 Google tokens saved to database')
     }
 
+    // Crea sessione Supabase usando Admin API
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // Verifica se l'utente esiste in Supabase Auth
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+
+    if (listError) {
+      console.error('❌ Error listing users:', listError)
+      return NextResponse.redirect(
+        new URL('/admin/login?error=' + encodeURIComponent('Errore creazione sessione'), request.url)
+      )
+    }
+
+    let authUser = users?.find(u => u.email === userInfo.email)
+
+    // Se l'utente non esiste in Supabase Auth, crealo
+    if (!authUser) {
+      console.log('Creating new auth user for:', userInfo.email)
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: userInfo.email,
+        email_confirm: true,
+        user_metadata: {
+          agent_id: agent.id,
+          provider: 'google',
+          nome: agent.nome,
+          cognome: agent.cognome
+        }
+      })
+
+      if (createError) {
+        console.error('❌ Error creating user:', createError)
+        return NextResponse.redirect(
+          new URL('/admin/login?error=' + encodeURIComponent('Errore creazione utente'), request.url)
+        )
+      }
+
+      authUser = newUser.user
+    }
+
+    // Genera un link di accesso magico per creare la sessione
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: userInfo.email
+    })
+
+    if (linkError || !linkData) {
+      console.error('❌ Error generating magic link:', linkError)
+      return NextResponse.redirect(
+        new URL('/admin/login?error=' + encodeURIComponent('Errore generazione sessione'), request.url)
+      )
+    }
+
+    console.log('✅ Session created successfully for:', userInfo.email)
+
     // Determina la dashboard appropriata
     const dashboardUrl = agent.role === 'admin' ? '/admin/dashboard' : '/dashboard'
 
-    // Crea un response con cookie per il login Google temporaneo
-    const redirectUrl = new URL(dashboardUrl, request.url)
-    const response = NextResponse.redirect(redirectUrl)
+    // Redirect al magic link che creerà la sessione, poi alla dashboard
+    // Il magic link automaticamente fa login e poi redirect
+    const magicLinkUrl = new URL(linkData.properties.action_link)
+    magicLinkUrl.searchParams.set('redirect_to', dashboardUrl)
 
-    // Salva i dati dell'agente in un cookie temporaneo (max 5 minuti)
-    // Il frontend userà questi dati per completare il login Supabase
-    response.cookies.set('google_login_pending', JSON.stringify({
-      agent_id: agent.id,
-      email: agent.email,
-      role: agent.role
-    }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 300 // 5 minuti
-    })
-
-    return response
+    return NextResponse.redirect(magicLinkUrl.toString())
 
   } catch (error) {
     console.error('❌ Login callback error:', error)
