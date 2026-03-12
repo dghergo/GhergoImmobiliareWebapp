@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import GoogleConnectionStatus from '@/components/GoogleConnectionStatus'
 import Logo from '@/components/Logo'
 
 interface OpenHouse {
@@ -204,9 +203,6 @@ export default function AdminOpenHouses() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Google Connection Status */}
-        <GoogleConnectionStatus />
-
         {/* Header con filtri */}
         <div className="flex justify-between items-center mb-6">
           <div>
