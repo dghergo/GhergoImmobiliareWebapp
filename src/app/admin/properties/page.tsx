@@ -297,12 +297,6 @@ export default function AdminProperties() {
                     >
                       {property.is_active ? 'Disattiva' : 'Attiva'}
                     </button>
-                    <button
-                      onClick={() => router.push(`/admin/properties/${property.id}`)}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200"
-                    >
-                      Dettagli
-                    </button>
                   </div>
                 </div>
               </div>

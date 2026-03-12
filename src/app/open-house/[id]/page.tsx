@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { isAdmin } from '@/lib/auth'
 import Logo from '@/components/Logo'
 
 // Helper function per rimuovere i secondi dagli orari
@@ -82,6 +84,7 @@ export default function OpenHouseDetail() {
   const params = useParams()
   const router = useRouter()
   const openHouseId = params.id as string
+  const { agent } = useAuth()
 
   const [openHouse, setOpenHouse] = useState<OpenHouse | null>(null)
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
@@ -410,10 +413,10 @@ export default function OpenHouseDetail() {
           <div className="flex justify-between items-center h-full">
             <Logo height={56} />
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')}
               className="text-white hover:text-gray-200 transition-colors nav-text text-sm"
             >
-              ← TORNA AGLI OPEN HOUSE
+              ← {agent && isAdmin(agent) ? 'DASHBOARD' : 'TORNA AGLI OPEN HOUSE'}
             </button>
           </div>
         </div>
