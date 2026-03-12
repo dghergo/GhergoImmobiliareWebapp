@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import { createOAuth2Client } from './google-auth'
+import { getAgentGoogleTokens } from './agent-tokens'
 
 interface CalendarEventData {
   summary: string
@@ -12,6 +13,7 @@ interface CalendarEventData {
     displayName?: string
   }>
   timeZone?: string
+  agentId?: string  // ID dell'agente per recuperare i token OAuth
 }
 
 interface BookingEventData {
@@ -35,6 +37,7 @@ interface BookingEventData {
     ora_fine: string
   }
   agent: {
+    id: string
     nome: string
     cognome: string
     email: string
@@ -47,10 +50,17 @@ export async function createCalendarEvent(eventData: CalendarEventData) {
 
     const oauth2Client = createOAuth2Client()
 
-    // Usa i tokens salvati
-    const tokens = {
-      access_token: process.env.GOOGLE_ACCESS_TOKEN,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+    // Usa i tokens dell'agente se fornito agentId, altrimenti usa tokens da env (fallback admin)
+    let tokens
+    if (eventData.agentId) {
+      console.log(`🔑 Using tokens for agent: ${eventData.agentId}`)
+      tokens = await getAgentGoogleTokens(eventData.agentId)
+    } else {
+      console.log(`⚠️  No agentId provided, using env tokens (admin fallback)`)
+      tokens = {
+        access_token: process.env.GOOGLE_ACCESS_TOKEN,
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+      }
     }
 
     if (!tokens.access_token) {
@@ -147,7 +157,8 @@ Evento creato automaticamente dal sistema Ghergo Immobiliare.
         displayName: `${client.nome} ${client.cognome}`
       }
     ],
-    timeZone: 'Europe/Rome'
+    timeZone: 'Europe/Rome',
+    agentId: agent.id  // Passa l'ID dell'agente per usare i suoi token OAuth
   }
 
   return createCalendarEvent(eventData)

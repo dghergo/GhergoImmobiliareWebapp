@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       await sendEmail({
         to: client.email,
         subject: template.subject,
-        html: template.html
+        html: template.html,
+        agentId: agent.id
       })
 
       // Crea evento calendario se non esiste già
@@ -109,7 +110,8 @@ export async function POST(request: Request) {
       await sendEmail({
         to: client.email,
         subject: template.subject,
-        html: template.html
+        html: template.html,
+        agentId: agent.id
       })
 
       // Crea evento calendario se non esiste già
@@ -174,6 +176,7 @@ export async function POST(request: Request) {
       await sendEmail({
         to: agent.email,
         subject: `Nuova prenotazione Open House - ${property.titolo}`,
+        agentId: agent.id,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
@@ -236,7 +239,8 @@ export async function POST(request: Request) {
       await sendEmail({
         to: client.email,
         subject: template.subject,
-        html: template.html
+        html: template.html,
+        agentId: agent.id
       })
 
       console.log(`✅ Email richiesta feedback inviata a ${client.email}`)
@@ -256,7 +260,8 @@ export async function POST(request: Request) {
       await sendEmail({
         to: agent.email,
         subject: template.subject,
-        html: template.html
+        html: template.html,
+        agentId: agent.id
       })
 
       console.log(`✅ Email notifica offerta inviata all'agente ${agent.email}`)

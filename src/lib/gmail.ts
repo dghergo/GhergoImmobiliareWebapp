@@ -1,11 +1,13 @@
 import { google } from 'googleapis'
 import { createOAuth2Client } from './google-auth'
+import { getAgentGoogleTokens } from './agent-tokens'
 
 interface EmailOptions {
   to: string
   subject: string
   html: string
   from?: string
+  agentId?: string  // ID dell'agente per recuperare i token OAuth
   attachments?: Array<{
     filename: string
     path?: string
@@ -21,10 +23,17 @@ export async function sendEmail(options: EmailOptions) {
 
     const oauth2Client = createOAuth2Client()
 
-    // Usa i tokens salvati (in produzione verrebbero dal database)
-    const tokens = {
-      access_token: process.env.GOOGLE_ACCESS_TOKEN,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+    // Usa i tokens dell'agente se fornito agentId, altrimenti usa tokens da env (fallback admin)
+    let tokens
+    if (options.agentId) {
+      console.log(`🔑 Using tokens for agent: ${options.agentId}`)
+      tokens = await getAgentGoogleTokens(options.agentId)
+    } else {
+      console.log(`⚠️  No agentId provided, using env tokens (admin fallback)`)
+      tokens = {
+        access_token: process.env.GOOGLE_ACCESS_TOKEN,
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+      }
     }
 
     if (!tokens.access_token) {
