@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import GoogleConnectionStatus from '@/components/GoogleConnectionStatus'
 import Logo from '@/components/Logo'
 
 export default function AgentDashboard() {
@@ -160,9 +159,6 @@ export default function AgentDashboard() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Google Connection Status */}
-        <GoogleConnectionStatus />
-
         {/* Welcome Message */}
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>

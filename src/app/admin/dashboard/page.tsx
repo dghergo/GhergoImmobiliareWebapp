@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import GoogleConnectionStatus from '@/components/GoogleConnectionStatus'
 import Logo from '@/components/Logo'
 
 export default function AdminDashboard() {
@@ -141,9 +140,6 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Google Connection Status */}
-        <GoogleConnectionStatus />
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link href="/admin/agents" className="group">
