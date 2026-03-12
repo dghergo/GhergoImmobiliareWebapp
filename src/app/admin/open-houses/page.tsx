@@ -319,19 +319,12 @@ export default function AdminOpenHouses() {
                           {getStatusText(oh.status)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <Link
                           href={`/open-house/${oh.id}`}
                           className="text-blue-600 hover:text-blue-900"
                         >
                           Visualizza
-                        </Link>
-                        <span className="text-gray-300">|</span>
-                        <Link
-                          href={`/dashboard/open-houses/${oh.id}`}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Gestisci
                         </Link>
                       </td>
                     </tr>
