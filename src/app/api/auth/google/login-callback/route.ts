@@ -165,13 +165,19 @@ export async function GET(request: Request) {
 
     console.log('✅ Session created successfully for:', userInfo.email)
 
-    // Determina la dashboard appropriata
+    // Determina la dashboard appropriata basandosi sul ruolo
     const dashboardUrl = agent.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+    console.log('🎯 Redirecting to:', dashboardUrl, 'for role:', agent.role)
 
-    // Redirect al magic link che creerà la sessione, poi alla dashboard
-    // Il magic link automaticamente fa login e poi redirect
+    // Usa il magic link per creare la sessione
     const magicLinkUrl = new URL(linkData.properties.action_link)
-    magicLinkUrl.searchParams.set('redirect_to', dashboardUrl)
+
+    // Aggiungi il redirect_to come parametro - deve essere un URL assoluto
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+    const absoluteRedirectUrl = `${baseUrl}${dashboardUrl}`
+    magicLinkUrl.searchParams.set('redirect_to', absoluteRedirectUrl)
+
+    console.log('🔗 Magic link redirect URL:', absoluteRedirectUrl)
 
     return NextResponse.redirect(magicLinkUrl.toString())
 
