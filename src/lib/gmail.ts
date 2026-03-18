@@ -148,6 +148,29 @@ export function createEmailTemplate(
             <h2 style="margin: 10px 0 0 0;">Conferma Prenotazione Open House</h2>
           </div>
 
+          ${data.property.brochure_url ? `
+          <div style="background-color: #16a34a; padding: 20px 24px; text-align: center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+              <tr>
+                <td style="vertical-align: middle; padding-right: 16px;">
+                  <span style="font-size: 32px; line-height: 1;">📄</span>
+                </td>
+                <td style="vertical-align: middle; text-align: left; padding-right: 20px;">
+                  <p style="margin: 0; color: white; font-size: 18px; font-weight: bold;">La brochure dell'immobile è pronta!</p>
+                  <p style="margin: 4px 0 0 0; color: #dcfce7; font-size: 14px;">Scaricala subito in formato PDF</p>
+                </td>
+                <td style="vertical-align: middle;">
+                  <a href="${data.property.brochure_url}"
+                     style="background-color: white; color: #16a34a; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px; white-space: nowrap;"
+                     target="_blank">
+                    Scarica Brochure
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </div>
+          ` : ''}
+
           <div style="padding: 20px; background-color: #f8fafc;">
             <p>Gentile <strong>${data.client.nome} ${data.client.cognome}</strong>,</p>
 
@@ -172,18 +195,6 @@ export function createEmailTemplate(
               <p><strong>${data.agent.nome} ${data.agent.cognome}</strong></p>
               <p>Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
             </div>
-
-            ${data.property.brochure_url ? `
-            <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-              <h3 style="color: #1e40af; margin-top: 0;">Brochure Immobile</h3>
-              <p>Come promesso, ecco la brochure completa dell'immobile.</p>
-              <a href="${data.property.brochure_url}"
-                 style="background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;"
-                 target="_blank">
-                Scarica Brochure PDF
-              </a>
-            </div>
-            ` : ''}
 
             <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0;">
               <h4 style="margin-top: 0; color: #1e40af;">Prossimi passi</h4>
