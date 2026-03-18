@@ -51,6 +51,10 @@ interface Booking {
       zona: string
     }
   }
+  prequalification: {
+    vendita_immobile: string
+    necessita_mutuo: string
+  } | null
 }
 
 export default function AgentBookings() {
@@ -477,6 +481,18 @@ export default function AgentBookings() {
                             <span className={booking.questionnaire_completed && booking.questionnaire_data ? 'cursor-pointer underline decoration-dotted' : ''}>
                               {booking.questionnaire_completed ? '✅' : '⏳'} Questionario completato
                             </span>
+
+                            {/* Icons for key prequalification answers */}
+                            {booking.questionnaire_completed && booking.questionnaire_data && (
+                              <span className="flex items-center gap-1 ml-1">
+                                {booking.questionnaire_data.vendita_immobile?.startsWith('si') && (
+                                  <span title="Deve vendere un immobile" className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-sm cursor-help">🏠</span>
+                                )}
+                                {booking.questionnaire_data.necessita_mutuo === 'no' && (
+                                  <span title="Non necessita di mutuo" className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-sm font-bold cursor-help">€</span>
+                                )}
+                              </span>
+                            )}
 
                             {/* Tooltip with questionnaire answers */}
                             {booking.questionnaire_completed && booking.questionnaire_data && hoveredBookingId === booking.id && (

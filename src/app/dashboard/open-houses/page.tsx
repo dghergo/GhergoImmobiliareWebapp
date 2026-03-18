@@ -278,6 +278,22 @@ function OpenHousesManagementContent() {
     setShowAddForm(true)
   }
 
+  const duplicateOpenHouse = (openHouse: OpenHouse) => {
+    setEditingOpenHouse(null) // È una creazione, non una modifica
+    setFormData({
+      property_id: openHouse.property_id,
+      data_evento: '', // Data vuota — l'agente la imposta
+      ora_inizio: openHouse.ora_inizio,
+      ora_fine: openHouse.ora_fine,
+      durata_slot: openHouse.durata_slot,
+      max_partecipanti_slot: openHouse.max_partecipanti_slot,
+      descrizione_evento: openHouse.descrizione_evento || ''
+    })
+    setShowAddForm(true)
+    // Scroll in cima per mostrare il form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString + 'T00:00:00').toLocaleDateString('it-IT', {
       weekday: 'long',
@@ -655,6 +671,12 @@ function OpenHousesManagementContent() {
                         className={openHouse.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
                       >
                         {openHouse.is_active ? '❌ Disattiva' : '✅ Attiva'}
+                      </button>
+                      <button
+                        onClick={() => duplicateOpenHouse(openHouse)}
+                        className="text-purple-600 hover:text-purple-900"
+                      >
+                        📋 Duplica
                       </button>
                       <button
                         onClick={() => deleteOpenHouse(openHouse.id)}
