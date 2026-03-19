@@ -141,7 +141,7 @@ export default function FeedbackPage() {
   if (alreadySubmitted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
+        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
             <Logo height={56} />
           </div>
@@ -164,7 +164,7 @@ export default function FeedbackPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
+        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
             <Logo height={56} />
           </div>
@@ -194,7 +194,7 @@ export default function FeedbackPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
+      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
           <Logo height={56} />
         </div>

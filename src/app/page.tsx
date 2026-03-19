@@ -139,7 +139,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Header Navigation */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
+      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
           <div className="flex justify-between items-center h-full">
             <Logo height={56} />
