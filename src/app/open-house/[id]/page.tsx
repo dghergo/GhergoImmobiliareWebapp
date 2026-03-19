@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -228,9 +228,14 @@ export default function OpenHouseDetail() {
     }
   }
 
+  const bookingFormRef = useRef<HTMLDivElement>(null)
+
   const handleSlotSelection = (slotId: string) => {
     setSelectedSlot(slotId)
     setShowBookingForm(true)
+    setTimeout(() => {
+      bookingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -719,7 +724,7 @@ export default function OpenHouseDetail() {
             </div>
 
             {/* Booking Form */}
-            <div>
+            <div ref={bookingFormRef}>
               {showBookingForm && selectedSlot && (
                 <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:sticky lg:top-6">
                   <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>
