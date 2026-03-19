@@ -139,12 +139,12 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Header Navigation */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
           <div className="flex justify-between items-center h-full">
             <Logo height={56} />
-            <div className="nav-text text-sm flex items-center space-x-4">
-              <span>OPEN HOUSE</span>
+            <div className="nav-text text-sm flex items-center space-x-3 md:space-x-4">
+              <span className="hidden sm:inline">OPEN HOUSE</span>
               <a href="/admin/login" className="text-white hover:text-gray-200 transition-colors">
                 ADMIN
               </a>
@@ -172,17 +172,17 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <div className="bg-white py-12">
+      <div className="bg-white py-6 md:py-12">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>
+          <h1 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4" style={{ color: 'var(--text-dark)' }}>
             Open House Disponibili
           </h1>
-          <p className="text-lg mb-8" style={{ color: 'var(--text-gray)' }}>
+          <p className="text-base md:text-lg mb-4 md:mb-8" style={{ color: 'var(--text-gray)' }}>
             Prenota la tua visita e scopri la casa dei tuoi sogni
           </p>
 
           {/* Filters Section */}
-          <div className="max-w-6xl mx-auto bg-gray-50 rounded-lg p-6 mb-8">
+          <div className="max-w-6xl mx-auto bg-gray-50 rounded-lg p-4 md:p-6 mb-4 md:mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 
               {/* Search Input */}
@@ -290,7 +290,7 @@ export default function Home() {
               return (
               <div key={openHouse.id} className={`property-card relative ${isExpired ? 'opacity-80' : ''}`}>
                 {/* Property Images */}
-                <div className="h-64 relative overflow-hidden">
+                <div className="h-48 md:h-64 relative overflow-hidden">
                   {/* Watermark per eventi scaduti */}
                   {isExpired && (
                     <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-10">
@@ -326,12 +326,12 @@ export default function Home() {
                   )}
                 </div>
 
-                <div className="p-6">
+                <div className="p-4 md:p-6">
                   {/* Status Tag */}
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-start mb-3 md:mb-4">
                     <span className="status-tag">OPEN HOUSE</span>
                     <div className="text-right">
-                      <p className="text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
+                      <p className="text-xl md:text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
                         €{openHouse.property.prezzo?.toLocaleString('it-IT')}
                       </p>
                       <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
@@ -341,7 +341,7 @@ export default function Home() {
                   </div>
 
                   {/* Property Title and Location */}
-                  <h3 className="text-2xl font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
+                  <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
                     {openHouse.property.titolo}
                   </h3>
                   <p className="mb-4" style={{ color: 'var(--text-gray)' }}>
@@ -416,14 +416,14 @@ export default function Home() {
                     {isExpired ? (
                       <button
                         disabled
-                        className="bg-gray-400 text-white px-8 py-3 text-lg font-medium nav-text rounded cursor-not-allowed opacity-60"
+                        className="w-full md:w-auto bg-gray-400 text-white px-8 py-3 text-base md:text-lg font-medium nav-text rounded cursor-not-allowed opacity-60"
                       >
                         EVENTO SCADUTO
                       </button>
                     ) : (
                       <a
                         href={`/open-house/${openHouse.id}`}
-                        className="btn-primary px-8 py-3 text-lg font-medium nav-text"
+                        className="btn-primary block md:inline-block text-center px-8 py-3 text-base md:text-lg font-medium nav-text"
                       >
                         PRENOTA LA TUA VISITA
                       </a>

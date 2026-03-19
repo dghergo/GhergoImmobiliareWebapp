@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 export default function AdminDashboard() {
   const { user, agent, loading, signOut } = useAuth()
@@ -82,64 +83,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                Benvenuto, <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              <button
-                onClick={signOut}
-                className="btn-primary text-sm px-4 py-2"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <Link
-              href="/admin/dashboard"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              DASHBOARD
-            </Link>
-            <Link
-              href="/admin/agents"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              GESTIONE AGENTI
-            </Link>
-            <a
-              href="/admin/properties"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              IMMOBILI
-            </a>
-            <a
-              href="/admin/reports"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/admin/dashboard', active: true },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'IMMOBILI', href: '/admin/properties' },
+        { label: 'REPORT', href: '/admin/reports' },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link href="/admin/agents" className="group">

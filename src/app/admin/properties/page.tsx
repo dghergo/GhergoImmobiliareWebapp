@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 interface Property {
   id: string
@@ -121,70 +122,24 @@ export default function AdminProperties() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                Benvenuto, <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              <button
-                onClick={() => router.push('/admin/dashboard')}
-                className="btn-secondary text-sm px-4 py-2"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={signOut}
-                className="btn-primary text-sm px-4 py-2"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <a
-              href="/admin/dashboard"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              DASHBOARD
-            </a>
-            <a
-              href="/admin/agents"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              GESTIONE AGENTI
-            </a>
-            <a
-              href="/admin/properties"
-              className="py-4 px-2 border-b-2 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              IMMOBILI
-            </a>
-            <a
-              href="/admin/reports"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/admin/dashboard' },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'IMMOBILI', href: '/admin/properties', active: true },
+        { label: 'REPORT', href: '/admin/reports' },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Search and Filters */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>

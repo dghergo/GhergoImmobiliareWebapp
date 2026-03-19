@@ -435,20 +435,20 @@ export default function OpenHouseDetail() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white ">
+      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-2 md:py-0 md:h-16">
         <div className="container mx-auto px-4 h-full">
           <div className="flex justify-between items-center h-full">
             <Logo height={56} />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <div className="relative">
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg transition-all text-sm font-medium"
+                  className="flex items-center gap-1.5 md:gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 md:px-4 rounded-lg transition-all text-sm font-medium"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
-                  Condividi
+                  <span className="hidden sm:inline">Condividi</span>
                 </button>
                 {shareTooltip && (
                   <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
@@ -461,20 +461,21 @@ export default function OpenHouseDetail() {
                 onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')}
                 className="text-white hover:text-gray-200 transition-colors nav-text text-sm"
               >
-                ← {agent && isAdmin(agent) ? 'DASHBOARD' : 'TORNA AGLI OPEN HOUSE'}
+                <span className="hidden sm:inline">← {agent && isAdmin(agent) ? 'DASHBOARD' : 'TORNA AGLI OPEN HOUSE'}</span>
+                <span className="sm:hidden">← INDIETRO</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 md:py-8">
         <div className="max-w-6xl mx-auto">
 
           {/* Property Header */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
             {/* Property Images Carousel */}
-            <div className="h-96 relative overflow-hidden">
+            <div className="h-56 md:h-96 relative overflow-hidden">
               {openHouse.property.immagini && openHouse.property.immagini.length > 0 ? (
                 <div className="relative h-full">
                   {/* Main carousel container */}
@@ -551,18 +552,18 @@ export default function OpenHouseDetail() {
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
+            <div className="p-4 md:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-dark)' }}>
+                  <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{ color: 'var(--text-dark)' }}>
                     {openHouse.property.titolo}
                   </h1>
-                  <p className="text-lg" style={{ color: 'var(--text-gray)' }}>
+                  <p className="text-base md:text-lg" style={{ color: 'var(--text-gray)' }}>
                     {openHouse.property.zona}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-4xl font-bold" style={{ color: 'var(--primary-blue)' }}>
+                <div className="sm:text-right">
+                  <p className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--primary-blue)' }}>
                     {openHouse.property.prezzo?.toLocaleString('it-IT')} &euro;
                   </p>
                   <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
@@ -571,7 +572,7 @@ export default function OpenHouseDetail() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
                 {openHouse.property.caratteristiche?.mq && (
                   <div className="text-center p-3 bg-gray-50 rounded">
                     <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
@@ -612,11 +613,11 @@ export default function OpenHouseDetail() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
             {/* Open House Info */}
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
                 <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-dark)' }}>
                   Informazioni Open House
                 </h2>
@@ -683,7 +684,7 @@ export default function OpenHouseDetail() {
                           key={slot.id}
                           onClick={() => handleSlotSelection(slot.id)}
                           disabled={isSlotOccupied}
-                          className={`p-4 rounded-lg border-2 transition-all ${
+                          className={`p-4 md:p-4 min-h-[56px] rounded-lg border-2 transition-all ${
                             isSlotOccupied
                               ? 'bg-red-50 border-red-300 cursor-not-allowed opacity-70'
                               : selectedSlot === slot.id
@@ -720,7 +721,7 @@ export default function OpenHouseDetail() {
             {/* Booking Form */}
             <div>
               {showBookingForm && selectedSlot && (
-                <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
+                <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:sticky lg:top-6">
                   <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>
                     Completa la prenotazione
                   </h3>
@@ -851,7 +852,7 @@ export default function OpenHouseDetail() {
         const progressPercent = (answeredCount / 5) * 100
 
         return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
           <style>{`
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -861,7 +862,7 @@ export default function OpenHouseDetail() {
             .q-radio-option input[type="radio"]:checked + span { font-weight: 600; }
           `}</style>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-2xl md:mx-4 max-h-[95vh] md:max-h-[90vh] overflow-y-auto"
             style={{ animation: 'slideUp 0.4s ease-out' }}
           >
             {/* Modal Header */}
@@ -909,7 +910,7 @@ export default function OpenHouseDetail() {
                   ].map((option) => (
                     <label
                       key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
                         questionnaireData.vendita_immobile === option.value
                           ? 'border-blue-300 bg-blue-50'
                           : 'border-transparent hover:bg-gray-50'
@@ -950,7 +951,7 @@ export default function OpenHouseDetail() {
                   ].map((option) => (
                     <label
                       key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
                         questionnaireData.necessita_mutuo === option.value
                           ? 'border-blue-300 bg-blue-50'
                           : 'border-transparent hover:bg-gray-50'
@@ -994,7 +995,7 @@ export default function OpenHouseDetail() {
                   ].map((option) => (
                     <label
                       key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
                         questionnaireData.stato_mutuo === option.value
                           ? 'border-blue-300 bg-blue-50'
                           : 'border-transparent hover:bg-gray-50'
@@ -1037,7 +1038,7 @@ export default function OpenHouseDetail() {
                   ].map((option) => (
                     <label
                       key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
                         questionnaireData.tempistiche_acquisto === option.value
                           ? 'border-blue-300 bg-blue-50'
                           : 'border-transparent hover:bg-gray-50'
@@ -1079,7 +1080,7 @@ export default function OpenHouseDetail() {
                   ].map((option) => (
                     <label
                       key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer border ${
+                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
                         questionnaireData.corrispondenza_immobile === option.value
                           ? 'border-blue-300 bg-blue-50'
                           : 'border-transparent hover:bg-gray-50'

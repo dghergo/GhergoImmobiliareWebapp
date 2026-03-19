@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 interface Property {
   id: string
@@ -30,7 +31,7 @@ interface OpenHouse {
 }
 
 function OpenHousesManagementContent() {
-  const { user, agent, loading } = useAuth()
+  const { user, agent, loading, signOut } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [openHouses, setOpenHouses] = useState<OpenHouse[]>([])
@@ -326,74 +327,36 @@ function OpenHousesManagementContent() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn-secondary text-sm px-4 py-2"
-              >
-                Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        {isAdmin(agent) && (
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="btn-secondary text-sm px-3 md:px-4 py-2"
+          >
+            Admin
+          </button>
+        )}
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <a
-              href="/dashboard"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              DASHBOARD
-            </a>
-            <a
-              href="/dashboard/properties"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              I MIEI IMMOBILI
-            </a>
-            <a
-              href="/dashboard/open-houses"
-              className="py-4 px-2 border-b-2 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              OPEN HOUSE
-            </a>
-            <a
-              href="/dashboard/bookings"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              PRENOTAZIONI
-            </a>
-            <a
-              href="/dashboard/reports"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses', active: true },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Add Button */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
             I Miei Open House ({openHouses.length})
           </h2>
           <button
@@ -415,15 +378,15 @@ function OpenHousesManagementContent() {
                 descrizione_evento: ''
               })
             }}
-            className="btn-primary px-6 py-3 nav-text"
+            className="btn-primary w-full sm:w-auto px-6 py-3 nav-text"
           >
-            📅 NUOVO OPEN HOUSE
+            NUOVO OPEN HOUSE
           </button>
         </div>
 
         {/* Add/Edit Form */}
         {showAddForm && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-dark)' }}>
               {editingOpenHouse ? 'Modifica Open House' : 'Nuovo Open House'}
             </h3>
@@ -604,8 +567,8 @@ function OpenHousesManagementContent() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h3 className="font-semibold text-lg" style={{ color: 'var(--text-dark)' }}>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-base md:text-lg" style={{ color: 'var(--text-dark)' }}>
                           {openHouse.gre_properties.titolo}
                         </h3>
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -658,37 +621,37 @@ function OpenHousesManagementContent() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex justify-between items-center text-sm pt-3 border-t">
-                    <div className="flex space-x-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm pt-3 border-t gap-2">
+                    <div className="flex flex-wrap gap-3 md:gap-4">
                       <button
                         onClick={() => startEdit(openHouse)}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        ✏️ Modifica
+                        Modifica
                       </button>
                       <button
                         onClick={() => toggleActive(openHouse.id, openHouse.is_active)}
                         className={openHouse.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
                       >
-                        {openHouse.is_active ? '❌ Disattiva' : '✅ Attiva'}
+                        {openHouse.is_active ? 'Disattiva' : 'Attiva'}
                       </button>
                       <button
                         onClick={() => duplicateOpenHouse(openHouse)}
                         className="text-purple-600 hover:text-purple-900"
                       >
-                        📋 Duplica
+                        Duplica
                       </button>
                       <button
                         onClick={() => deleteOpenHouse(openHouse.id)}
                         className="text-red-600 hover:text-red-900"
                       >
-                        🗑️ Elimina
+                        Elimina
                       </button>
                       <button
                         onClick={() => router.push(`/dashboard/bookings?open_house=${openHouse.id}`)}
                         className="text-green-600 hover:text-green-900"
                       >
-                        👥 Prenotazioni
+                        Prenotazioni
                       </button>
                     </div>
                     <span className="text-xs" style={{ color: 'var(--text-gray)' }}>

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 interface QuestionnaireResponse {
   vendita_immobile: string
@@ -290,77 +291,25 @@ export default function AgentBookings() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn-secondary text-sm px-4 py-2"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={signOut}
-                className="btn-primary text-sm px-4 py-2"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <a
-              href="/dashboard"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              DASHBOARD
-            </a>
-            <a
-              href="/dashboard/properties"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              I MIEI IMMOBILI
-            </a>
-            <a
-              href="/dashboard/open-houses"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              OPEN HOUSE
-            </a>
-            <a
-              href="/dashboard/bookings"
-              className="py-4 px-2 border-b-2 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              PRENOTAZIONI
-            </a>
-            <a
-              href="/dashboard/reports"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings', active: true },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Filters */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
@@ -417,7 +366,7 @@ export default function AgentBookings() {
               </div>
             ) : (
               filteredBookings.map((booking) => (
-                <div key={booking.id} className="bg-white rounded-lg shadow-md p-6">
+                <div key={booking.id} className="bg-white rounded-lg shadow-md p-4 md:p-6">
                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
 
                     {/* Booking Info */}
@@ -536,7 +485,7 @@ export default function AgentBookings() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-2 min-w-[150px]">
+                    <div className="flex flex-row flex-wrap lg:flex-col gap-2 lg:min-w-[150px]">
                       {booking.status === 'confirmed' && (
                         <>
                           <button

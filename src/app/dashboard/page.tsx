@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 export default function AgentDashboard() {
   const { user, agent, loading, signOut } = useAuth()
@@ -86,81 +87,35 @@ export default function AgentDashboard() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                Benvenuto, <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              {isAdmin(agent) && (
-                <button
-                  onClick={() => router.push('/admin/dashboard')}
-                  className="btn-secondary text-sm px-4 py-2"
-                >
-                  Admin
-                </button>
-              )}
-              <button
-                onClick={signOut}
-                className="btn-primary text-sm px-4 py-2"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        {isAdmin(agent) && (
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="btn-secondary text-sm px-3 md:px-4 py-2"
+          >
+            Admin
+          </button>
+        )}
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <a
-              href="/dashboard"
-              className="py-4 px-2 border-b-2 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              DASHBOARD
-            </a>
-            <a
-              href="/dashboard/properties"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              I MIEI IMMOBILI
-            </a>
-            <a
-              href="/dashboard/open-houses"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              OPEN HOUSE
-            </a>
-            <a
-              href="/dashboard/bookings"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              PRENOTAZIONI
-            </a>
-            <a
-              href="/dashboard/reports"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/dashboard', active: true },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Welcome Message */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 mb-8">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 md:p-6 mb-4 md:mb-8">
           <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
             Benvenuto nella tua Dashboard, {agent.nome}!
           </h2>

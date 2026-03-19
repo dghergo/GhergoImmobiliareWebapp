@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import Logo from '@/components/Logo'
+import DashboardHeader from '@/components/DashboardHeader'
+import DashboardNav from '@/components/DashboardNav'
 
 interface FeedbackEntry {
   id: string
@@ -43,7 +44,7 @@ interface OpenHouseOption {
 }
 
 export default function ReportsPage() {
-  const { user, agent, loading } = useAuth()
+  const { user, agent, loading, signOut } = useAuth()
   const router = useRouter()
   const [feedbacks, setFeedbacks] = useState<FeedbackEntry[]>([])
   const [openHouses, setOpenHouses] = useState<OpenHouseOption[]>([])
@@ -164,71 +165,33 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)', height: '64px' }} className="text-white  shadow-lg">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center space-x-4">
-              <span className="text-sm">
-                <strong>{agent.nome} {agent.cognome}</strong>
-              </span>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn-secondary text-sm px-4 py-2"
-              >
-                Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        {isAdmin(agent) && (
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="btn-secondary text-sm px-3 md:px-4 py-2"
+          >
+            Admin
+          </button>
+        )}
+        <button
+          onClick={signOut}
+          className="btn-primary text-sm px-3 md:px-4 py-2"
+        >
+          Logout
+        </button>
+      </DashboardHeader>
 
-      {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <a
-              href="/dashboard"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              DASHBOARD
-            </a>
-            <a
-              href="/dashboard/properties"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              I MIEI IMMOBILI
-            </a>
-            <a
-              href="/dashboard/open-houses"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              OPEN HOUSE
-            </a>
-            <a
-              href="/dashboard/bookings"
-              className="py-4 px-2 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium nav-text"
-              style={{ color: 'var(--text-gray)' }}
-            >
-              PRENOTAZIONI
-            </a>
-            <a
-              href="/dashboard/reports"
-              className="py-4 px-2 border-b-2 text-sm font-medium nav-text"
-              style={{ borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}
-            >
-              REPORT
-            </a>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav items={[
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports', active: true },
+      ]} />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-dark)' }}>
           Report Feedback
         </h2>
