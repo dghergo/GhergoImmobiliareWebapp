@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { createOAuth2Client } from './google-auth'
 import { getAgentGoogleTokens } from './agent-tokens'
+import { supabase } from './supabase'
 
 interface EmailOptions {
   to: string
@@ -65,6 +66,27 @@ export async function sendEmail(options: EmailOptions) {
     })
 
     console.log('✅ Email sent successfully:', result.data.id)
+
+    // Salva il token aggiornato nel DB dopo un eventuale auto-refresh
+    if (options.agentId) {
+      const refreshedCredentials = oauth2Client.credentials
+      if (refreshedCredentials.access_token && refreshedCredentials.access_token !== tokens.access_token) {
+        console.log('🔄 Access token was refreshed, saving to database')
+        await supabase
+          .from('gre_agents')
+          .update({
+            google_tokens: {
+              access_token: refreshedCredentials.access_token,
+              refresh_token: refreshedCredentials.refresh_token || tokens.refresh_token,
+              expiry_date: refreshedCredentials.expiry_date,
+              token_type: refreshedCredentials.token_type || 'Bearer',
+              scope: refreshedCredentials.scope,
+              updated_at: new Date().toISOString()
+            }
+          })
+          .eq('id', options.agentId)
+      }
+    }
 
     return {
       success: true,
