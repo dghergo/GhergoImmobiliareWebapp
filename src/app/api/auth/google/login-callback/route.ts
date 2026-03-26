@@ -81,9 +81,17 @@ export async function GET(request: Request) {
     console.log('✅ Google OAuth enabled for agent:', agent.email)
 
     // Salva i token Google nel database
+    // Se Google non restituisce un nuovo refresh_token (login successivi),
+    // preserva quello esistente nel database
+    let refreshToken = tokens.refresh_token
+    if (!refreshToken && agent.google_tokens?.refresh_token) {
+      console.log('⚠️  No new refresh_token from Google, preserving existing one')
+      refreshToken = agent.google_tokens.refresh_token
+    }
+
     const googleTokens = {
       access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      refresh_token: refreshToken,
       expiry_date: tokens.expiry_date,
       token_type: tokens.token_type,
       scope: tokens.scope,
