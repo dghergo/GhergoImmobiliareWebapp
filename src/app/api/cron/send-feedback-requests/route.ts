@@ -86,7 +86,8 @@ export async function GET(request: Request) {
           await sendEmail({
             to: client.email,
             subject: template.subject,
-            html: template.html
+            html: template.html,
+            agentId: agent?.id
           })
 
           // Segna come inviata
