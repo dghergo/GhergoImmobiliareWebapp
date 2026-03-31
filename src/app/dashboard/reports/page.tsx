@@ -16,6 +16,7 @@ interface FeedbackEntry {
   created_at: string
   gre_bookings: {
     id: string
+    agent_id: string
     gre_clients: {
       id: string
       nome: string
@@ -32,6 +33,10 @@ interface FeedbackEntry {
         zona: string
       }
     }
+    gre_agents?: {
+      nome: string
+      cognome: string
+    }
   }
 }
 
@@ -41,6 +46,12 @@ interface OpenHouseOption {
   gre_properties: {
     titolo: string
   }
+}
+
+interface AgentOption {
+  id: string
+  nome: string
+  cognome: string
 }
 
 export default function ReportsPage() {
@@ -53,6 +64,8 @@ export default function ReportsPage() {
   // Filtri
   const [filterOpenHouse, setFilterOpenHouse] = useState<string>('all')
   const [filterInteresse, setFilterInteresse] = useState<string>('all')
+  const [filterAgentId, setFilterAgentId] = useState<string>('all')
+  const [agents, setAgents] = useState<AgentOption[]>([])
 
   // Statistiche
   const [stats, setStats] = useState({
@@ -60,6 +73,8 @@ export default function ReportsPage() {
     interessatiAcquisto: 0,
     tassoRisposta: 0
   })
+
+  const admin = agent ? isAdmin(agent) : false
 
   useEffect(() => {
     if (!loading && (!agent || (!isAgent(agent) && !isAdmin(agent)))) {
@@ -70,19 +85,42 @@ export default function ReportsPage() {
   useEffect(() => {
     if (agent) {
       loadData()
+      if (admin) {
+        loadAgents()
+      }
     }
   }, [agent])
+
+  const loadAgents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('gre_agents')
+        .select('id, nome, cognome')
+        .eq('is_active', true)
+        .order('cognome')
+
+      if (error) throw error
+      setAgents(data || [])
+    } catch (error) {
+      console.error('Error loading agents:', error)
+    }
+  }
 
   const loadData = async () => {
     if (!agent) return
 
     try {
       // Carica open houses per il filtro
-      const { data: ohData } = await supabase
+      let ohQuery = supabase
         .from('gre_open_houses')
         .select('id, data_evento, gre_properties (titolo)')
-        .eq('agent_id', agent.id)
         .order('data_evento', { ascending: false })
+
+      if (!admin) {
+        ohQuery = ohQuery.eq('agent_id', agent.id)
+      }
+
+      const { data: ohData } = await ohQuery
 
       setOpenHouses((ohData || []).map((oh: any) => ({
         ...oh,
@@ -90,7 +128,7 @@ export default function ReportsPage() {
       })) as OpenHouseOption[])
 
       // Carica feedback
-      const { data: feedbackData, error: feedbackError } = await supabase
+      let feedbackQuery = supabase
         .from('gre_feedback_responses')
         .select(`
           id,
@@ -106,11 +144,17 @@ export default function ReportsPage() {
               id,
               data_evento,
               gre_properties (id, titolo, zona)
-            )
+            ),
+            gre_agents (nome, cognome)
           )
         `)
-        .eq('gre_bookings.agent_id', agent.id)
         .order('created_at', { ascending: false })
+
+      if (!admin) {
+        feedbackQuery = feedbackQuery.eq('gre_bookings.agent_id', agent.id)
+      }
+
+      const { data: feedbackData, error: feedbackError } = await feedbackQuery
 
       if (feedbackError) {
         console.error('Error loading feedbacks:', feedbackError)
@@ -123,12 +167,17 @@ export default function ReportsPage() {
       const totalFeedback = feedbackData?.length || 0
       const interessati = feedbackData?.filter(f => f.vuole_fare_offerta).length || 0
 
-      // Conta totale bookings dell'agente per tasso risposta
-      const { count: totalBookings } = await supabase
+      // Conta totale bookings per tasso risposta
+      let bookingsCountQuery = supabase
         .from('gre_bookings')
         .select('*', { count: 'exact', head: true })
-        .eq('agent_id', agent.id)
         .in('status', ['confirmed', 'completed'])
+
+      if (!admin) {
+        bookingsCountQuery = bookingsCountQuery.eq('agent_id', agent.id)
+      }
+
+      const { count: totalBookings } = await bookingsCountQuery
 
       setStats({
         totalFeedback,
@@ -148,6 +197,7 @@ export default function ReportsPage() {
     if (filterOpenHouse !== 'all' && f.gre_bookings.gre_open_houses.id !== filterOpenHouse) return false
     if (filterInteresse === 'yes' && !f.vuole_fare_offerta) return false
     if (filterInteresse === 'no' && f.vuole_fare_offerta) return false
+    if (admin && filterAgentId !== 'all' && f.gre_bookings.agent_id !== filterAgentId) return false
     return true
   })
 
@@ -163,10 +213,27 @@ export default function ReportsPage() {
     return null
   }
 
+  const navItems = admin
+    ? [
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard' },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports', active: true },
+      ]
+    : [
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports', active: true },
+      ]
+
   return (
     <div className="min-h-screen">
       <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
-        {isAdmin(agent) && (
+        {admin && (
           <button
             onClick={() => router.push('/admin/dashboard')}
             className="btn-secondary text-sm px-3 md:px-4 py-2"
@@ -182,18 +249,12 @@ export default function ReportsPage() {
         </button>
       </DashboardHeader>
 
-      <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/dashboard' },
-        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
-        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
-        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
-        { label: 'REPORT', href: '/dashboard/reports', active: true },
-      ]} />
+      <DashboardNav items={navItems} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-4 md:py-8">
         <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-dark)' }}>
-          Report Feedback
+          {admin ? 'Report Feedback Globale' : 'Report Feedback'}
         </h2>
 
         {/* Stats Cards */}
@@ -229,6 +290,27 @@ export default function ReportsPage() {
         {/* Filtri */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-wrap gap-4 items-center">
+            {/* Agent Filter (admin only) */}
+            {admin && (
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-gray)' }}>
+                  Agente
+                </label>
+                <select
+                  value={filterAgentId}
+                  onChange={(e) => setFilterAgentId(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Tutti gli agenti</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.nome} {a.cognome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-gray)' }}>
                 Open House
@@ -282,6 +364,7 @@ export default function ReportsPage() {
                 const client = feedback.gre_bookings.gre_clients
                 const oh = feedback.gre_bookings.gre_open_houses
                 const property = oh.gre_properties
+                const feedbackAgent = feedback.gre_bookings.gre_agents
 
                 return (
                   <div key={feedback.id} className="p-4 hover:bg-gray-50">
@@ -294,6 +377,12 @@ export default function ReportsPage() {
                           {feedback.vuole_fare_offerta && (
                             <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                               INTERESSATO ALL&apos;ACQUISTO
+                            </span>
+                          )}
+                          {/* Agent Badge (admin only) */}
+                          {admin && feedbackAgent && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                              👤 {feedbackAgent.nome} {feedbackAgent.cognome}
                             </span>
                           )}
                         </div>

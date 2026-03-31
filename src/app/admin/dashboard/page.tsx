@@ -93,10 +93,12 @@ export default function AdminDashboard() {
       </DashboardHeader>
 
       <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/admin/dashboard', active: true },
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard', active: true },
         { label: 'GESTIONE AGENTI', href: '/admin/agents' },
-        { label: 'IMMOBILI', href: '/admin/properties' },
-        { label: 'REPORT', href: '/admin/reports' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
       ]} />
 
       {/* Main Content */}
@@ -131,7 +133,7 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/properties" className="group">
+          <Link href="/dashboard/properties" className="group">
             <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 group-hover:text-purple-600" style={{ color: 'var(--text-dark)' }}>
                 🏠 Immobili
@@ -145,7 +147,7 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/open-houses" className="group">
+          <Link href="/dashboard/open-houses" className="group">
             <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 group-hover:text-orange-600" style={{ color: 'var(--text-dark)' }}>
                 📅 Open Houses
@@ -173,14 +175,17 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => router.push('/admin/properties')}
+              onClick={() => router.push('/dashboard/properties')}
               className="btn-secondary p-4 text-left hover:opacity-90 transition-opacity"
             >
               <h3 className="font-semibold mb-2">Gestisci Immobili</h3>
-              <p className="text-sm opacity-90">Visualizza tutti gli immobili</p>
+              <p className="text-sm opacity-90">Visualizza e gestisci tutti gli immobili</p>
             </button>
 
-            <button className="btn-primary p-4 text-left">
+            <button
+              onClick={() => router.push('/dashboard/reports')}
+              className="btn-primary p-4 text-left"
+            >
               <h3 className="font-semibold mb-2">Report Globale</h3>
               <p className="text-sm opacity-90">Statistiche complete</p>
             </button>

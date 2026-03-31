@@ -7,12 +7,18 @@ import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
+import AgentSelector from '@/components/AgentSelector'
 
 interface Property {
   id: string
   titolo: string
   zona: string
   indirizzo: string
+  agent_id?: string
+  gre_agents?: {
+    nome: string
+    cognome: string
+  }
 }
 
 interface OpenHouse {
@@ -28,6 +34,10 @@ interface OpenHouse {
   is_active: boolean
   created_at: string
   gre_properties: Property
+  gre_agents?: {
+    nome: string
+    cognome: string
+  }
 }
 
 function OpenHousesManagementContent() {
@@ -39,6 +49,7 @@ function OpenHousesManagementContent() {
   const [loadingOpenHouses, setLoadingOpenHouses] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingOpenHouse, setEditingOpenHouse] = useState<OpenHouse | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -50,6 +61,8 @@ function OpenHousesManagementContent() {
     max_partecipanti_slot: 1,
     descrizione_evento: ''
   })
+
+  const admin = agent ? isAdmin(agent) : false
 
   // Redirect se non è agente
   useEffect(() => {
@@ -78,15 +91,20 @@ function OpenHousesManagementContent() {
     if (!agent) return
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('gre_properties')
-        .select('id, titolo, zona, indirizzo')
-        .eq('agent_id', agent.id)
+        .select('id, titolo, zona, indirizzo, agent_id, gre_agents(nome, cognome)')
         .eq('is_active', true)
         .order('titolo')
 
+      if (!admin) {
+        query = query.eq('agent_id', agent.id)
+      }
+
+      const { data, error } = await query
+
       if (error) throw error
-      setProperties(data || [])
+      setProperties((data || []) as unknown as Property[])
     } catch (error) {
       console.error('Error loading properties:', error)
     }
@@ -96,7 +114,7 @@ function OpenHousesManagementContent() {
     if (!agent) return
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('gre_open_houses')
         .select(`
           *,
@@ -105,10 +123,19 @@ function OpenHousesManagementContent() {
             titolo,
             zona,
             indirizzo
+          ),
+          gre_agents (
+            nome,
+            cognome
           )
         `)
-        .eq('agent_id', agent.id)
         .order('data_evento', { ascending: false })
+
+      if (!admin) {
+        query = query.eq('agent_id', agent.id)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setOpenHouses(data || [])
@@ -122,9 +149,23 @@ function OpenHousesManagementContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Determine agent_id: for admin, derive from selected property or manual selection
+    let agentId = agent!.id
+    if (admin) {
+      if (selectedAgentId) {
+        agentId = selectedAgentId
+      } else {
+        // Derive from the selected property
+        const selectedProperty = properties.find(p => p.id === formData.property_id)
+        if (selectedProperty?.agent_id) {
+          agentId = selectedProperty.agent_id
+        }
+      }
+    }
+
     try {
       const openHouseData = {
-        agent_id: agent!.id,
+        agent_id: agentId,
         property_id: formData.property_id,
         data_evento: formData.data_evento,
         ora_inizio: formData.ora_inizio,
@@ -139,11 +180,16 @@ function OpenHousesManagementContent() {
 
       if (editingOpenHouse) {
         // Update existing open house
-        const { error } = await supabase
+        let updateQuery = supabase
           .from('gre_open_houses')
           .update(openHouseData)
           .eq('id', editingOpenHouse.id)
-          .eq('agent_id', agent!.id)
+
+        if (!admin) {
+          updateQuery = updateQuery.eq('agent_id', agent!.id)
+        }
+
+        const { error } = await updateQuery
 
         if (error) throw error
         openHouseId = editingOpenHouse.id
@@ -230,15 +276,21 @@ function OpenHousesManagementContent() {
     })
     setShowAddForm(false)
     setEditingOpenHouse(null)
+    setSelectedAgentId('')
   }
 
   const toggleActive = async (openHouseId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('gre_open_houses')
         .update({ is_active: !currentStatus })
         .eq('id', openHouseId)
-        .eq('agent_id', agent!.id)
+
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       loadOpenHouses()
@@ -251,11 +303,16 @@ function OpenHousesManagementContent() {
     if (!confirm('Sei sicuro di voler eliminare questo Open House?\nQuesta azione eliminerà anche tutte le prenotazioni collegate.')) return
 
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('gre_open_houses')
         .delete()
         .eq('id', openHouseId)
-        .eq('agent_id', agent!.id)
+
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       loadOpenHouses()
@@ -267,6 +324,7 @@ function OpenHousesManagementContent() {
 
   const startEdit = (openHouse: OpenHouse) => {
     setEditingOpenHouse(openHouse)
+    setSelectedAgentId(openHouse.agent_id)
     setFormData({
       property_id: openHouse.property_id,
       data_evento: openHouse.data_evento,
@@ -281,6 +339,7 @@ function OpenHousesManagementContent() {
 
   const duplicateOpenHouse = (openHouse: OpenHouse) => {
     setEditingOpenHouse(null) // È una creazione, non una modifica
+    setSelectedAgentId(openHouse.agent_id)
     setFormData({
       property_id: openHouse.property_id,
       data_evento: '', // Data vuota — l'agente la imposta
@@ -325,10 +384,27 @@ function OpenHousesManagementContent() {
     return null
   }
 
+  const navItems = admin
+    ? [
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard' },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses', active: true },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+    : [
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses', active: true },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+
   return (
     <div className="min-h-screen">
       <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
-        {isAdmin(agent) && (
+        {admin && (
           <button
             onClick={() => router.push('/admin/dashboard')}
             className="btn-secondary text-sm px-3 md:px-4 py-2"
@@ -344,20 +420,14 @@ function OpenHousesManagementContent() {
         </button>
       </DashboardHeader>
 
-      <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/dashboard' },
-        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
-        { label: 'OPEN HOUSE', href: '/dashboard/open-houses', active: true },
-        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
-        { label: 'REPORT', href: '/dashboard/reports' },
-      ]} />
+      <DashboardNav items={navItems} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Add Button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
-            I Miei Open House ({openHouses.length})
+            {admin ? 'Tutti gli Open House' : 'I Miei Open House'} ({openHouses.length})
           </h2>
           <button
             onClick={() => {
@@ -377,6 +447,7 @@ function OpenHousesManagementContent() {
                 max_partecipanti_slot: 1,
                 descrizione_evento: ''
               })
+              setSelectedAgentId('')
             }}
             className="btn-primary w-full sm:w-auto px-6 py-3 nav-text"
           >
@@ -392,6 +463,17 @@ function OpenHousesManagementContent() {
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Agent Selector for Admin */}
+              {admin && (
+                <AgentSelector
+                  agent={agent}
+                  selectedAgentId={selectedAgentId}
+                  onChange={setSelectedAgentId}
+                  required={false}
+                  label="Agente (opzionale - derivato dall'immobile se non selezionato)"
+                />
+              )}
+
               {/* Property Selection */}
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
@@ -407,6 +489,7 @@ function OpenHousesManagementContent() {
                   {properties.map((property) => (
                     <option key={property.id} value={property.id}>
                       {property.titolo} - {property.zona}
+                      {admin && property.gre_agents ? ` (${property.gre_agents.nome} ${property.gre_agents.cognome})` : ''}
                     </option>
                   ))}
                 </select>
@@ -586,6 +669,15 @@ function OpenHousesManagementContent() {
                           </span>
                         )}
                       </div>
+
+                      {/* Agent Badge (admin only) */}
+                      {admin && openHouse.gre_agents && (
+                        <div className="mb-2">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                            👤 {openHouse.gre_agents.nome} {openHouse.gre_agents.cognome}
+                          </span>
+                        </div>
+                      )}
 
                       <p className="text-sm mb-2" style={{ color: 'var(--text-gray)' }}>
                         📍 {openHouse.gre_properties.zona} - {openHouse.gre_properties.indirizzo}

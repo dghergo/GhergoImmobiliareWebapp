@@ -218,10 +218,12 @@ export default function AgentsManagement() {
       </DashboardHeader>
 
       <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/admin/dashboard' },
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard' },
         { label: 'GESTIONE AGENTI', href: '/admin/agents', active: true },
-        { label: 'IMMOBILI', href: '/admin/properties' },
-        { label: 'REPORT', href: '/admin/reports' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
       ]} />
 
       {/* Main Content */}
