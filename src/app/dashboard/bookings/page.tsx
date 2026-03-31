@@ -21,6 +21,7 @@ interface Booking {
   open_house_id: string
   time_slot_id: string
   client_id: string
+  agent_id: string
   status: 'confirmed' | 'completed' | 'no_show'
   created_at: string
   cancellation_reason: string | null
@@ -56,6 +57,16 @@ interface Booking {
     vendita_immobile: string
     necessita_mutuo: string
   } | null
+  agent_info?: {
+    nome: string
+    cognome: string
+  }
+}
+
+interface AgentOption {
+  id: string
+  nome: string
+  cognome: string
 }
 
 export default function AgentBookings() {
@@ -66,6 +77,10 @@ export default function AgentBookings() {
   const [filter, setFilter] = useState<'all' | 'confirmed' | 'completed' | 'no_show' | 'cancelled'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [hoveredBookingId, setHoveredBookingId] = useState<string | null>(null)
+  const [filterAgentId, setFilterAgentId] = useState<string>('all')
+  const [agents, setAgents] = useState<AgentOption[]>([])
+
+  const admin = agent ? isAdmin(agent) : false
 
   // Redirect se non è agente
   useEffect(() => {
@@ -74,31 +89,37 @@ export default function AgentBookings() {
     }
   }, [agent, loading, router])
 
-  // Carica prenotazioni
+  // Carica prenotazioni e agenti
   useEffect(() => {
     if (agent) {
       loadBookings()
+      if (admin) {
+        loadAgents()
+      }
     }
   }, [agent])
+
+  const loadAgents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('gre_agents')
+        .select('id, nome, cognome')
+        .eq('is_active', true)
+        .order('cognome')
+
+      if (error) throw error
+      setAgents(data || [])
+    } catch (error) {
+      console.error('Error loading agents:', error)
+    }
+  }
 
   const loadBookings = async () => {
     if (!agent) return
 
-    console.log('🔍 Loading bookings for agent:', agent.id, agent.nome)
-
     setLoadingData(true)
     try {
-      // Prima proviamo una query semplice
-      console.log('🔄 Trying simple query first...')
-      const { data: simpleData, error: simpleError } = await supabase
-        .from('gre_bookings')
-        .select('*')
-        .eq('agent_id', agent.id)
-        .limit(5)
-
-      console.log('🔍 Simple query result:', { data: simpleData, error: simpleError })
-
-      const { data, error } = await supabase
+      let query = supabase
         .from('gre_bookings')
         .select(`
           id,
@@ -119,20 +140,21 @@ export default function AgentBookings() {
             id, data_evento, ora_inizio, ora_fine,
             gre_properties!inner (titolo, zona)
           ),
-          gre_prequalification_responses (response_data)
+          gre_prequalification_responses (response_data),
+          gre_agents (nome, cognome)
         `)
-        .eq('agent_id', agent.id)
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('❌ Error loading bookings:', error)
-        console.error('❌ Full error details:', JSON.stringify(error, null, 2))
-        console.error('❌ Error message:', error.message)
-        console.error('❌ Error code:', error.code)
-        return
+      if (!admin) {
+        query = query.eq('agent_id', agent.id)
       }
 
-      console.log('📊 Raw booking data:', data)
+      const { data, error } = await query
+
+      if (error) {
+        console.error('Error loading bookings:', error)
+        return
+      }
 
       const transformedData = data.map((booking: any) => ({
         ...booking,
@@ -142,10 +164,10 @@ export default function AgentBookings() {
           ...booking.gre_open_houses,
           property: booking.gre_open_houses.gre_properties
         },
-        questionnaire_data: booking.gre_prequalification_responses?.[0]?.response_data || null
+        questionnaire_data: booking.gre_prequalification_responses?.[0]?.response_data || null,
+        agent_info: booking.gre_agents || null
       }))
 
-      console.log('✅ Transformed booking data:', transformedData)
       setBookings(transformedData)
     } catch (error) {
       console.error('Error:', error)
@@ -167,24 +189,23 @@ export default function AgentBookings() {
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
-      console.log(`🔄 Updating booking ${bookingId} to status: ${newStatus}`)
-
-      const { error } = await supabase
+      let query = supabase
         .from('gre_bookings')
         .update({ status: newStatus })
         .eq('id', bookingId)
 
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
+
       if (error) {
-        console.error('❌ Error updating booking:', error)
-        console.error('❌ Full error details:', JSON.stringify(error, null, 2))
-        console.error('❌ Booking ID:', bookingId)
-        console.error('❌ New status:', newStatus)
+        console.error('Error updating booking:', error)
         alert(`Errore durante l'aggiornamento: ${error.message || 'Errore sconosciuto'}`)
         return
       }
 
-      console.log('✅ Booking updated successfully')
-      // Ricarica le prenotazioni
       loadBookings()
     } catch (error) {
       console.error('Error:', error)
@@ -198,9 +219,7 @@ export default function AgentBookings() {
     }
 
     try {
-      console.log(`🔄 Cancelling booking ${bookingId}`)
-
-      const { error } = await supabase
+      let query = supabase
         .from('gre_bookings')
         .update({
           status: 'no_show',
@@ -209,14 +228,18 @@ export default function AgentBookings() {
         })
         .eq('id', bookingId)
 
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
+
       if (error) {
-        console.error('❌ Error cancelling booking:', error)
+        console.error('Error cancelling booking:', error)
         alert(`Errore durante la cancellazione: ${error.message || 'Errore sconosciuto'}`)
         return
       }
 
-      console.log('✅ Booking cancelled successfully')
-      // Ricarica le prenotazioni
       loadBookings()
     } catch (error) {
       console.error('Error:', error)
@@ -243,7 +266,9 @@ export default function AgentBookings() {
       booking.client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.open_house.property.titolo.toLowerCase().includes(searchTerm.toLowerCase())
 
-    return matchesFilter && matchesSearch
+    const matchesAgent = !admin || filterAgentId === 'all' || booking.agent_id === filterAgentId
+
+    return matchesFilter && matchesSearch && matchesAgent
   })
 
   const getStatusBadge = (booking: Booking) => {
@@ -289,9 +314,34 @@ export default function AgentBookings() {
     return null
   }
 
+  const navItems = admin
+    ? [
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard' },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings', active: true },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+    : [
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings', active: true },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+
   return (
     <div className="min-h-screen">
       <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
+        {admin && (
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            className="btn-secondary text-sm px-3 md:px-4 py-2"
+          >
+            Admin
+          </button>
+        )}
         <button
           onClick={signOut}
           className="btn-primary text-sm px-3 md:px-4 py-2"
@@ -300,20 +350,14 @@ export default function AgentBookings() {
         </button>
       </DashboardHeader>
 
-      <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/dashboard' },
-        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties' },
-        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
-        { label: 'PRENOTAZIONI', href: '/dashboard/bookings', active: true },
-        { label: 'REPORT', href: '/dashboard/reports' },
-      ]} />
+      <DashboardNav items={navItems} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Filters */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
-            Le mie Prenotazioni ({filteredBookings.length})
+            {admin ? 'Tutte le Prenotazioni' : 'Le mie Prenotazioni'} ({filteredBookings.length})
           </h1>
 
           <div className="flex flex-col sm:flex-row gap-4">
@@ -325,6 +369,22 @@ export default function AgentBookings() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+
+            {/* Agent Filter (admin only) */}
+            {admin && (
+              <select
+                value={filterAgentId}
+                onChange={(e) => setFilterAgentId(e.target.value)}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Tutti gli agenti</option>
+                {agents.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.nome} {a.cognome}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Status Filter */}
             <select
@@ -373,6 +433,12 @@ export default function AgentBookings() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         {getStatusBadge(booking)}
+                        {/* Agent Badge (admin only) */}
+                        {admin && booking.agent_info && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                            👤 {booking.agent_info.nome} {booking.agent_info.cognome}
+                          </span>
+                        )}
                         <span className="text-sm text-gray-500">
                           Prenotato il {new Date(booking.created_at).toLocaleDateString('it-IT')}
                         </span>

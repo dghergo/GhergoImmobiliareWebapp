@@ -7,6 +7,7 @@ import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
+import AgentSelector from '@/components/AgentSelector'
 
 interface Property {
   id: string
@@ -23,6 +24,11 @@ interface Property {
   is_active: boolean
   created_at: string
   updated_at: string
+  gre_agents?: {
+    nome: string
+    cognome: string
+    email: string
+  }
 }
 
 export default function PropertiesManagement() {
@@ -38,6 +44,7 @@ export default function PropertiesManagement() {
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [brochureFile, setBrochureFile] = useState<File | null>(null)
   const [brochureUrl, setBrochureUrl] = useState('')
+  const [selectedAgentId, setSelectedAgentId] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -57,6 +64,8 @@ export default function PropertiesManagement() {
     giardino: false
   })
 
+  const admin = agent ? isAdmin(agent) : false
+
   // Redirect se non è agente
   useEffect(() => {
     if (!loading && (!agent || (!isAgent(agent) && !isAdmin(agent)))) {
@@ -71,25 +80,20 @@ export default function PropertiesManagement() {
     }
   }, [agent])
 
-  // Controlla se deve aprire il form automaticamente
-  // Temporaneamente disabilitato per debug
-  // useEffect(() => {
-  //   console.log('searchParams effect:', searchParams.get('action'))
-  //   if (searchParams.get('action') === 'new') {
-  //     setShowAddForm(true)
-  //     setEditingProperty(null)
-  //   }
-  // }, [searchParams])
-
   const loadProperties = async () => {
     if (!agent) return
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('gre_properties')
-        .select('*')
-        .eq('agent_id', agent.id)
+        .select('*, gre_agents(nome, cognome, email)')
         .order('created_at', { ascending: false })
+
+      if (!admin) {
+        query = query.eq('agent_id', agent.id)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setProperties(data || [])
@@ -172,6 +176,14 @@ export default function PropertiesManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Admin must select an agent
+    if (admin && !selectedAgentId && !editingProperty) {
+      alert('Seleziona un agente per questo immobile.')
+      return
+    }
+
+    const agentId = admin ? (selectedAgentId || editingProperty?.agent_id || agent!.id) : agent!.id
+
     try {
       const caratteristiche = {
         mq: formData.mq ? parseInt(formData.mq) : null,
@@ -206,7 +218,7 @@ export default function PropertiesManagement() {
           }
         }
 
-        const { error } = await supabase
+        let updateQuery = supabase
           .from('gre_properties')
           .update({
             titolo: formData.titolo,
@@ -218,10 +230,16 @@ export default function PropertiesManagement() {
             caratteristiche,
             immagini,
             brochure_url,
+            ...(admin && selectedAgentId ? { agent_id: selectedAgentId } : {}),
             updated_at: new Date().toISOString()
           })
           .eq('id', editingProperty.id)
-          .eq('agent_id', agent!.id)
+
+        if (!admin) {
+          updateQuery = updateQuery.eq('agent_id', agent!.id)
+        }
+
+        const { error } = await updateQuery
 
         if (error) throw error
       } else {
@@ -229,7 +247,7 @@ export default function PropertiesManagement() {
         const { data: newProperty, error: insertError } = await supabase
           .from('gre_properties')
           .insert({
-            agent_id: agent!.id,
+            agent_id: agentId,
             titolo: formData.titolo,
             descrizione: formData.descrizione || null,
             prezzo: formData.prezzo ? parseFloat(formData.prezzo) : null,
@@ -300,15 +318,21 @@ export default function PropertiesManagement() {
     setImageFiles([])
     setBrochureFile(null)
     setBrochureUrl('')
+    setSelectedAgentId('')
   }
 
   const toggleActive = async (propertyId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('gre_properties')
         .update({ is_active: !currentStatus, updated_at: new Date().toISOString() })
         .eq('id', propertyId)
-        .eq('agent_id', agent!.id)
+
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       loadProperties()
@@ -321,11 +345,16 @@ export default function PropertiesManagement() {
     if (!confirm('Sei sicuro di voler eliminare questo immobile?\nQuesta azione eliminerà anche tutti gli Open House collegati.')) return
 
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('gre_properties')
         .delete()
         .eq('id', propertyId)
-        .eq('agent_id', agent!.id)
+
+      if (!admin) {
+        query = query.eq('agent_id', agent!.id)
+      }
+
+      const { error } = await query
 
       if (error) throw error
       loadProperties()
@@ -337,6 +366,7 @@ export default function PropertiesManagement() {
 
   const startEdit = (property: Property) => {
     setEditingProperty(property)
+    setSelectedAgentId(property.agent_id)
     setFormData({
       titolo: property.titolo,
       descrizione: property.descrizione || '',
@@ -378,10 +408,27 @@ export default function PropertiesManagement() {
     return null
   }
 
+  const navItems = admin
+    ? [
+        { label: 'ADMIN DASHBOARD', href: '/admin/dashboard' },
+        { label: 'GESTIONE AGENTI', href: '/admin/agents' },
+        { label: 'TUTTI GLI IMMOBILI', href: '/dashboard/properties', active: true },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+    : [
+        { label: 'DASHBOARD', href: '/dashboard' },
+        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties', active: true },
+        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
+        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
+        { label: 'REPORT', href: '/dashboard/reports' },
+      ]
+
   return (
     <div className="min-h-screen">
       <DashboardHeader agentName={`${agent.nome} ${agent.cognome}`}>
-        {isAdmin(agent) && (
+        {admin && (
           <button
             onClick={() => router.push('/admin/dashboard')}
             className="btn-secondary text-sm px-3 md:px-4 py-2"
@@ -397,20 +444,14 @@ export default function PropertiesManagement() {
         </button>
       </DashboardHeader>
 
-      <DashboardNav items={[
-        { label: 'DASHBOARD', href: '/dashboard' },
-        { label: 'I MIEI IMMOBILI', href: '/dashboard/properties', active: true },
-        { label: 'OPEN HOUSE', href: '/dashboard/open-houses' },
-        { label: 'PRENOTAZIONI', href: '/dashboard/bookings' },
-        { label: 'REPORT', href: '/dashboard/reports' },
-      ]} />
+      <DashboardNav items={navItems} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header with Add Button */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text-dark)' }}>
-            I Miei Immobili ({properties.length})
+            {admin ? 'Tutti gli Immobili' : 'I Miei Immobili'} ({properties.length})
           </h2>
           <button
             onClick={() => {
@@ -436,10 +477,11 @@ export default function PropertiesManagement() {
               setImageFiles([])
               setBrochureFile(null)
               setBrochureUrl('')
+              setSelectedAgentId('')
             }}
             className="btn-primary px-6 py-3 nav-text"
           >
-            🏠 NUOVO IMMOBILE
+            NUOVO IMMOBILE
           </button>
         </div>
 
@@ -451,6 +493,17 @@ export default function PropertiesManagement() {
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Agent Selector for Admin */}
+              {admin && (
+                <AgentSelector
+                  agent={agent}
+                  selectedAgentId={selectedAgentId}
+                  onChange={setSelectedAgentId}
+                  required={!editingProperty}
+                  label={editingProperty ? 'Agente assegnato' : 'Assegna a Agente *'}
+                />
+              )}
+
               {/* Informazioni Base */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
@@ -895,6 +948,15 @@ export default function PropertiesManagement() {
                       {formatPrice(property.prezzo)}
                     </p>
 
+                    {/* Agent Badge (admin only) */}
+                    {admin && property.gre_agents && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                          👤 {property.gre_agents.nome} {property.gre_agents.cognome}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Features */}
                     {property.caratteristiche && (
                       <div className="flex flex-wrap gap-2 mb-3 text-xs">
@@ -934,19 +996,19 @@ export default function PropertiesManagement() {
                           onClick={() => startEdit(property)}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          ✏️ Modifica
+                          Modifica
                         </button>
                         <button
                           onClick={() => toggleActive(property.id, property.is_active)}
                           className={property.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
                         >
-                          {property.is_active ? '❌ Disattiva' : '✅ Attiva'}
+                          {property.is_active ? 'Disattiva' : 'Attiva'}
                         </button>
                         <button
                           onClick={() => deleteProperty(property.id)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          🗑️ Elimina
+                          Elimina
                         </button>
                       </div>
                       <span className="text-xs" style={{ color: 'var(--text-gray)' }}>
