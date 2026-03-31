@@ -107,14 +107,16 @@ export async function sendEmail(options: EmailOptions) {
 }
 
 // Helper per creare template email
+// Uses switch/case for lazy evaluation - only the requested template is evaluated
 export function createEmailTemplate(
   type: 'confirmation' | 'confirmation_with_brochure' | 'brochure' | 'feedback_request' | 'agent_offer_notification',
   data: any
-) {
-  const templates: Record<string, { subject: string; html: string }> = {
-    confirmation: {
-      subject: `Conferma prenotazione Open House - ${data.property.titolo}`,
-      html: `
+): { subject: string; html: string } {
+  switch (type) {
+    case 'confirmation':
+      return {
+        subject: `Conferma prenotazione Open House - ${data.property.titolo}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
@@ -159,11 +161,12 @@ export function createEmailTemplate(
           </div>
         </div>
       `
-    },
+      }
 
-    confirmation_with_brochure: {
-      subject: `Conferma prenotazione Open House - ${data.property.titolo}`,
-      html: `
+    case 'confirmation_with_brochure':
+      return {
+        subject: `Conferma prenotazione Open House - ${data.property.titolo}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
@@ -235,11 +238,12 @@ export function createEmailTemplate(
           </div>
         </div>
       `
-    },
+      }
 
-    brochure: {
-      subject: `Brochure - ${data.property.titolo}`,
-      html: `
+    case 'brochure':
+      return {
+        subject: `Brochure - ${data.property.titolo}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
@@ -274,11 +278,12 @@ export function createEmailTemplate(
           </div>
         </div>
       `
-    },
+      }
 
-    feedback_request: {
-      subject: `La sua opinione conta - Open House ${data.property.titolo}`,
-      html: `
+    case 'feedback_request':
+      return {
+        subject: `La sua opinione conta - Open House ${data.property.titolo}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
@@ -313,11 +318,12 @@ export function createEmailTemplate(
           </div>
         </div>
       `
-    },
+      }
 
-    agent_offer_notification: {
-      subject: `Interesse acquisto - ${data.client.nome} ${data.client.cognome} per ${data.property.titolo}`,
-      html: `
+    case 'agent_offer_notification':
+      return {
+        subject: `Interesse acquisto - ${data.client.nome} ${data.client.cognome} per ${data.property.titolo}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
             <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
@@ -357,8 +363,9 @@ export function createEmailTemplate(
           </div>
         </div>
       `
-    }
-  }
+      }
 
-  return templates[type]
+    default:
+      return { subject: '', html: '' }
+  }
 }
