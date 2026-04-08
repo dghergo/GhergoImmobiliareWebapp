@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       .insert({
         booking_id: bookingId,
         commenti: commenti || '',
-        vuole_fare_offerta: vuole_fare_offerta || false
+        interesse_acquisto: vuole_fare_offerta || false
       })
 
     if (feedbackError) {

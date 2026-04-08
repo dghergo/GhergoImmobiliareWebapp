@@ -62,6 +62,7 @@ export async function GET(request: Request) {
         .eq('open_house_id', oh.id)
         .eq('feedback_email_sent', false)
         .eq('feedback_completed', false)
+        .in('status', ['confirmed', 'completed'])
 
       if (bookingsError) {
         console.error(`Error fetching bookings for OH ${oh.id}:`, bookingsError)

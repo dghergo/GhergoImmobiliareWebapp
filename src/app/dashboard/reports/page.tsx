@@ -12,8 +12,8 @@ interface FeedbackEntry {
   id: string
   booking_id: string
   commenti: string
-  vuole_fare_offerta: boolean
-  created_at: string
+  interesse_acquisto: boolean
+  submitted_at: string
   gre_bookings: {
     id: string
     agent_id: string
@@ -134,8 +134,8 @@ export default function ReportsPage() {
           id,
           booking_id,
           commenti,
-          vuole_fare_offerta,
-          created_at,
+          interesse_acquisto,
+          submitted_at,
           gre_bookings!inner (
             id,
             agent_id,
@@ -148,7 +148,7 @@ export default function ReportsPage() {
             gre_agents (nome, cognome)
           )
         `)
-        .order('created_at', { ascending: false })
+        .order('submitted_at', { ascending: false })
 
       if (!admin) {
         feedbackQuery = feedbackQuery.eq('gre_bookings.agent_id', agent.id)
@@ -165,7 +165,7 @@ export default function ReportsPage() {
 
       // Calcola statistiche
       const totalFeedback = feedbackData?.length || 0
-      const interessati = feedbackData?.filter(f => f.vuole_fare_offerta).length || 0
+      const interessati = feedbackData?.filter(f => f.interesse_acquisto).length || 0
 
       // Conta totale bookings per tasso risposta
       let bookingsCountQuery = supabase
@@ -195,8 +195,8 @@ export default function ReportsPage() {
   // Filtra feedback
   const filteredFeedbacks = feedbacks.filter(f => {
     if (filterOpenHouse !== 'all' && f.gre_bookings.gre_open_houses.id !== filterOpenHouse) return false
-    if (filterInteresse === 'yes' && !f.vuole_fare_offerta) return false
-    if (filterInteresse === 'no' && f.vuole_fare_offerta) return false
+    if (filterInteresse === 'yes' && !f.interesse_acquisto) return false
+    if (filterInteresse === 'no' && f.interesse_acquisto) return false
     if (admin && filterAgentId !== 'all' && f.gre_bookings.agent_id !== filterAgentId) return false
     return true
   })
@@ -374,7 +374,7 @@ export default function ReportsPage() {
                           <span className="font-semibold" style={{ color: 'var(--text-dark)' }}>
                             {client.nome} {client.cognome}
                           </span>
-                          {feedback.vuole_fare_offerta && (
+                          {feedback.interesse_acquisto && (
                             <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                               INTERESSATO ALL&apos;ACQUISTO
                             </span>
@@ -394,7 +394,7 @@ export default function ReportsPage() {
                         </p>
                       </div>
                       <span className="text-xs" style={{ color: 'var(--text-gray)' }}>
-                        {new Date(feedback.created_at).toLocaleDateString('it-IT')}
+                        {new Date(feedback.submitted_at).toLocaleDateString('it-IT')}
                       </span>
                     </div>
 
