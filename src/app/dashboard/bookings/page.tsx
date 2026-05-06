@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -29,6 +29,8 @@ interface Booking {
   questionnaire_completed: boolean
   confirmation_email_sent: boolean
   brochure_email_sent: boolean
+  feedback_completed: boolean
+  feedback_email_sent: boolean
   questionnaire_data?: QuestionnaireResponse | null
   client: {
     id: string
@@ -45,10 +47,12 @@ interface Booking {
   }
   open_house: {
     id: string
+    property_id: string
     data_evento: string
     ora_inizio: string
     ora_fine: string
     property: {
+      id: string
       titolo: string
       zona: string
     }
@@ -61,6 +65,11 @@ interface Booking {
     nome: string
     cognome: string
   }
+  agente_referente_id: string | null
+  agente_referente?: {
+    nome: string
+    cognome: string
+  } | null
 }
 
 interface AgentOption {
@@ -69,7 +78,15 @@ interface AgentOption {
   cognome: string
 }
 
-export default function AgentBookings() {
+const formatWhatsAppNumber = (phone: string): string => {
+  let cleaned = phone.replace(/\D/g, '')
+  if (!cleaned.startsWith('39')) {
+    cleaned = '39' + cleaned
+  }
+  return cleaned
+}
+
+function AgentBookingsContent() {
   const { agent, loading, signOut } = useAuth()
   const router = useRouter()
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -79,6 +96,10 @@ export default function AgentBookings() {
   const [hoveredBookingId, setHoveredBookingId] = useState<string | null>(null)
   const [filterAgentId, setFilterAgentId] = useState<string>('all')
   const [agents, setAgents] = useState<AgentOption[]>([])
+  const [resendingFeedbackId, setResendingFeedbackId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const [filterPropertyId, setFilterPropertyId] = useState<string | null>(null)
+  const [filterPropertyName, setFilterPropertyName] = useState<string | null>(null)
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -88,6 +109,14 @@ export default function AgentBookings() {
       router.push('/dashboard/login')
     }
   }, [agent, loading, router])
+
+  // Leggi filtro propertyId da URL
+  useEffect(() => {
+    const propertyId = searchParams.get('propertyId')
+    if (propertyId) {
+      setFilterPropertyId(propertyId)
+    }
+  }, [searchParams])
 
   // Carica prenotazioni e agenti
   useEffect(() => {
@@ -134,14 +163,18 @@ export default function AgentBookings() {
           questionnaire_completed,
           confirmation_email_sent,
           brochure_email_sent,
+          feedback_completed,
+          feedback_email_sent,
+          agente_referente_id,
           gre_clients!inner (id, nome, cognome, email, telefono),
           gre_time_slots!inner (id, ora_inizio, ora_fine),
           gre_open_houses!inner (
-            id, data_evento, ora_inizio, ora_fine,
-            gre_properties!inner (titolo, zona)
+            id, property_id, data_evento, ora_inizio, ora_fine,
+            gre_properties!inner (id, titolo, zona)
           ),
           gre_prequalification_responses (response_data),
-          gre_agents (nome, cognome)
+          gre_agents!gre_bookings_agent_id_fkey (nome, cognome),
+          agente_referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)
         `)
         .order('created_at', { ascending: false })
 
@@ -165,10 +198,28 @@ export default function AgentBookings() {
           property: booking.gre_open_houses.gre_properties
         },
         questionnaire_data: booking.gre_prequalification_responses?.[0]?.response_data || null,
-        agent_info: booking.gre_agents || null
+        agent_info: booking.gre_agents || null,
+        agente_referente: booking.agente_referente || null
       }))
 
       setBookings(transformedData)
+
+      // Risolvi nome proprietà per il filtro attivo
+      if (filterPropertyId) {
+        const matchingBooking = transformedData.find(
+          (b: Booking) => b.open_house.property.id === filterPropertyId
+        )
+        if (matchingBooking) {
+          setFilterPropertyName(matchingBooking.open_house.property.titolo)
+        } else {
+          const { data: propData } = await supabase
+            .from('gre_properties')
+            .select('titolo')
+            .eq('id', filterPropertyId)
+            .single()
+          setFilterPropertyName(propData?.titolo || 'Immobile sconosciuto')
+        }
+      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -247,6 +298,44 @@ export default function AgentBookings() {
     }
   }
 
+  const isOpenHousePast = (booking: Booking): boolean => {
+    const eventDate = new Date(booking.open_house.data_evento)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return eventDate < today
+  }
+
+  const resendFeedbackEmail = async (bookingId: string) => {
+    setResendingFeedbackId(bookingId)
+    try {
+      const response = await fetch('/api/send-booking-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          type: 'feedback_request'
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        alert(`Errore nell'invio: ${result.error || 'Errore sconosciuto'}`)
+        return
+      }
+
+      setBookings(prev => prev.map(b =>
+        b.id === bookingId ? { ...b, feedback_email_sent: true } : b
+      ))
+      alert('Email di feedback re-inviata con successo!')
+    } catch (error) {
+      console.error('Error resending feedback:', error)
+      alert('Errore durante l\'invio dell\'email di feedback.')
+    } finally {
+      setResendingFeedbackId(null)
+    }
+  }
+
   const filteredBookings = bookings.filter(booking => {
     let matchesFilter = false
 
@@ -268,7 +357,9 @@ export default function AgentBookings() {
 
     const matchesAgent = !admin || filterAgentId === 'all' || booking.agent_id === filterAgentId
 
-    return matchesFilter && matchesSearch && matchesAgent
+    const matchesProperty = !filterPropertyId || booking.open_house.property.id === filterPropertyId
+
+    return matchesFilter && matchesSearch && matchesAgent && matchesProperty
   })
 
   const getStatusBadge = (booking: Booking) => {
@@ -401,6 +492,30 @@ export default function AgentBookings() {
           </div>
         </div>
 
+        {/* Property Filter Banner */}
+        {filterPropertyId && (
+          <div className="mb-4 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: 'var(--primary-blue)' }}>
+                Filtro attivo:
+              </span>
+              <span className="text-sm" style={{ color: 'var(--text-dark)' }}>
+                {filterPropertyName || 'Caricamento...'}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setFilterPropertyId(null)
+                setFilterPropertyName(null)
+                router.replace('/dashboard/bookings')
+              }}
+              className="text-sm text-red-600 hover:text-red-800 font-medium"
+            >
+              Rimuovi filtro
+            </button>
+          </div>
+        )}
+
         {/* Loading */}
         {loadingData && (
           <div className="flex justify-center py-8">
@@ -437,6 +552,11 @@ export default function AgentBookings() {
                         {admin && booking.agent_info && (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
                             👤 {booking.agent_info.nome} {booking.agent_info.cognome}
+                          </span>
+                        )}
+                        {booking.agente_referente && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-teal-100 text-teal-800">
+                            Ref: {booking.agente_referente.nome} {booking.agente_referente.cognome}
                           </span>
                         )}
                         <span className="text-sm text-gray-500">
@@ -484,7 +604,7 @@ export default function AgentBookings() {
                         <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--primary-blue)' }}>
                           Status del processo
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
                           <div className={`flex items-center gap-2 ${booking.confirmation_email_sent ? 'text-green-600' : 'text-gray-500'}`}>
                             {booking.confirmation_email_sent ? '✅' : '⏳'} Email di conferma
                           </div>
@@ -546,6 +666,9 @@ export default function AgentBookings() {
                           <div className={`flex items-center gap-2 ${booking.brochure_email_sent ? 'text-green-600' : 'text-gray-500'}`}>
                             {booking.brochure_email_sent ? '✅' : '⏳'} Brochure inviata
                           </div>
+                          <div className={`flex items-center gap-2 ${booking.feedback_completed ? 'text-green-600' : booking.feedback_email_sent ? 'text-amber-600' : 'text-gray-500'}`}>
+                            {booking.feedback_completed ? '✅' : booking.feedback_email_sent ? '📩' : '⏳'} Feedback
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -588,6 +711,27 @@ export default function AgentBookings() {
                       >
                         📞 Chiama
                       </a>
+
+                      <a
+                        href={`https://wa.me/${formatWhatsAppNumber(booking.client.telefono)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 bg-green-100 text-green-700 rounded text-sm font-medium hover:bg-green-200 text-center"
+                      >
+                        💬 WhatsApp
+                      </a>
+
+                      {!(booking.status === 'no_show' && booking.cancellation_reason === 'cancelled_by_agent') &&
+                       !booking.feedback_completed &&
+                       isOpenHousePast(booking) && (
+                        <button
+                          onClick={() => resendFeedbackEmail(booking.id)}
+                          disabled={resendingFeedbackId === booking.id}
+                          className="px-3 py-2 bg-amber-100 text-amber-700 rounded text-sm font-medium hover:bg-amber-200 disabled:opacity-50 text-center"
+                        >
+                          {resendingFeedbackId === booking.id ? 'Invio...' : '📩 Reinvia Feedback'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -597,5 +741,17 @@ export default function AgentBookings() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function AgentBookings() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--accent-blue)' }}></div>
+      </div>
+    }>
+      <AgentBookingsContent />
+    </Suspense>
   )
 }
