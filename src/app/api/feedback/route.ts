@@ -77,7 +77,8 @@ export async function POST(request: Request) {
         await sendEmail({
           to: agent.email,
           subject: template.subject,
-          html: template.html
+          html: template.html,
+          agentId: agent.id
         })
 
         console.log(`✅ Email notifica offerta inviata all'agente ${agent.email}`)

@@ -68,6 +68,7 @@ interface BookingForm {
   email: string
   telefono: string
   messaggio: string
+  agente_referente_id: string
   privacy_accepted: boolean
   marketing_accepted: boolean
 }
@@ -99,9 +100,12 @@ export default function OpenHouseDetail() {
     email: '',
     telefono: '',
     messaggio: '',
+    agente_referente_id: '',
     privacy_accepted: false,
     marketing_accepted: false
   })
+  const [referenceAgents, setReferenceAgents] = useState<Array<{ id: string; nome: string; cognome: string }>>([])
+  const [loadingAgents, setLoadingAgents] = useState(false)
 
   // Modal questionnaire state
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
@@ -143,9 +147,29 @@ export default function OpenHouseDetail() {
     }
   }
 
+  const loadReferenceAgents = async () => {
+    setLoadingAgents(true)
+    try {
+      const { data, error } = await supabase
+        .from('gre_agents')
+        .select('id, nome, cognome')
+        .eq('is_active', true)
+        .order('cognome')
+
+      if (!error && data) {
+        setReferenceAgents(data)
+      }
+    } catch (error) {
+      console.error('Error loading agents:', error)
+    } finally {
+      setLoadingAgents(false)
+    }
+  }
+
   useEffect(() => {
     if (openHouseId) {
       loadOpenHouseData()
+      loadReferenceAgents()
     }
   }, [openHouseId])
 
@@ -301,6 +325,7 @@ export default function OpenHouseDetail() {
           time_slot_id: selectedSlot,
           client_id: clientId,
           agent_id: openHouse.agent_id,
+          agente_referente_id: formData.agente_referente_id || null,
           status: 'confirmed',
           questionnaire_completed: false,
           confirmation_email_sent: false,
@@ -394,6 +419,7 @@ export default function OpenHouseDetail() {
         email: '',
         telefono: '',
         messaggio: '',
+        agente_referente_id: '',
         privacy_accepted: false,
         marketing_accepted: false
       })
@@ -569,7 +595,10 @@ export default function OpenHouseDetail() {
                 </div>
                 <div className="sm:text-right">
                   <p className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-                    {openHouse.property.prezzo?.toLocaleString('it-IT')} &euro;
+                    {openHouse.property.caratteristiche?.cantiere && openHouse.property.prezzo
+                      ? <>Prezzo a partire da {openHouse.property.prezzo.toLocaleString('it-IT')} &euro;</>
+                      : <>{openHouse.property.prezzo?.toLocaleString('it-IT')} &euro;</>
+                    }
                   </p>
                   <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
                     {openHouse.property.tipologia}
@@ -608,6 +637,14 @@ export default function OpenHouseDetail() {
                       Piano {openHouse.property.caratteristiche.piano}
                     </div>
                     <div className="text-sm" style={{ color: 'var(--text-gray)' }}>Piano</div>
+                  </div>
+                )}
+                {openHouse.property.caratteristiche?.cantiere && openHouse.property.caratteristiche?.unita_totali && (
+                  <div className="text-center p-3 bg-yellow-50 rounded">
+                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
+                      {openHouse.property.caratteristiche.unita_totali}
+                    </div>
+                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>{`Unit\u00E0 in vendita`}</div>
                   </div>
                 )}
               </div>
@@ -796,6 +833,29 @@ export default function OpenHouseDetail() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Domande o richieste speciali..."
                       />
+                    </div>
+
+                    {/* Agente di riferimento */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
+                        Agente di riferimento (opzionale)
+                      </label>
+                      <select
+                        value={formData.agente_referente_id}
+                        onChange={(e) => setFormData({ ...formData, agente_referente_id: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={loadingAgents}
+                      >
+                        <option value="">Nessuno / Non so</option>
+                        {referenceAgents.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.nome} {a.cognome}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                        {`Se ha gi\u00E0 un agente di riferimento, lo selezioni qui`}
+                      </p>
                     </div>
 
                     <div className="space-y-3">

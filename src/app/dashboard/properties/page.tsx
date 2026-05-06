@@ -61,7 +61,9 @@ export default function PropertiesManagement() {
     posto_auto: false,
     ascensore: false,
     terrazzo: false,
-    giardino: false
+    giardino: false,
+    cantiere: false,
+    unita_totali: ''
   })
 
   const admin = agent ? isAdmin(agent) : false
@@ -193,7 +195,9 @@ export default function PropertiesManagement() {
         posto_auto: formData.posto_auto,
         ascensore: formData.ascensore,
         terrazzo: formData.terrazzo,
-        giardino: formData.giardino
+        giardino: formData.giardino,
+        cantiere: formData.cantiere,
+        unita_totali: formData.cantiere && formData.unita_totali ? parseInt(formData.unita_totali) : null
       }
 
       let immagini: string[] = []
@@ -311,7 +315,9 @@ export default function PropertiesManagement() {
       posto_auto: false,
       ascensore: false,
       terrazzo: false,
-      giardino: false
+      giardino: false,
+      cantiere: false,
+      unita_totali: ''
     })
     setShowAddForm(false)
     setEditingProperty(null)
@@ -381,7 +387,9 @@ export default function PropertiesManagement() {
       posto_auto: property.caratteristiche?.posto_auto || false,
       ascensore: property.caratteristiche?.ascensore || false,
       terrazzo: property.caratteristiche?.terrazzo || false,
-      giardino: property.caratteristiche?.giardino || false
+      giardino: property.caratteristiche?.giardino || false,
+      cantiere: property.caratteristiche?.cantiere || false,
+      unita_totali: property.caratteristiche?.unita_totali?.toString() || ''
     })
     setBrochureUrl(property.brochure_url || '')
     setShowAddForm(true)
@@ -472,7 +480,9 @@ export default function PropertiesManagement() {
                 posto_auto: false,
                 ascensore: false,
                 terrazzo: false,
-                giardino: false
+                giardino: false,
+                cantiere: false,
+                unita_totali: ''
               })
               setImageFiles([])
               setBrochureFile(null)
@@ -693,6 +703,35 @@ export default function PropertiesManagement() {
                     />
                     <span className="text-sm" style={{ color: 'var(--text-dark)' }}>Giardino</span>
                   </label>
+                </div>
+
+                {/* Cantiere */}
+                <div className="mt-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.cantiere}
+                      onChange={(e) => setFormData({ ...formData, cantiere: e.target.checked, unita_totali: e.target.checked ? formData.unita_totali : '' })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-dark)' }}>Cantiere (nuova costruzione)</span>
+                  </label>
+
+                  {formData.cantiere && (
+                    <div className="mt-3 ml-6">
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
+                        {`Unit\u00E0 in vendita`}
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.unita_totali}
+                        onChange={(e) => setFormData({ ...formData, unita_totali: e.target.value })}
+                        className="w-full max-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="es. 12"
+                        min="1"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -945,7 +984,10 @@ export default function PropertiesManagement() {
                     </p>
 
                     <p className="text-lg font-bold mb-3" style={{ color: 'var(--primary-blue)' }}>
-                      {formatPrice(property.prezzo)}
+                      {property.caratteristiche?.cantiere && property.prezzo
+                        ? `Prezzo a partire da ${formatPrice(property.prezzo)}`
+                        : formatPrice(property.prezzo)
+                      }
                     </p>
 
                     {/* Agent Badge (admin only) */}
@@ -971,6 +1013,14 @@ export default function PropertiesManagement() {
                         )}
                         {property.caratteristiche.posto_auto && (
                           <span className="bg-blue-100 px-2 py-1 rounded text-blue-800">Posto auto</span>
+                        )}
+                        {property.caratteristiche.cantiere && (
+                          <span className="bg-yellow-100 px-2 py-1 rounded text-yellow-800">Cantiere</span>
+                        )}
+                        {property.caratteristiche.cantiere && property.caratteristiche.unita_totali && (
+                          <span className="bg-yellow-100 px-2 py-1 rounded text-yellow-800">
+                            {property.caratteristiche.unita_totali} {`unit\u00E0 in vendita`}
+                          </span>
                         )}
                       </div>
                     )}
@@ -1009,6 +1059,12 @@ export default function PropertiesManagement() {
                           className="text-red-600 hover:text-red-900"
                         >
                           Elimina
+                        </button>
+                        <button
+                          onClick={() => router.push(`/dashboard/bookings?propertyId=${property.id}`)}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Prenotazioni
                         </button>
                       </div>
                       <span className="text-xs" style={{ color: 'var(--text-gray)' }}>
