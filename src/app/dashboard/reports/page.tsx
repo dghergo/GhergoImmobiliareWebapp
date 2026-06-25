@@ -145,7 +145,7 @@ export default function ReportsPage() {
               data_evento,
               gre_properties (id, titolo, zona)
             ),
-            gre_agents (nome, cognome)
+            gre_agents!gre_bookings_agent_id_fkey (nome, cognome)
           )
         `)
         .order('submitted_at', { ascending: false })
