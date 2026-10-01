@@ -215,8 +215,8 @@ export async function sendBookingEmail(
                 <hr style="margin: 20px 0;">
 
                 <p><strong>Immobile:</strong> ${property.titolo}</p>
-                <p><strong>Data Open House:</strong> ${new Date(openHouse.data_evento).toLocaleDateString('it-IT')}</p>
-                <p><strong>Slot prenotato:</strong> ${timeSlot.ora_inizio} - ${timeSlot.ora_fine}</p>
+                <p><strong>Data Open House:</strong> ${new Date(openHouse.data_evento + 'T12:00:00').toLocaleDateString('it-IT')}</p>
+                <p><strong>Slot prenotato:</strong> ${String(timeSlot?.ora_inizio || '').slice(0, 5)} - ${String(timeSlot?.ora_fine || '').slice(0, 5)}</p>
 
                 ${bookingData.note_cliente ? `
                   <hr style="margin: 20px 0;">

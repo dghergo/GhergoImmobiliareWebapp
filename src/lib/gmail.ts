@@ -132,14 +132,14 @@ export function createEmailTemplate(
               <h3 style="color: #1e40af; margin-top: 0;">Dettagli della prenotazione</h3>
 
               <p><strong>Immobile:</strong> ${data.property.titolo}</p>
-              <p><strong>Indirizzo:</strong> ${data.property.zona}</p>
+              <p><strong>Indirizzo:</strong> ${data.property.indirizzo ? `${data.property.indirizzo}${data.property.zona && data.property.zona !== data.property.indirizzo ? ` (${data.property.zona})` : ''}` : data.property.zona}${data.property.indirizzo ? ` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.property.indirizzo + ' ' + (data.property.zona || ''))}">Apri la mappa</a>` : ''}</p>
               <p><strong>Data:</strong> ${new Date(data.openHouse.data_evento).toLocaleDateString('it-IT', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}</p>
-              <p><strong>Orario slot:</strong> ${data.timeSlot.ora_inizio} - ${data.timeSlot.ora_fine}</p>
+              <p><strong>Orario slot:</strong> ${String(data.timeSlot?.ora_inizio || '').slice(0, 5)} - ${String(data.timeSlot?.ora_fine || '').slice(0, 5)}</p>
 
               <hr style="margin: 20px 0;">
 
@@ -205,14 +205,14 @@ export function createEmailTemplate(
               <h3 style="color: #1e40af; margin-top: 0;">Dettagli della prenotazione</h3>
 
               <p><strong>Immobile:</strong> ${data.property.titolo}</p>
-              <p><strong>Indirizzo:</strong> ${data.property.zona}</p>
+              <p><strong>Indirizzo:</strong> ${data.property.indirizzo ? `${data.property.indirizzo}${data.property.zona && data.property.zona !== data.property.indirizzo ? ` (${data.property.zona})` : ''}` : data.property.zona}${data.property.indirizzo ? ` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.property.indirizzo + ' ' + (data.property.zona || ''))}">Apri la mappa</a>` : ''}</p>
               <p><strong>Data:</strong> ${new Date(data.openHouse.data_evento).toLocaleDateString('it-IT', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}</p>
-              <p><strong>Orario slot:</strong> ${data.timeSlot.ora_inizio} - ${data.timeSlot.ora_fine}</p>
+              <p><strong>Orario slot:</strong> ${String(data.timeSlot?.ora_inizio || '').slice(0, 5)} - ${String(data.timeSlot?.ora_fine || '').slice(0, 5)}</p>
 
               <hr style="margin: 20px 0;">
 

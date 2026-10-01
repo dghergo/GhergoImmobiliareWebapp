@@ -90,6 +90,7 @@ export default function OpenHouseDetail() {
 
   const [openHouse, setOpenHouse] = useState<OpenHouse | null>(null)
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
+  const [totalBookings, setTotalBookings] = useState(0)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [showBookingForm, setShowBookingForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -177,6 +178,7 @@ export default function OpenHouseDetail() {
       const data = await response.json()
       setOpenHouse(data.openHouse)
       setTimeSlots(data.timeSlots || [])
+      setTotalBookings(data.totalBookings || 0)
       setReferenceAgents(data.referenceAgents || [])
       // Se il link è stato inviato da un agente, lo preseleziono come agente di riferimento
       if (refAgentId && (data.referenceAgents || []).some((a: { id: string }) => a.id === refAgentId)) {
@@ -576,10 +578,17 @@ export default function OpenHouseDetail() {
                     Scegli il tuo slot di visita
                   </h3>
 
+                  {/* Riprova sociale: numero reale di prenotati, mostrato oltre le 5 prenotazioni */}
+                  {totalBookings > 5 && (
+                    <div className="mb-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: '#fff4e5', color: '#b45309' }}>
+                      🔥 Già {totalBookings} persone prenotate per questo Open House
+                    </div>
+                  )}
+
                   {timeSlots.length === 0 ? (
                     <div className="text-center py-8">
                       <p style={{ color: 'var(--text-gray)' }}>
-                        Nessun slot disponibile per questo Open House.
+                        Nessuno slot disponibile per questo Open House.
                       </p>
                     </div>
                   ) : (
