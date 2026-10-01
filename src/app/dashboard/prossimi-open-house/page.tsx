@@ -69,7 +69,8 @@ export default function ProssimiOpenHouse() {
     )
   }, [openHouses, search])
 
-  const linkFor = (id: string) => `${window.location.origin}/oh/${id}`
+  // Il link contiene il codice dell'agente che lo invia: il cliente lo troverà già selezionato
+  const linkFor = (id: string) => `${window.location.origin}/oh/${id}?ref=${agent?.id ?? ''}`
 
   const formatDate = (d: string) =>
     new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })

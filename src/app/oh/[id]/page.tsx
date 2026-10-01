@@ -1,6 +1,14 @@
 import { redirect } from 'next/navigation'
 
-export default async function ShortOpenHouseRedirect({ params }: { params: Promise<{ id: string }> }) {
+export default async function ShortOpenHouseRedirect({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ ref?: string }>
+}) {
   const { id } = await params
-  redirect(`/open-house/${id}`)
+  const { ref } = await searchParams
+  // "ref" = agente che ha inviato il link (preselezionato come agente di riferimento)
+  redirect(ref ? `/open-house/${id}?ref=${encodeURIComponent(ref)}` : `/open-house/${id}`)
 }

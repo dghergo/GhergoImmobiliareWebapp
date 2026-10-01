@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import Logo from '@/components/Logo'
@@ -84,6 +84,8 @@ export default function OpenHouseDetail() {
   const params = useParams()
   const router = useRouter()
   const openHouseId = params.id as string
+  const searchParams = useSearchParams()
+  const refAgentId = searchParams.get('ref') || ''
   const { agent } = useAuth()
 
   const [openHouse, setOpenHouse] = useState<OpenHouse | null>(null)
@@ -122,7 +124,7 @@ export default function OpenHouseDetail() {
 
   const getShareUrl = () => {
     const base = window.location.origin
-    return `${base}/oh/${openHouseId}`
+    return refAgentId ? `${base}/oh/${openHouseId}?ref=${refAgentId}` : `${base}/oh/${openHouseId}`
   }
 
   const handleShare = async () => {
@@ -176,6 +178,10 @@ export default function OpenHouseDetail() {
       setOpenHouse(data.openHouse)
       setTimeSlots(data.timeSlots || [])
       setReferenceAgents(data.referenceAgents || [])
+      // Se il link è stato inviato da un agente, lo preseleziono come agente di riferimento
+      if (refAgentId && (data.referenceAgents || []).some((a: { id: string }) => a.id === refAgentId)) {
+        setFormData(prev => (prev.agente_referente_id ? prev : { ...prev, agente_referente_id: refAgentId }))
+      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -279,7 +285,7 @@ export default function OpenHouseDetail() {
         email: '',
         telefono: '',
         messaggio: '',
-        agente_referente_id: '',
+        agente_referente_id: refAgentId,
         privacy_accepted: false,
         marketing_accepted: false
       })
