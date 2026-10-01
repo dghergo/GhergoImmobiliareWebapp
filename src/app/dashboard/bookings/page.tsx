@@ -98,8 +98,9 @@ function AgentBookingsContent() {
   const [agents, setAgents] = useState<AgentOption[]>([])
   const [resendingFeedbackId, setResendingFeedbackId] = useState<string | null>(null)
   const searchParams = useSearchParams()
-  const [filterPropertyId, setFilterPropertyId] = useState<string | null>(null)
-  const [filterPropertyName, setFilterPropertyName] = useState<string | null>(null)
+  const [filterPropertyId, setFilterPropertyId] = useState<string>('')
+  const [filterOpenHouseId, setFilterOpenHouseId] = useState<string>('')
+  const [allProperties, setAllProperties] = useState<{ id: string; titolo: string; zona: string }[]>([])
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -110,23 +111,53 @@ function AgentBookingsContent() {
     }
   }, [agent, loading, router])
 
-  // Leggi filtro propertyId da URL
+  // Leggi filtri immobile / open house da URL
   useEffect(() => {
-    const propertyId = searchParams.get('propertyId')
-    if (propertyId) {
-      setFilterPropertyId(propertyId)
-    }
+    setFilterPropertyId(searchParams.get('propertyId') || '')
+    setFilterOpenHouseId(searchParams.get('open_house') || '')
   }, [searchParams])
+
+  // Se arrivo da un Open House, imposto anche l'immobile corrispondente
+  useEffect(() => {
+    if (filterOpenHouseId && !filterPropertyId && bookings.length > 0) {
+      const match = bookings.find(b => b.open_house.id === filterOpenHouseId)
+      if (match) setFilterPropertyId(match.open_house.property.id)
+    }
+  }, [bookings, filterOpenHouseId, filterPropertyId])
+
+  const updateFilters = (propertyId: string, openHouseId: string) => {
+    setFilterPropertyId(propertyId)
+    setFilterOpenHouseId(openHouseId)
+    const params = new URLSearchParams()
+    if (propertyId) params.set('propertyId', propertyId)
+    if (openHouseId) params.set('open_house', openHouseId)
+    const qs = params.toString()
+    router.replace(qs ? `/dashboard/bookings?${qs}` : '/dashboard/bookings')
+  }
 
   // Carica prenotazioni e agenti
   useEffect(() => {
     if (agent) {
       loadBookings()
+      loadProperties()
       if (admin) {
         loadAgents()
       }
     }
   }, [agent])
+
+  const loadProperties = async () => {
+    if (!agent) return
+    try {
+      let query = supabase.from('gre_properties').select('id, titolo, zona')
+      if (!admin) query = query.eq('agent_id', agent.id)
+      const { data, error } = await query
+      if (error) throw error
+      setAllProperties(data || [])
+    } catch (error) {
+      console.error('Error loading properties:', error)
+    }
+  }
 
   const loadAgents = async () => {
     try {
@@ -203,23 +234,6 @@ function AgentBookingsContent() {
       }))
 
       setBookings(transformedData)
-
-      // Risolvi nome proprietà per il filtro attivo
-      if (filterPropertyId) {
-        const matchingBooking = transformedData.find(
-          (b: Booking) => b.open_house.property.id === filterPropertyId
-        )
-        if (matchingBooking) {
-          setFilterPropertyName(matchingBooking.open_house.property.titolo)
-        } else {
-          const { data: propData } = await supabase
-            .from('gre_properties')
-            .select('titolo')
-            .eq('id', filterPropertyId)
-            .single()
-          setFilterPropertyName(propData?.titolo || 'Immobile sconosciuto')
-        }
-      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -359,8 +373,40 @@ function AgentBookingsContent() {
 
     const matchesProperty = !filterPropertyId || booking.open_house.property.id === filterPropertyId
 
-    return matchesFilter && matchesSearch && matchesAgent && matchesProperty
+    const matchesOpenHouse = !filterOpenHouseId || booking.open_house.id === filterOpenHouseId
+
+    return matchesFilter && matchesSearch && matchesAgent && matchesProperty && matchesOpenHouse
   })
+
+  // Elenco immobili per il filtro, con numero prenotazioni
+  const propertyOptions = (() => {
+    const map = new Map<string, { id: string; titolo: string; zona: string; count: number }>()
+    allProperties.forEach(p => map.set(p.id, { ...p, count: 0 }))
+    bookings.forEach(b => {
+      if (admin && filterAgentId !== 'all' && b.agent_id !== filterAgentId) return
+      const p = b.open_house.property
+      const entry = map.get(p.id) || { id: p.id, titolo: p.titolo, zona: p.zona, count: 0 }
+      entry.count++
+      map.set(p.id, entry)
+    })
+    return Array.from(map.values())
+      .filter(p => p.count > 0 || p.id === filterPropertyId)
+      .sort((a, b) => a.titolo.localeCompare(b.titolo, 'it'))
+  })()
+
+  // Date di Open House dell'immobile selezionato
+  const openHouseOptions = (() => {
+    if (!filterPropertyId) return []
+    const map = new Map<string, { id: string; data_evento: string; ora_inizio: string; count: number }>()
+    bookings.forEach(b => {
+      if (b.open_house.property.id !== filterPropertyId) return
+      const oh = b.open_house
+      const entry = map.get(oh.id) || { id: oh.id, data_evento: oh.data_evento, ora_inizio: oh.ora_inizio, count: 0 }
+      entry.count++
+      map.set(oh.id, entry)
+    })
+    return Array.from(map.values()).sort((a, b) => b.data_evento.localeCompare(a.data_evento))
+  })()
 
   const getStatusBadge = (booking: Booking) => {
     const styles = {
@@ -492,29 +538,67 @@ function AgentBookingsContent() {
           </div>
         </div>
 
-        {/* Property Filter Banner */}
-        {filterPropertyId && (
-          <div className="mb-4 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: 'var(--primary-blue)' }}>
-                Filtro attivo:
-              </span>
-              <span className="text-sm" style={{ color: 'var(--text-dark)' }}>
-                {filterPropertyName || 'Caricamento...'}
-              </span>
+        {/* Filtro per immobile */}
+        <div className="mb-4 bg-white rounded-lg shadow-md p-4">
+          <div className="flex flex-col md:flex-row gap-3 md:items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--primary-blue)' }}>
+                Immobile
+              </label>
+              <select
+                value={filterPropertyId}
+                onChange={(e) => updateFilters(e.target.value, '')}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${filterPropertyId ? 'border-blue-400 bg-blue-50 font-medium' : ''}`}
+              >
+                <option value="">Tutti gli immobili ({propertyOptions.reduce((s, p) => s + p.count, 0)} prenotazioni)</option>
+                {propertyOptions.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.titolo} – {p.zona} ({p.count})
+                  </option>
+                ))}
+              </select>
             </div>
-            <button
-              onClick={() => {
-                setFilterPropertyId(null)
-                setFilterPropertyName(null)
-                router.replace('/dashboard/bookings')
-              }}
-              className="text-sm text-red-600 hover:text-red-800 font-medium"
-            >
-              Rimuovi filtro
-            </button>
+
+            {filterPropertyId && openHouseOptions.length > 0 && (
+              <div className="md:w-72">
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--primary-blue)' }}>
+                  Data Open House
+                </label>
+                <select
+                  value={filterOpenHouseId}
+                  onChange={(e) => updateFilters(filterPropertyId, e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${filterOpenHouseId ? 'border-blue-400 bg-blue-50 font-medium' : ''}`}
+                >
+                  <option value="">Tutte le date</option>
+                  {openHouseOptions.map(oh => (
+                    <option key={oh.id} value={oh.id}>
+                      {new Date(oh.data_evento + 'T00:00:00').toLocaleDateString('it-IT')} ({oh.count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {(filterPropertyId || filterOpenHouseId) && (
+              <div className="flex gap-3 items-center">
+                {filterOpenHouseId && (
+                  <button
+                    onClick={() => router.push(`/dashboard/open-houses/${filterOpenHouseId}`)}
+                    className="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
+                  >
+                    📊 Cruscotto
+                  </button>
+                )}
+                <button
+                  onClick={() => updateFilters('', '')}
+                  className="text-sm text-red-600 hover:text-red-800 font-medium whitespace-nowrap"
+                >
+                  Rimuovi filtro
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Loading */}
         {loadingData && (

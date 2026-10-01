@@ -651,7 +651,11 @@ function OpenHousesManagementContent() {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-base md:text-lg" style={{ color: 'var(--text-dark)' }}>
+                        <h3
+                          onClick={() => router.push(`/dashboard/open-houses/${openHouse.id}`)}
+                          className="font-semibold text-base md:text-lg cursor-pointer hover:underline"
+                          style={{ color: 'var(--text-dark)' }}
+                        >
                           {openHouse.gre_properties.titolo}
                         </h3>
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -714,7 +718,13 @@ function OpenHousesManagementContent() {
 
                   {/* Actions */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm pt-3 border-t gap-2">
-                    <div className="flex flex-wrap gap-3 md:gap-4">
+                    <div className="flex flex-wrap items-center gap-3 md:gap-4">
+                      <button
+                        onClick={() => router.push(`/dashboard/open-houses/${openHouse.id}`)}
+                        className="btn-primary px-3 py-1 text-xs nav-text"
+                      >
+                        📊 CRUSCOTTO
+                      </button>
                       <button
                         onClick={() => startEdit(openHouse)}
                         className="text-blue-600 hover:text-blue-900"
