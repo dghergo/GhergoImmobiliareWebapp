@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import Logo from '@/components/Logo'
@@ -147,29 +146,9 @@ export default function OpenHouseDetail() {
     }
   }
 
-  const loadReferenceAgents = async () => {
-    setLoadingAgents(true)
-    try {
-      const { data, error } = await supabase
-        .from('gre_agents')
-        .select('id, nome, cognome')
-        .eq('is_active', true)
-        .order('cognome')
-
-      if (!error && data) {
-        setReferenceAgents(data)
-      }
-    } catch (error) {
-      console.error('Error loading agents:', error)
-    } finally {
-      setLoadingAgents(false)
-    }
-  }
-
   useEffect(() => {
     if (openHouseId) {
       loadOpenHouseData()
-      loadReferenceAgents()
     }
   }, [openHouseId])
 
@@ -188,67 +167,20 @@ export default function OpenHouseDetail() {
 
   const loadOpenHouseData = async () => {
     try {
-      // Carica dati Open House con property e agent
-      const { data: openHouseData, error: ohError } = await supabase
-        .from('gre_open_houses')
-        .select(`
-          *,
-          gre_properties (id, titolo, descrizione, prezzo, tipologia, zona, indirizzo, caratteristiche, immagini, brochure_url),
-          gre_agents (id, nome, cognome, email)
-        `)
-        .eq('id', openHouseId)
-        .eq('is_active', true)
-        .single()
-
-      if (ohError) {
-        console.error('Error loading open house:', ohError)
+      const response = await fetch(`/api/public/open-house/${openHouseId}`, { cache: 'no-store' })
+      if (!response.ok) {
+        console.error('Error loading open house:', response.status)
         return
       }
-
-      const transformedData = {
-        ...openHouseData,
-        property: openHouseData.gre_properties,
-        agent: openHouseData.gre_agents
-      }
-      setOpenHouse(transformedData)
-
-      // Carica time slots con informazioni prenotazioni
-      const { data: slotsData, error: slotsError } = await supabase
-        .from('gre_time_slots')
-        .select(`
-          *,
-          gre_bookings!left (
-            id,
-            status,
-            client_id
-          )
-        `)
-        .eq('open_house_id', openHouseId)
-        .order('ora_inizio')
-
-      if (slotsError) {
-        console.error('Error loading time slots:', slotsError)
-        return
-      }
-
-      // Calcola posti occupati per ogni slot (gli orari ritirati non si mostrano ai nuovi clienti)
-      const slotsWithOccupancy = (slotsData || []).filter(slot => slot.is_available !== false).map(slot => {
-        const bookings = slot.gre_bookings || []
-        const confirmedBookings = bookings.filter((booking: any) => booking.status === 'confirmed')
-        const maxPartecipanti = slot.max_partecipanti || 1 // default: 1 persona per slot
-
-        return {
-          ...slot,
-          posti_occupati: confirmedBookings.length,
-          posti_disponibili: maxPartecipanti
-        }
-      })
-
-      setTimeSlots(slotsWithOccupancy)
+      const data = await response.json()
+      setOpenHouse(data.openHouse)
+      setTimeSlots(data.timeSlots || [])
+      setReferenceAgents(data.referenceAgents || [])
     } catch (error) {
       console.error('Error:', error)
     } finally {
       setLoading(false)
+      setLoadingAgents(false)
     }
   }
 
@@ -275,76 +207,36 @@ export default function OpenHouseDetail() {
     setSubmitting(true)
 
     try {
-      // 1. Salva o trova cliente
-      let clientId
-      const { data: existingClient } = await supabase
-        .from('gre_clients')
-        .select('id')
-        .eq('email', formData.email)
-        .single()
-
-      if (existingClient) {
-        clientId = existingClient.id
-        // Aggiorna dati cliente esistente
-        await supabase
-          .from('gre_clients')
-          .update({
-            nome: formData.nome,
-            cognome: formData.cognome,
-            telefono: formData.telefono,
-            gdpr_consent: formData.privacy_accepted
-          })
-          .eq('id', clientId)
-      } else {
-        // Crea nuovo cliente con struttura corretta della tabella
-        const { data: newClient, error: clientError } = await supabase
-          .from('gre_clients')
-          .insert({
-            nome: formData.nome,
-            cognome: formData.cognome,
-            email: formData.email,
-            telefono: formData.telefono,
-            gdpr_consent: formData.privacy_accepted
-          })
-          .select('id')
-          .single()
-
-        if (clientError) {
-          console.error('Error creating client:', clientError)
-          alert(`Errore durante la creazione dell'account cliente: ${clientError.message}`)
-          return
-        }
-        clientId = newClient.id
-      }
-
-      // 2. Crea prenotazione (questionnaire_completed: false)
-      const { data: newBooking, error: bookingError } = await supabase
-        .from('gre_bookings')
-        .insert({
-          open_house_id: openHouseId,
-          time_slot_id: selectedSlot,
-          client_id: clientId,
-          agent_id: openHouse.agent_id,
+      const response = await fetch('/api/public/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          openHouseId,
+          slotId: selectedSlot,
+          nome: formData.nome,
+          cognome: formData.cognome,
+          email: formData.email,
+          telefono: formData.telefono,
+          messaggio: formData.messaggio,
           agente_referente_id: formData.agente_referente_id || null,
-          status: 'confirmed',
-          questionnaire_completed: false,
-          confirmation_email_sent: false,
-          brochure_email_sent: false
+          privacy_accepted: formData.privacy_accepted,
+          marketing_accepted: formData.marketing_accepted
         })
-        .select('id')
-        .single()
+      })
+      const result = await response.json()
 
-      if (bookingError) {
-        console.error('Error creating booking:', bookingError)
-        alert(`Errore durante la prenotazione: ${bookingError.message}`)
+      if (!response.ok) {
+        alert(result.error || 'Errore durante la prenotazione. Riprova.')
+        // Aggiorna gli orari: potrebbe essere stato preso da un altro
+        await loadOpenHouseData()
         return
       }
 
-      // 3. Ricarica gli slot per aggiornare la disponibilità
+      // Ricarica gli slot per aggiornare la disponibilità
       await loadOpenHouseData()
 
-      // 4. Apri il modal del questionario
-      setCurrentBookingId(newBooking.id)
+      // Apri il modal del questionario
+      setCurrentBookingId(result.bookingId)
       setShowBookingForm(false)
       setShowQuestionnaire(true)
 
@@ -364,47 +256,15 @@ export default function OpenHouseDetail() {
     setSubmittingQuestionnaire(true)
 
     try {
-      // 1. Salva risposte questionario in gre_prequalification_responses
-      const { error: responseError } = await supabase
-        .from('gre_prequalification_responses')
-        .insert({
-          booking_id: currentBookingId,
-          response_data: questionnaireData
-        })
-
-      if (responseError) {
-        console.error('Error saving questionnaire:', responseError)
-        // Non bloccare il flusso se il salvataggio delle risposte fallisce
-      }
-
-      // 2. Aggiorna booking come questionnaire_completed
-      await supabase
-        .from('gre_bookings')
-        .update({ questionnaire_completed: true })
-        .eq('id', currentBookingId)
-
-      // 3. Invia email di conferma unificata (conferma + brochure)
-      try {
-        await fetch('/api/send-booking-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: currentBookingId,
-            type: 'client_confirmation_with_brochure'
-          })
-        })
-
-        // Email di notifica all'agente
-        await fetch('/api/send-booking-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: currentBookingId,
-            type: 'agent_notification'
-          })
-        })
-      } catch (emailError) {
-        console.error('Errore invio email:', emailError)
+      // Salva le risposte e invia le email di conferma (tutto lato server)
+      const response = await fetch(`/api/public/bookings/${currentBookingId}/questionnaire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(questionnaireData)
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        console.error('Questionnaire error:', result.error)
       }
 
       // 4. Chiudi modal e mostra successo

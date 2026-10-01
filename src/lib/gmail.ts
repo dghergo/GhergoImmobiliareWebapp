@@ -1,7 +1,7 @@
 import { google } from 'googleapis'
 import { createOAuth2Client } from './google-auth'
 import { getAgentGoogleTokens } from './agent-tokens'
-import { supabase } from './supabase'
+import { getSupabaseAdmin } from './server-auth'
 
 interface EmailOptions {
   to: string
@@ -72,7 +72,7 @@ export async function sendEmail(options: EmailOptions) {
       const refreshedCredentials = oauth2Client.credentials
       if (refreshedCredentials.access_token && refreshedCredentials.access_token !== tokens.access_token) {
         console.log('🔄 Access token was refreshed, saving to database')
-        await supabase
+        await getSupabaseAdmin()
           .from('gre_agents')
           .update({
             google_tokens: {

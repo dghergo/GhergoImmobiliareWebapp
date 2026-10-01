@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import Logo from '@/components/Logo'
 
 interface BookingData {
@@ -41,19 +40,10 @@ export default function FeedbackPage() {
 
   const loadBooking = async () => {
     try {
-      const { data, error } = await supabase
-        .from('gre_bookings')
-        .select(`
-          id,
-          feedback_completed,
-          gre_open_houses (
-            id,
-            data_evento,
-            gre_properties (id, titolo, zona)
-          )
-        `)
-        .eq('id', bookingId)
-        .single()
+      const response = await fetch(`/api/public/feedback/${bookingId}`, { cache: 'no-store' })
+      const json = response.ok ? await response.json() : null
+      const data = json?.booking
+      const error = !response.ok
 
       if (error || !data) {
         setNotFound(true)

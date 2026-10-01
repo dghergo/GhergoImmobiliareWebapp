@@ -40,12 +40,12 @@ export default function AdminDashboard() {
       // Conta tutti gli agenti
       const { count: totalAgents } = await supabase
         .from('gre_agents')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
 
       // Conta agenti attivi
       const { count: activeAgents } = await supabase
         .from('gre_agents')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('is_active', true)
 
       // Conta tutte le proprietà

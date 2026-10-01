@@ -1,5 +1,8 @@
 import { supabase } from './supabase'
 
+// Colonne leggibili dal browser (i token Google restano solo sul server)
+export const AGENT_COLUMNS = 'id, email, nome, cognome, role, is_active, password_changed, google_oauth_enabled, created_at'
+
 export interface AuthUser {
   id: string
   email: string
@@ -13,14 +16,10 @@ export interface AuthUser {
 
 // Login con email e password
 export async function signIn(email: string, password: string) {
-  console.log('Attempting login with:', email)
-
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password
   })
-
-  console.log('Auth result:', { data, error })
 
   if (error) {
     console.error('Auth error:', error)
@@ -29,26 +28,15 @@ export async function signIn(email: string, password: string) {
 
   // Verifica se l'utente è un agente valido
   if (data.user) {
-    console.log('User logged in:', data.user.email)
-
     const { data: agent, error: agentError } = await supabase
       .from('gre_agents')
-      .select('*')
+      .select(AGENT_COLUMNS)
       .eq('email', data.user.email)
       .eq('is_active', true)
       .single()
 
-    console.log('Agent query result:', { agent, agentError })
-
     if (agentError) {
       console.error('Agent query error:', agentError)
-      // Prova senza policy RLS per debug
-      const { data: agentDebug } = await supabase
-        .from('gre_agents')
-        .select('*')
-        .eq('email', data.user.email)
-
-      console.log('Agent debug (no RLS):', agentDebug)
       await signOut()
       throw new Error(`Errore database: ${agentError.message}`)
     }
@@ -86,7 +74,7 @@ export async function getCurrentUser(): Promise<{ user: any; agent: AuthUser | n
   // Ottieni dati agente
   const { data: agent } = await supabase
     .from('gre_agents')
-    .select('*')
+    .select(AGENT_COLUMNS)
     .eq('email', user.email)
     .eq('is_active', true)
     .single()

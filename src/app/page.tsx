@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Logo from '@/components/Logo'
 
 // Helper function per rimuovere i secondi dagli orari
@@ -42,49 +41,13 @@ export default function Home() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Test connessione
-        const { error: testError } = await supabase.from('gre_properties').select('count').limit(1)
-        setIsConnected(!testError)
-
-        if (!testError) {
-          // Carica Open House con join ottimizzato - includi anche eventi passati
-          const { data, error } = await supabase
-            .from('gre_open_houses')
-            .select(`
-              id,
-              data_evento,
-              ora_inizio,
-              ora_fine,
-              gre_properties!inner (
-                titolo,
-                descrizione,
-                prezzo,
-                tipologia,
-                zona,
-                caratteristiche,
-                immagini
-              ),
-              gre_agents!inner (
-                nome,
-                cognome,
-                email
-              )
-            `)
-            .eq('is_active', true)
-            .eq('gre_properties.is_active', true)
-            .order('data_evento', { ascending: true })
-
-          if (!error && data) {
-            // Trasforma i dati per matchare l'interfaccia
-            const transformedData = data.map((item: any) => ({
-              ...item,
-              property: item.gre_properties,
-              agent: item.gre_agents
-            }))
-            setOpenHouses(transformedData)
-          } else {
-            console.error('Error loading open houses:', error)
-          }
+        const response = await fetch('/api/public/open-houses', { cache: 'no-store' })
+        setIsConnected(response.ok)
+        if (response.ok) {
+          const data = await response.json()
+          setOpenHouses(data.openHouses || [])
+        } else {
+          console.error('Error loading open houses:', response.status)
         }
       } catch (err) {
         setIsConnected(false)

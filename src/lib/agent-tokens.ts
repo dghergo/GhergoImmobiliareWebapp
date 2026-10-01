@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getSupabaseAdmin } from './server-auth'
 
 /**
  * Recupera i token Google OAuth di un agente dal database
@@ -6,7 +6,7 @@ import { supabase } from './supabase'
  * @returns Token OAuth (access_token, refresh_token, etc.)
  */
 export async function getAgentGoogleTokens(agentId: string) {
-  const { data: agent, error } = await supabase
+  const { data: agent, error } = await getSupabaseAdmin()
     .from('gre_agents')
     .select('google_tokens')
     .eq('id', agentId)

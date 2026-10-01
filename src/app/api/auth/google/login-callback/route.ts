@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOAuth2Client } from '@/lib/google-auth'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     }
 
     // Cerca l'agente nel database
-    const { data: agent, error: agentError } = await supabase
+    const { data: agent, error: agentError } = await getSupabaseAdmin()
       .from('gre_agents')
       .select('*')
       .eq('email', userInfo.email)
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       updated_at: new Date().toISOString()
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseAdmin()
       .from('gre_agents')
       .update({ google_tokens: googleTokens })
       .eq('id', agent.id)

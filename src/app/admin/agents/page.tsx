@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { isAdmin } from '@/lib/auth'
+import { isAdmin, AGENT_COLUMNS } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { authFetch } from '@/lib/api'
 import DashboardHeader from '@/components/DashboardHeader'
@@ -57,7 +57,7 @@ export default function AgentsManagement() {
     try {
       const { data, error } = await supabase
         .from('gre_agents')
-        .select('*')
+        .select(AGENT_COLUMNS)
         .order('created_at', { ascending: false })
 
       if (error) throw error
