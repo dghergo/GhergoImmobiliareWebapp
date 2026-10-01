@@ -202,6 +202,7 @@ export default function OpenHouseDetail() {
     }, 100)
   }
 
+  // Passo 1: controlla i dati e apre il questionario. La prenotazione NON viene ancora registrata.
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -211,8 +212,35 @@ export default function OpenHouseDetail() {
       alert('È necessario accettare l\'informativa privacy per procedere.')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(formData.email.trim())) {
+      alert('Inserisci un indirizzo email valido.')
+      return
+    }
+    if (formData.telefono.replace(/\D/g, '').length < 6) {
+      alert('Inserisci un numero di telefono valido.')
+      return
+    }
 
-    setSubmitting(true)
+    setShowBookingForm(false)
+    setShowQuestionnaire(true)
+  }
+
+  // Torna al modulo (per cambiare orario o dati) senza perdere le risposte
+  const backToForm = () => {
+    setShowQuestionnaire(false)
+    setShowBookingForm(true)
+    setTimeout(() => {
+      bookingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }
+
+  // Passo 2: invio del questionario = registrazione della prenotazione (tutto insieme, lato server)
+  const handleQuestionnaireSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!selectedSlot || !openHouse) return
+
+    setSubmittingQuestionnaire(true)
 
     try {
       const response = await fetch('/api/public/bookings', {
@@ -228,54 +256,26 @@ export default function OpenHouseDetail() {
           messaggio: formData.messaggio,
           agente_referente_id: formData.agente_referente_id || null,
           privacy_accepted: formData.privacy_accepted,
-          marketing_accepted: formData.marketing_accepted
+          marketing_accepted: formData.marketing_accepted,
+          questionario: questionnaireData
         })
       })
-      const result = await response.json()
+      const result = await response.json().catch(() => ({}))
 
       if (!response.ok) {
         alert(result.error || 'Errore durante la prenotazione. Riprova.')
-        // Aggiorna gli orari: potrebbe essere stato preso da un altro
+        // Aggiorna gli orari (potrebbe essere stato preso da un altro) e torna alla scelta
         await loadOpenHouseData()
+        if (response.status === 409) {
+          setSelectedSlot(null)
+          backToForm()
+        }
         return
       }
 
-      // Ricarica gli slot per aggiornare la disponibilità
+      setCurrentBookingId(result.bookingId)
       await loadOpenHouseData()
 
-      // Apri il modal del questionario
-      setCurrentBookingId(result.bookingId)
-      setShowBookingForm(false)
-      setShowQuestionnaire(true)
-
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Errore durante la prenotazione. Riprova.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleQuestionnaireSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!currentBookingId) return
-
-    setSubmittingQuestionnaire(true)
-
-    try {
-      // Salva le risposte e invia le email di conferma (tutto lato server)
-      const response = await fetch(`/api/public/bookings/${currentBookingId}/questionnaire`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(questionnaireData)
-      })
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}))
-        console.error('Questionnaire error:', result.error)
-      }
-
-      // 4. Chiudi modal e mostra successo
       setShowQuestionnaire(false)
       setShowSuccess(true)
 
@@ -300,8 +300,8 @@ export default function OpenHouseDetail() {
       })
 
     } catch (error) {
-      console.error('Error submitting questionnaire:', error)
-      alert('Errore nell\'invio del questionario. La prenotazione è comunque confermata.')
+      console.error('Error submitting booking:', error)
+      alert('Errore durante la prenotazione. Controlla la connessione e riprova.')
     } finally {
       setSubmittingQuestionnaire(false)
     }
@@ -769,7 +769,7 @@ export default function OpenHouseDetail() {
                     </button>
 
                     <p className="text-xs text-center" style={{ color: 'var(--text-gray)' }}>
-                      Ultimo passaggio: alcune domande veloci, obbligatorie per confermare la prenotazione
+                      Al passo successivo ti chiederemo alcune domande veloci: senza questionario la prenotazione non viene registrata
                       e riceverai via email la conferma con la brochure dell&apos;immobile.
                     </p>
                   </form>
@@ -812,10 +812,13 @@ export default function OpenHouseDetail() {
             <div className="sticky top-0 z-10 rounded-t-2xl px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-white">Ultimo passaggio per confermare</h2>
+                  <h2 className="text-xl font-bold text-white">Per prenotare compila il questionario</h2>
                   <p className="text-sm text-blue-100 mt-1">
-                    Il suo orario è riservato. Per confermare la prenotazione risponda a queste domande: sono obbligatorie e ci servono per preparare al meglio la visita.
+                    La prenotazione viene registrata solo dopo aver risposto a tutte le domande: ci servono per preparare al meglio la visita.
                   </p>
+                  <button type="button" onClick={backToForm} className="text-xs text-white/80 hover:text-white underline mt-2">
+                    ← Torna indietro per cambiare orario o dati
+                  </button>
                 </div>
                 <div className="flex-shrink-0 ml-4 bg-white/20 rounded-full px-3 py-1">
                   <span className="text-sm font-semibold text-white">{shownAnswered}/{totalQuestions}</span>

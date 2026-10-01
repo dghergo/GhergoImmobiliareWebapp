@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
+import { sendBookingEmail } from '@/lib/booking-emails'
+import { validateQuestionnaire } from '@/lib/questionnaire'
+
+export const maxDuration = 60
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -43,6 +47,11 @@ export async function POST(request: Request) {
   if (telefono.replace(/\D/g, '').length < 6) {
     return NextResponse.json({ error: 'Inserisci un numero di telefono valido.' }, { status: 400 })
   }
+  // Senza questionario non si prenota
+  const answers = validateQuestionnaire(body.questionario)
+  if (!answers) {
+    return NextResponse.json({ error: 'Per prenotare è necessario rispondere a tutte le domande del questionario.' }, { status: 400 })
+  }
   if (body.privacy_accepted !== true) {
     return NextResponse.json({ error: 'È necessario accettare l\'informativa privacy per procedere.' }, { status: 400 })
   }
@@ -81,7 +90,20 @@ export async function POST(request: Request) {
 
   const bookingId = result.booking_id as string
 
-  // La conferma (email al cliente e avviso all'agente) parte quando il cliente completa
-  // il questionario, che è obbligatorio per confermare la prenotazione.
+  // Risposte del questionario, salvate insieme alla prenotazione
+  const { error: qError } = await supabase
+    .from('gre_prequalification_responses')
+    .insert({ booking_id: bookingId, response_data: answers })
+  if (qError) console.error('Error saving questionnaire:', qError)
+  await supabase.from('gre_bookings').update({ questionnaire_completed: true }).eq('id', bookingId)
+
+  // Conferma al cliente (con brochure e invito calendario) e avviso all'agente
+  const [clientEmail, agentEmail] = await Promise.all([
+    sendBookingEmail(bookingId, 'client_confirmation_with_brochure'),
+    sendBookingEmail(bookingId, 'agent_notification'),
+  ])
+  if (!clientEmail.success) console.error('Client confirmation failed:', clientEmail.error)
+  if (!agentEmail.success) console.error('Agent notification failed:', agentEmail.error)
+
   return NextResponse.json({ bookingId })
 }

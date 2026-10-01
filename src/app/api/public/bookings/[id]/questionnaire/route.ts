@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
 import { sendBookingEmail } from '@/lib/booking-emails'
+import { validateQuestionnaire } from '@/lib/questionnaire'
 
 export const maxDuration = 60
-
-const ALLOWED: Record<string, string[]> = {
-  vendita_immobile: ['no', 'si_in_vendita', 'si_non_in_vendita', 'si_posso_acquistare_prima'],
-  necessita_mutuo: ['no', 'si_parziale', 'si_maggior_parte'],
-  stato_mutuo: ['pre_delibera', 'simulazione', 'appuntamento', 'non_informato', 'ricontatto_consulente', 'non_richiedo'],
-  tempistiche_acquisto: ['entro_30_giorni', 'entro_3_mesi', 'entro_6_mesi', 'oltre_6_mesi', 'solo_valutando'],
-  corrispondenza_immobile: ['100_percento', '80_90_percento', 'parzialmente', 'no_altro'],
-}
 
 // Il questionario si può inviare una sola volta e solo nelle ore successive alla prenotazione.
 const MAX_AGE_MS = 6 * 60 * 60 * 1000
@@ -25,13 +18,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Richiesta non valida' }, { status: 400 })
   }
 
-  const answers: Record<string, string> = {}
-  for (const [key, values] of Object.entries(ALLOWED)) {
-    const v = body[key]
-    if (typeof v !== 'string' || !values.includes(v)) {
-      return NextResponse.json({ error: 'Rispondi a tutte le domande.' }, { status: 400 })
-    }
-    answers[key] = v
+  const answers = validateQuestionnaire(body)
+  if (!answers) {
+    return NextResponse.json({ error: 'Rispondi a tutte le domande.' }, { status: 400 })
   }
 
   const supabase = getSupabaseAdmin()
