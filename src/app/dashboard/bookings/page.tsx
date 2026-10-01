@@ -44,7 +44,7 @@ interface Booking {
     data_slot: string
     ora_inizio: string
     ora_fine: string
-  }
+  } | null
   open_house: {
     id: string
     property_id: string
@@ -198,7 +198,7 @@ function AgentBookingsContent() {
           feedback_email_sent,
           agente_referente_id,
           gre_clients!inner (id, nome, cognome, email, telefono),
-          gre_time_slots!inner (id, ora_inizio, ora_fine),
+          gre_time_slots (id, ora_inizio, ora_fine),
           gre_open_houses!inner (
             id, property_id, data_evento, ora_inizio, ora_fine,
             gre_properties!inner (id, titolo, zona)
@@ -675,7 +675,7 @@ function AgentBookingsContent() {
                         <div>
                           <span className="font-medium" style={{ color: 'var(--primary-blue)' }}>Slot prenotato:</span>
                           <p style={{ color: 'var(--text-dark)' }}>
-                            {booking.time_slot.ora_inizio} - {booking.time_slot.ora_fine}
+                            {booking.time_slot ? `${booking.time_slot.ora_inizio.slice(0, 5)} - ${booking.time_slot.ora_fine.slice(0, 5)}` : 'Orario non più presente'}
                           </p>
                           <p className="text-gray-600">
                             {booking.open_house.property.zona}

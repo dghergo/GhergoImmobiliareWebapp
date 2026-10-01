@@ -231,8 +231,8 @@ export default function OpenHouseDetail() {
         return
       }
 
-      // Calcola posti occupati per ogni slot
-      const slotsWithOccupancy = (slotsData || []).map(slot => {
+      // Calcola posti occupati per ogni slot (gli orari ritirati non si mostrano ai nuovi clienti)
+      const slotsWithOccupancy = (slotsData || []).filter(slot => slot.is_available !== false).map(slot => {
         const bookings = slot.gre_bookings || []
         const confirmedBookings = bookings.filter((booking: any) => booking.status === 'confirmed')
         const maxPartecipanti = slot.max_partecipanti || 1 // default: 1 persona per slot
