@@ -60,13 +60,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   await supabase.from('gre_bookings').update({ questionnaire_completed: true }).eq('id', bookingId)
 
-  // Le email partono già alla prenotazione; qui solo un recupero se la conferma non fosse partita
-  // (solo se sono passati più di 3 minuti, per non duplicare l'invio ancora in corso)
-  const ageMs = Date.now() - new Date(booking.created_at).getTime()
-  if (!booking.confirmation_email_sent && ageMs > 3 * 60 * 1000) {
-    const res = await sendBookingEmail(bookingId, 'client_confirmation_with_brochure')
-    if (!res.success) console.error('Client email retry failed:', res.error)
-  }
+  // Questionario completato = prenotazione confermata: email al cliente e avviso all'agente
+  const [clientEmail, agentEmail] = await Promise.all([
+    booking.confirmation_email_sent
+      ? Promise.resolve({ success: true } as { success: boolean; error?: string })
+      : sendBookingEmail(bookingId, 'client_confirmation_with_brochure'),
+    sendBookingEmail(bookingId, 'agent_notification'),
+  ])
+  if (!clientEmail.success) console.error('Client email failed:', clientEmail.error)
+  if (!agentEmail.success) console.error('Agent email failed:', agentEmail.error)
 
   return NextResponse.json({ success: true })
 }

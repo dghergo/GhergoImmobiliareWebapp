@@ -765,11 +765,11 @@ export default function OpenHouseDetail() {
                       disabled={submitting}
                       className="w-full btn-primary py-3 font-semibold disabled:opacity-50"
                     >
-                      {submitting ? 'Prenotazione in corso...' : 'CONFERMA PRENOTAZIONE'}
+                      {submitting ? 'Prenotazione in corso...' : 'CONTINUA'}
                     </button>
 
                     <p className="text-xs text-center" style={{ color: 'var(--text-gray)' }}>
-                      Dopo la conferma ti chiederemo di compilare un breve questionario
+                      Ultimo passaggio: alcune domande veloci, obbligatorie per confermare la prenotazione
                       e riceverai via email la conferma con la brochure dell&apos;immobile.
                     </p>
                   </form>
@@ -812,9 +812,9 @@ export default function OpenHouseDetail() {
             <div className="sticky top-0 z-10 rounded-t-2xl px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-white">✓ Prenotazione confermata</h2>
+                  <h2 className="text-xl font-bold text-white">Ultimo passaggio per confermare</h2>
                   <p className="text-sm text-blue-100 mt-1">
-                    Le abbiamo inviato un&apos;email di conferma. Ancora poche domande per preparare al meglio la sua visita.
+                    Il suo orario è riservato. Per confermare la prenotazione risponda a queste domande: sono obbligatorie e ci servono per preparare al meglio la visita.
                   </p>
                 </div>
                 <div className="flex-shrink-0 ml-4 bg-white/20 rounded-full px-3 py-1">
@@ -1069,7 +1069,7 @@ export default function OpenHouseDetail() {
                   ) : answeredCount < 5 ? (
                     `COMPLETA TUTTE LE DOMANDE (${answeredCount}/5)`
                   ) : (
-                    'INVIA RISPOSTE'
+                    'CONFERMA PRENOTAZIONE'
                   )}
                 </button>
                 <p className="text-xs text-center mt-3" style={{ color: 'var(--text-gray)' }}>
