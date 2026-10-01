@@ -780,7 +780,10 @@ export default function OpenHouseDetail() {
           questionnaireData.tempistiche_acquisto,
           questionnaireData.corrispondenza_immobile
         ].filter(v => v !== '').length
-        const progressPercent = (answeredCount / 5) * 100
+        // Chi compra senza mutuo non vede la domanda sulla banca
+        const totalQuestions = questionnaireData.necessita_mutuo === 'no' ? 4 : 5
+        const shownAnswered = questionnaireData.necessita_mutuo === 'no' ? answeredCount - (questionnaireData.stato_mutuo ? 1 : 0) : answeredCount
+        const progressPercent = (shownAnswered / totalQuestions) * 100
 
         return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
@@ -800,13 +803,13 @@ export default function OpenHouseDetail() {
             <div className="sticky top-0 z-10 rounded-t-2xl px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-white">Questionario di Prequalifica</h2>
+                  <h2 className="text-xl font-bold text-white">✓ Prenotazione confermata</h2>
                   <p className="text-sm text-blue-100 mt-1">
-                    Ci aiuti a prepararci al meglio per la sua visita
+                    Le abbiamo inviato un&apos;email di conferma. Ancora poche domande per preparare al meglio la sua visita.
                   </p>
                 </div>
                 <div className="flex-shrink-0 ml-4 bg-white/20 rounded-full px-3 py-1">
-                  <span className="text-sm font-semibold text-white">{answeredCount}/5</span>
+                  <span className="text-sm font-semibold text-white">{shownAnswered}/{totalQuestions}</span>
                 </div>
               </div>
               {/* Progress bar */}
@@ -893,7 +896,15 @@ export default function OpenHouseDetail() {
                         name="necessita_mutuo"
                         value={option.value}
                         checked={questionnaireData.necessita_mutuo === option.value}
-                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, necessita_mutuo: e.target.value })}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setQuestionnaireData({
+                            ...questionnaireData,
+                            necessita_mutuo: v,
+                            // senza mutuo la domanda sulla banca non serve
+                            stato_mutuo: v === 'no' ? 'non_richiedo' : (questionnaireData.stato_mutuo === 'non_richiedo' ? '' : questionnaireData.stato_mutuo)
+                          })
+                        }}
                         required
                         className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                       />
@@ -903,6 +914,7 @@ export default function OpenHouseDetail() {
                 </div>
               </div>
 
+              {questionnaireData.necessita_mutuo !== 'no' && (<>
               {/* Domanda 3 - Stato mutuo */}
               <div className="rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
@@ -921,8 +933,7 @@ export default function OpenHouseDetail() {
                     { value: 'simulazione', label: 'S\u00ec, ho fatto una simulazione ma non ho ancora una pre-delibera' },
                     { value: 'appuntamento', label: 'Ho un appuntamento fissato' },
                     { value: 'non_informato', label: 'No, non mi sono ancora informato' },
-                    { value: 'ricontatto_consulente', label: 'Vorrei essere ricontattato da un consulente mutui' },
-                    { value: 'non_richiedo', label: 'Non richiedo mutuo' }
+                    { value: 'ricontatto_consulente', label: 'Vorrei essere ricontattato da un consulente mutui' }
                   ].map((option) => (
                     <label
                       key={option.value}
@@ -946,6 +957,7 @@ export default function OpenHouseDetail() {
                   ))}
                 </div>
               </div>
+              </>)}
 
               {/* Domanda 4 - Tempistiche */}
               <div className="rounded-xl border border-gray-200 overflow-hidden">
@@ -1048,7 +1060,7 @@ export default function OpenHouseDetail() {
                   ) : answeredCount < 5 ? (
                     `COMPLETA TUTTE LE DOMANDE (${answeredCount}/5)`
                   ) : (
-                    'INVIA MODULO'
+                    'INVIA RISPOSTE'
                   )}
                 </button>
                 <p className="text-xs text-center mt-3" style={{ color: 'var(--text-gray)' }}>
@@ -1083,7 +1095,7 @@ export default function OpenHouseDetail() {
             </div>
             <div className="px-8 py-6 text-center">
               <p className="mb-1" style={{ color: 'var(--text-dark)' }}>
-                Riceverai a breve un&apos;email di conferma
+                Ti abbiamo inviato un&apos;email di conferma
               </p>
               <p className="mb-6 text-sm" style={{ color: 'var(--text-gray)' }}>
                 con tutti i dettagli della prenotazione e la brochure dell&apos;immobile.

@@ -1,5 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
+import { sendBookingEmail } from '@/lib/booking-emails'
+
+export const maxDuration = 60
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -79,5 +82,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e.message }, { status: e.status })
   }
 
-  return NextResponse.json({ bookingId: result.booking_id })
+  const bookingId = result.booking_id as string
+
+  // Conferma immediata: email al cliente (con brochure e invito calendario) e avviso all'agente,
+  // inviati subito dopo la risposta, così il cliente non aspetta e non dipende dal questionario.
+  after(async () => {
+    const [clientEmail, agentEmail] = await Promise.all([
+      sendBookingEmail(bookingId, 'client_confirmation_with_brochure'),
+      sendBookingEmail(bookingId, 'agent_notification'),
+    ])
+    if (!clientEmail.success) console.error('Client confirmation failed:', clientEmail.error)
+    if (!agentEmail.success) console.error('Agent notification failed:', agentEmail.error)
+  })
+
+  return NextResponse.json({ bookingId })
 }
