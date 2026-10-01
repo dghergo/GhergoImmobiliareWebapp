@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface NavItem {
   label: string
@@ -12,8 +13,22 @@ interface DashboardNavProps {
   items: NavItem[]
 }
 
-export default function DashboardNav({ items }: DashboardNavProps) {
+const UPCOMING_HREF = '/dashboard/prossimi-open-house'
+
+export default function DashboardNav({ items: baseItems }: DashboardNavProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
+
+  // Voce "Prossimi Open House" visibile a tutti gli agenti, subito dopo "Open House"
+  const items: NavItem[] = (() => {
+    const list = baseItems.map(i => ({ ...i }))
+    if (!list.some(i => i.href === UPCOMING_HREF)) {
+      const idx = list.findIndex(i => i.href === '/dashboard/open-houses')
+      const entry = { label: 'PROSSIMI OPEN HOUSE', href: UPCOMING_HREF, active: pathname === UPCOMING_HREF }
+      list.splice(idx >= 0 ? idx + 1 : list.length, 0, entry)
+    }
+    return list
+  })()
 
   return (
     <nav className="bg-white shadow-md">
