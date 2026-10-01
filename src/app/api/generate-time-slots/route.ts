@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
 
-// Client admin con service role key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const supabaseAdmin = getSupabaseAdmin()
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaff(request)
+    if (auth.error) return auth.error
+
     const { openHouseId } = await request.json()
 
     if (!openHouseId) {
@@ -24,6 +23,11 @@ export async function POST(request: NextRequest) {
 
     if (openHouseError || !openHouse) {
       return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
+    }
+
+    // Un agente può gestire solo i propri Open House
+    if (auth.agent.role !== 'admin' && openHouse.agent_id !== auth.agent.id) {
+      return NextResponse.json({ error: 'Open House di un altro agente' }, { status: 403 })
     }
 
     // Genera i nuovi slot teorici

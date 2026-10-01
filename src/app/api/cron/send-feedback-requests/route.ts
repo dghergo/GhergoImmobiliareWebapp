@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail, createEmailTemplate } from '@/lib/gmail'
+import { hasCronSecret, requireStaff } from '@/lib/server-auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,13 +10,10 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: Request) {
   try {
-    // Auth via header per cron job o trigger manuale
-    const authHeader = request.headers.get('Authorization')
-    const cronSecret = process.env.CRON_SECRET
-
-    // In development, accetta anche senza auth
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+    // Accesso: controllo automatico di Vercel (CRON_SECRET) oppure amministratore loggato
+    if (!hasCronSecret(request)) {
+      const auth = await requireStaff(request, { adminOnly: true })
+      if (auth.error) return auth.error
     }
 
     // Trova open house terminati da almeno 4 ore

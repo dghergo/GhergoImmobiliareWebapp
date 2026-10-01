@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail, createEmailTemplate } from '@/lib/gmail'
+import { hasCronSecret, requireStaff } from '@/lib/server-auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,12 +10,10 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: Request) {
   try {
-    // Auth via CRON_SECRET
-    const authHeader = request.headers.get('Authorization')
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+    // Accesso: controllo automatico di Vercel (CRON_SECRET) oppure amministratore loggato
+    if (!hasCronSecret(request)) {
+      const auth = await requireStaff(request, { adminOnly: true })
+      if (auth.error) return auth.error
     }
 
     // Trova tutte le booking con questionario completato ma email non inviata

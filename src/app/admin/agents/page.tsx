@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/api'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 
@@ -86,11 +87,8 @@ export default function AgentsManagement() {
         if (error) throw error
       } else {
         // Create new agent via API route
-        const response = await fetch('/api/admin/create-agent', {
+        const response = await authFetch('/api/admin/create-agent', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify({
             email: formData.email,
             nome: formData.nome,

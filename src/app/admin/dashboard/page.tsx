@@ -1,5 +1,6 @@
 'use client'
 
+import { authFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -194,9 +195,7 @@ export default function AdminDashboard() {
               onClick={async () => {
                 setSendingFeedback(true)
                 try {
-                  const response = await fetch('/api/cron/send-feedback-requests', {
-                    headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}` }
-                  })
+                  const response = await authFetch('/api/cron/send-feedback-requests')
                   const result = await response.json()
                   if (response.ok) {
                     alert(`Email feedback inviate: ${result.emailsSent}\nErrori: ${result.errors}`)

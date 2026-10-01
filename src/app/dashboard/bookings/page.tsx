@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/api'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 
@@ -322,9 +323,8 @@ function AgentBookingsContent() {
   const resendFeedbackEmail = async (bookingId: string) => {
     setResendingFeedbackId(bookingId)
     try {
-      const response = await fetch('/api/send-booking-email', {
+      const response = await authFetch('/api/send-booking-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId,
           type: 'feedback_request'

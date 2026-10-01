@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/api'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import AgentSelector from '@/components/AgentSelector'
@@ -208,11 +209,8 @@ function OpenHousesManagementContent() {
       // Genera / aggiorna gli slot (senza mai cancellare prenotazioni)
       let slotMessage = ''
       try {
-        const response = await fetch('/api/generate-time-slots', {
+        const response = await authFetch('/api/generate-time-slots', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify({ openHouseId })
         })
 

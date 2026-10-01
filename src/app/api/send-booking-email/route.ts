@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendEmail, createEmailTemplate } from '@/lib/gmail'
 import { createOpenHouseEvent } from '@/lib/calendar'
+import { requireStaff } from '@/lib/server-auth'
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,21 @@ export async function POST(request: Request) {
 
     if (error || !bookingData) {
       return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
+    }
+
+    // Controllo accesso:
+    // - le email automatiche della prenotazione (conferma al cliente, avviso all'agente) può chiederle
+    //   la pagina pubblica, ma solo entro 1 ora dalla prenotazione e la conferma una sola volta;
+    // - tutte le altre (es. richiesta feedback) solo un agente loggato.
+    const PUBLIC_TYPES = ['client_confirmation', 'client_confirmation_with_brochure', 'agent_notification']
+    const isRecent = Date.now() - new Date(bookingData.created_at).getTime() < 60 * 60 * 1000
+    const confirmationAlreadySent =
+      type !== 'agent_notification' && bookingData.confirmation_email_sent === true
+    const publicAllowed = PUBLIC_TYPES.includes(type) && isRecent && !confirmationAlreadySent
+
+    if (!publicAllowed) {
+      const auth = await requireStaff(request)
+      if (auth.error) return auth.error
     }
 
     const client = bookingData.gre_clients

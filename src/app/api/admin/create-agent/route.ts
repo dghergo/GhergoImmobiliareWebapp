@@ -1,21 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { randomBytes } from 'crypto'
+import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
 
-// Client admin con service role key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Password temporanea casuale (es. "Ghergo-k7Qp2xMz9a")
+function generateTemporaryPassword(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  const bytes = randomBytes(10)
+  let out = ''
+  for (const b of bytes) out += alphabet[b % alphabet.length]
+  return `Ghergo-${out}`
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // Solo l'amministratore può creare nuovi agenti
+    const auth = await requireStaff(request, { adminOnly: true })
+    if (auth.error) return auth.error
+
+    const supabaseAdmin = getSupabaseAdmin()
     const { email, nome, cognome, role } = await request.json()
+
+    if (!['admin', 'agent', 'collaborator'].includes(role)) {
+      return NextResponse.json({ error: 'Ruolo non valido' }, { status: 400 })
+    }
 
     if (!email || !nome || !cognome || !role) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
     }
 
-    const defaultPassword = `${cognome.toLowerCase()}123`
+    const defaultPassword = generateTemporaryPassword()
 
     // 1. Crea utente auth
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
