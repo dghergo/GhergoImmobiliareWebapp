@@ -708,6 +708,14 @@ function OpenHousesManagementContent() {
                       >
                         📊 CRUSCOTTO
                       </button>
+                      {eventStatus === 'upcoming' && (
+                        <button
+                          onClick={() => router.push(`/dashboard/open-houses/${openHouse.id}/check-in`)}
+                          className="btn-secondary px-3 py-1 text-xs nav-text"
+                        >
+                          📱 CHECK-IN
+                        </button>
+                      )}
                       <button
                         onClick={() => startEdit(openHouse)}
                         className="text-blue-600 hover:text-blue-900"

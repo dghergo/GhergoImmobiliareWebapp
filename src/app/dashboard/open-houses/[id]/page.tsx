@@ -361,12 +361,20 @@ export default function OpenHouseCruscotto() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => router.push(`/dashboard/bookings?open_house=${openHouse.id}`)}
-                  className="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
-                >
-                  Gestisci prenotazioni →
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => router.push(`/dashboard/open-houses/${openHouse.id}/check-in`)}
+                    className="btn-primary px-4 py-2 text-sm whitespace-nowrap"
+                  >
+                    📱 Check-in alla porta
+                  </button>
+                  <button
+                    onClick={() => router.push(`/dashboard/bookings?open_house=${openHouse.id}`)}
+                    className="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
+                  >
+                    Gestisci prenotazioni →
+                  </button>
+                </div>
               </div>
             </div>
 
