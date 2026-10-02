@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/api'
 
 interface Row {
   id: string
@@ -44,6 +45,23 @@ export default function CheckInPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   const [error, setError] = useState('')
+  const [shareLink, setShareLink] = useState<string | null>(null)
+  const [shareBusy, setShareBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // Link per un collega alla porta: niente login, solo questo Open House, scade a fine giornata
+  const createShareLink = async () => {
+    setShareBusy(true)
+    try {
+      const res = await authFetch('/api/checkin-link', { method: 'POST', body: JSON.stringify({ openHouseId }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setShareLink(`${window.location.origin}${data.path}`)
+    } catch {
+      alert('Non sono riuscito a creare il link. Riprova.')
+    }
+    setShareBusy(false)
+  }
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -174,7 +192,14 @@ export default function CheckInPage() {
             >
               ← Cruscotto
             </button>
-            <span className="text-xs opacity-80">Check-in · si aggiorna da solo</span>
+            <button
+              onClick={createShareLink}
+              disabled={shareBusy}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full disabled:opacity-60"
+              style={{ background: 'rgba(255,255,255,0.18)' }}
+            >
+              {shareBusy ? 'Creo il link…' : '🔗 Link per un collega'}
+            </button>
           </div>
           {oh && (
             <>
@@ -203,6 +228,45 @@ export default function CheckInPage() {
 
       <main className="max-w-xl mx-auto px-3 py-4 pb-16">
         {error && <div className="bg-white rounded-lg p-4 text-center text-red-600 mb-4">{error}</div>}
+
+        {shareLink && oh && (
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border-2" style={{ borderColor: 'var(--accent-blue)' }}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>Link per il check-in</div>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                  Chi lo riceve può segnare arrivati e non venuti solo per questo Open House, senza login.
+                  Vede nome, orario e telefono, non il questionario. Scade a fine giornata.
+                </p>
+              </div>
+              <button onClick={() => setShareLink(null)} className="text-gray-400 text-xl leading-none" aria-label="Chiudi">×</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Check-in Open House ${oh.gre_properties.titolo}: apri questo link e segna chi arriva ${shareLink}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3 rounded-lg font-semibold text-center bg-green-600 text-white"
+              >
+                Invia su WhatsApp
+              </a>
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(shareLink)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  } catch {
+                    window.prompt('Copia il link:', shareLink)
+                  }
+                }}
+                className="py-3 rounded-lg font-semibold bg-gray-100 text-gray-800"
+              >
+                {copied ? '✓ Copiato' : 'Copia link'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {!error && active.length === 0 && (
           <div className="bg-white rounded-lg p-8 text-center" style={{ color: 'var(--text-gray)' }}>
