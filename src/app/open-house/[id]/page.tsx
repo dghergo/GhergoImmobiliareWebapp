@@ -24,6 +24,7 @@ interface Property {
   caratteristiche: any
   immagini: string[]
   brochure_url?: string
+  has_brochure?: boolean
 }
 
 interface OpenHouse {
@@ -175,6 +176,7 @@ export default function OpenHouseDetail() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [shareTooltip, setShareTooltip] = useState('')
   const [showGallery, setShowGallery] = useState(false)
+  const [brochureUrl, setBrochureUrl] = useState<string | null>(null)
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
     vendita_immobile: '',
     necessita_mutuo: '',
@@ -322,6 +324,7 @@ export default function OpenHouseDetail() {
       }
 
       setCurrentBookingId(result.bookingId)
+      setBrochureUrl(result.brochureUrl || null)
       await loadOpenHouseData()
 
       setShowQuestionnaire(false)
@@ -511,10 +514,11 @@ export default function OpenHouseDetail() {
               <p className="pub-body">{openHouse.agent.nome} {openHouse.agent.cognome}</p>
               <a href={`mailto:${openHouse.agent.email}`} className="pub-link mt-2 inline-block">{openHouse.agent.email}</a>
             </div>
-            {property.brochure_url && (
+            {property.has_brochure && (
               <div>
                 <h2 className="pub-h3 mb-2">Brochure</h2>
-                <a href={property.brochure_url} target="_blank" rel="noopener noreferrer" className="pub-link inline-block">Scarica la brochure (PDF)</a>
+                <p className="pub-body">Puoi scaricarla dopo la prenotazione e la riceverai anche per email.</p>
+                {!isPast && <button onClick={scrollToBooking} className="pub-link mt-2 inline-block">Prenota la visita</button>}
               </div>
             )}
           </div>
@@ -713,7 +717,7 @@ export default function OpenHouseDetail() {
               <button type="submit" disabled={submittingQuestionnaire || !allAnswered} className="pub-btn w-full mt-10">
                 {submittingQuestionnaire ? 'Prenotazione in corso…' : allAnswered ? 'Conferma la prenotazione' : `Rispondi a tutte le domande (${answered} di ${visibleQuestions.length})`}
               </button>
-              <p className="pub-muted text-sm text-center mt-3">Riceverai subito un&apos;email di conferma con la brochure dell&apos;immobile.</p>
+              <p className="pub-muted text-sm text-center mt-3">{property.has_brochure ? 'Dopo la conferma potrai scaricare la brochure e la riceverai anche per email.' : 'Riceverai subito un\u2019email di conferma.'}</p>
             </form>
           </div>
         </div>
@@ -727,8 +731,13 @@ export default function OpenHouseDetail() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
             <h2 id="ok-title" className="pub-h2 mt-6">Prenotazione confermata</h2>
-            <p className="pub-body mt-3">Ti abbiamo inviato un&apos;email con i dettagli della visita, l&apos;invito per il calendario e la brochure dell&apos;immobile.</p>
-            <button onClick={() => setShowSuccess(false)} className="pub-btn w-full mt-8">Chiudi</button>
+            <p className="pub-body mt-3">
+              Ti abbiamo inviato un&apos;email con i dettagli della visita e l&apos;invito per il calendario{brochureUrl ? ', insieme alla brochure dell\u2019immobile' : ''}.
+            </p>
+            {brochureUrl && (
+              <a href={brochureUrl} target="_blank" rel="noopener noreferrer" className="pub-btn w-full mt-8">Scarica la brochure (PDF)</a>
+            )}
+            <button onClick={() => setShowSuccess(false)} className={brochureUrl ? 'pub-link w-full mt-5' : 'pub-btn w-full mt-8'}>Chiudi</button>
           </div>
         </div>
       )}

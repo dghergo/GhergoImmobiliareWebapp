@@ -105,5 +105,13 @@ export async function POST(request: Request) {
   if (!clientEmail.success) console.error('Client confirmation failed:', clientEmail.error)
   if (!agentEmail.success) console.error('Agent notification failed:', agentEmail.error)
 
-  return NextResponse.json({ bookingId })
+  // Link alla brochure, disponibile solo a prenotazione avvenuta
+  const { data: oh } = await supabase
+    .from('gre_open_houses')
+    .select('gre_properties (brochure_url)')
+    .eq('id', openHouseId)
+    .maybeSingle()
+  const brochureUrl = (oh?.gre_properties as { brochure_url?: string | null } | null)?.brochure_url || null
+
+  return NextResponse.json({ bookingId, brochureUrl })
 }

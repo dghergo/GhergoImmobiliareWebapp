@@ -58,8 +58,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }))
 
   const { gre_properties, gre_agents, ...rest } = oh
+  // La brochure si scarica solo dopo la prenotazione: qui si dice soltanto se esiste
+  const { brochure_url, ...propertyPublic } = (gre_properties || {}) as Record<string, unknown>
   return NextResponse.json({
-    openHouse: { ...rest, property: gre_properties, agent: gre_agents },
+    openHouse: { ...rest, property: { ...propertyPublic, has_brochure: !!brochure_url }, agent: gre_agents },
     timeSlots,
     totalBookings: (bookings || []).length,
     referenceAgents: agents || []
