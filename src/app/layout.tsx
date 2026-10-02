@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 export const metadata: Metadata = {
   title: "Ghergo Immobiliare - Open House",
   description: "Piattaforma per gestione Open House immobiliari",
+  appleWebApp: { title: "Ghergo OH", capable: true, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
