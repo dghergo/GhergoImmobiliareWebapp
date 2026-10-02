@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/bricolage-grotesque/opsz.css";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
