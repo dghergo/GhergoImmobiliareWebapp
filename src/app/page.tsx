@@ -108,7 +108,7 @@ export default function Home() {
         <div className="pub-hero-media" aria-hidden="true">
           {heroImages.length > 0 ? (
             heroImages.map((src, i) => (
-              <Photo key={src} src={src} width={1920} quality={70} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(heroImages.length, 1) * 7}s` }} />
+              <Photo key={src} src={src} width={2500} quality={88} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(heroImages.length, 1) * 7}s` }} />
             ))
           ) : (
             <div className="pub-hero-fallback" />
@@ -211,7 +211,7 @@ export default function Home() {
                     <Link href={`/open-house/${oh.id}`} className="pub-card group">
                       <div className="pub-card-img">
                         {oh.property.immagini?.[0] ? (
-                          <Photo src={oh.property.immagini[0]} width={900} alt={oh.property.titolo} loading="lazy" />
+                          <Photo src={oh.property.immagini[0]} width={1400} quality={85} alt={oh.property.titolo} loading="lazy" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center pub-muted">Foto in arrivo</div>
                         )}

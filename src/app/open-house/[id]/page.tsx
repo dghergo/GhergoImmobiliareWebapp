@@ -432,7 +432,7 @@ export default function OpenHouseDetail() {
         <div className="pub-hero-media" aria-hidden="true">
           {images.length > 0 ? (
             images.slice(0, 5).map((src, i, arr) => (
-              <Photo key={src} src={src} width={1920} quality={70} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(arr.length, 1) * 7}s` }} />
+              <Photo key={src} src={src} width={2500} quality={88} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(arr.length, 1) * 7}s` }} />
             ))
           ) : (
             <div className="pub-hero-fallback" />
@@ -496,7 +496,7 @@ export default function OpenHouseDetail() {
             <div className="pub-thumbs mt-12">
               {images.slice(0, 8).map((img, i) => (
                 <button key={img} onClick={() => { setCurrentImageIndex(i); setShowGallery(true) }} aria-label={`Apri la foto ${i + 1}`}>
-                  <Photo src={img} width={400} alt="" loading="lazy" />
+                  <Photo src={img} width={800} quality={82} alt="" loading="lazy" />
                 </button>
               ))}
             </div>
@@ -664,7 +664,7 @@ export default function OpenHouseDetail() {
       {showGallery && images.length > 0 && (
         <div className="pub-lightbox" role="dialog" aria-modal="true" aria-label="Foto dell'immobile">
           <button className="pub-lightbox-close" onClick={() => setShowGallery(false)}>Chiudi</button>
-          <Photo key={images[currentImageIndex]} src={images[currentImageIndex]} width={1800} quality={78} alt={`${property.titolo}, foto ${currentImageIndex + 1}`} />
+          <Photo key={images[currentImageIndex]} src={images[currentImageIndex]} width={2500} quality={88} alt={`${property.titolo}, foto ${currentImageIndex + 1}`} />
           {images.length > 1 && (
             <>
               <button className="pub-lightbox-nav left-2 md:left-6" aria-label="Foto precedente" onClick={() => setCurrentImageIndex(i => (i === 0 ? images.length - 1 : i - 1))}>‹</button>

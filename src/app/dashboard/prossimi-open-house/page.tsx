@@ -165,7 +165,7 @@ export default function ProssimiOpenHouse() {
               <div key={oh.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
                 {oh.property.immagini?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <Photo src={oh.property.immagini[0]} width={700} alt="" className="w-full h-40 object-cover" loading="lazy" />
+                  <Photo src={oh.property.immagini[0]} width={1000} alt="" className="w-full h-40 object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-40" style={{ background: 'var(--light-gray)' }} />
                 )}

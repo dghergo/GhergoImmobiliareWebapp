@@ -1,14 +1,17 @@
 // Foto alleggerite: Supabase ridimensiona e comprime l'immagine al volo (e la tiene in cache),
 // così il telefono scarica poche centinaia di KB invece dell'originale da 10 MB.
-export function sized(url: string | null | undefined, width: number, quality = 72): string {
+// resize=contain: la foto mantiene sempre le sue proporzioni, non viene mai tagliata né deformata.
+// Larghezze doppie rispetto allo spazio a schermo, così restano nitide anche sugli schermi Retina.
+export function sized(url: string | null | undefined, width: number, quality = 85): string {
   if (!url) return ''
   if (!url.includes('/storage/v1/object/public/')) return url
   const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=${quality}`
+  const w = Math.min(Math.round(width), 2500) // limite massimo di Supabase
+  return `${base}${base.includes('?') ? '&' : '?'}width=${w}&quality=${quality}&resize=contain`
 }
 
-/** Riduce una foto prima del caricamento (lato più lungo max 2400 px, JPEG di buona qualità). */
-export async function compressForUpload(file: File, maxSide = 2400, quality = 0.84): Promise<File> {
+/** Alleggerisce una foto prima del caricamento: alta qualità, lato lungo fino a 4000 px (oltre il 4K). */
+export async function compressForUpload(file: File, maxSide = 4000, quality = 0.9): Promise<File> {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file
   try {
     const bitmap = await createImageBitmap(file)

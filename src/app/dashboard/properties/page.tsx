@@ -754,7 +754,7 @@ export default function PropertiesManagement() {
                       {editingProperty.immagini.map((imageUrl, index) => (
                         <div key={index} className="relative">
                           <img
-                            src={sized(imageUrl, 300)}
+                            src={sized(imageUrl, 600)}
                             alt={`Immagine ${index + 1}`}
                             className="w-full h-24 object-cover rounded-lg"
                           />
@@ -951,7 +951,7 @@ export default function PropertiesManagement() {
                     {property.immagini && property.immagini.length > 0 ? (
                       <div className="relative w-full h-full">
                         <img
-                          src={sized(property.immagini[0], 700)}
+                          src={sized(property.immagini[0], 1000)}
                           loading="lazy"
                           alt={property.titolo}
                           className="w-full h-full object-cover"
