@@ -5,3 +5,6 @@ alter table public.gre_feedback_responses
   add column if not exists offerta_gestita_at timestamptz;
 alter table public.gre_bookings
   add column if not exists feedback_whatsapp_at timestamptz;
+
+-- Promemoria appuntamento + brochure aggiornata (applicata il 2/10/2026)
+alter table public.gre_bookings add column if not exists promemoria_inviato_at timestamptz;

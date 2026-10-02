@@ -108,3 +108,42 @@ export async function sendAsAgent(to: string, mail: { subject: string; html: str
     return await sendEmail({ to, subject: mail.subject, html: mail.html })
   }
 }
+
+const quandoGiorno = (dataEvento: string) => {
+  const oggi = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date())
+  const domani = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' }).format(new Date(Date.now() + 86400000))
+  if (dataEvento === oggi) return 'oggi'
+  if (dataEvento === domani) return 'domani'
+  return new Date(dataEvento + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+export { quandoGiorno }
+
+/** Promemoria dell'appuntamento con la brochure aggiornata, a nome dell'agente. */
+export function reminderEmail(p: {
+  client: Person; agent: Person & { email?: string }; property: Property & { brochure_url?: string | null }
+  dataEvento: string; ora: string | null
+}) {
+  const giorno = quandoGiorno(p.dataEvento)
+  const ora = p.ora ? p.ora.slice(0, 5) : ''
+  const luogo = [p.property.indirizzo, p.property.zona].filter(Boolean).join(', ')
+  const maps = luogo ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}` : ''
+  return {
+    subject: `Promemoria: ti aspettiamo ${giorno}${ora ? ` alle ${ora}` : ''} – ${p.property.titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>ti ricordo l'appuntamento per l'Open House di <strong>${esc(p.property.titolo)}</strong>.</p>
+      <div style="background:#fff; border-radius:12px; padding:18px; margin:18px 0; border-left:4px solid ${SKY};">
+        <div style="font-size:20px; font-weight:800; color:${BLU};">${esc(giorno.charAt(0).toUpperCase() + giorno.slice(1))}${ora ? ` alle ${esc(ora)}` : ''}</div>
+        ${luogo ? `<div style="margin-top:6px;">📍 ${esc(luogo)}${maps ? ` · <a href="${maps}" style="color:${SKY};">Apri la mappa</a>` : ''}</div>` : ''}
+      </div>
+      ${p.property.brochure_url ? `
+      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:20px; margin:18px 0; text-align:center;">
+        <div style="font-size:18px; font-weight:800;">📄 La brochure completa dell'immobile</div>
+        <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Planimetrie, foto e tutti i dettagli: dacci un'occhiata prima della visita.</div>
+        <a href="${esc(p.property.brochure_url)}" style="background:${SKY}; color:#fff; padding:13px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">Scarica la brochure</a>
+      </div>` : ''}
+      <p>Se hai un imprevisto o vuoi cambiare orario, rispondi a questa email o scrivimi.</p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+    `),
+  }
+}

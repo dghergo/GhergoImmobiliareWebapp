@@ -129,7 +129,8 @@ export default function PropertiesManagement() {
         .from('gre_property_documents')
         .getPublicUrl(fileName)
 
-      return publicUrlData.publicUrl
+      // ?v= fa scaricare subito la versione nuova anche a chi aveva quella vecchia in memoria
+      return `${publicUrlData.publicUrl}?v=${Date.now()}`
     } catch (error) {
       console.error('Error in uploadBrochure:', error)
       alert('Upload brochure fallito. Per ora salvo solo i dati dell\'immobile.')

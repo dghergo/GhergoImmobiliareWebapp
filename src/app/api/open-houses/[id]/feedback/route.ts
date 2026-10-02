@@ -7,7 +7,7 @@ import { getSupabaseAdmin, requireStaff, type StaffAgent } from '@/lib/server-au
 async function loadOpenHouse(id: string, agent: StaffAgent) {
   const { data: oh } = await getSupabaseAdmin()
     .from('gre_open_houses')
-    .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona, indirizzo, prezzo, immagini), gre_agents (nome, cognome, email)')
+    .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona, indirizzo, prezzo, immagini, brochure_url), gre_agents (nome, cognome, email)')
     .eq('id', id)
     .maybeSingle()
   if (!oh || (agent.role !== 'admin' && oh.agent_id !== agent.id)) return null
@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: bookings } = await getSupabaseAdmin()
     .from('gre_bookings')
     .select(`
-      id, status, cancellation_reason, feedback_email_sent, feedback_completed, feedback_whatsapp_at,
+      id, status, cancellation_reason, promemoria_inviato_at, feedback_email_sent, feedback_completed, feedback_whatsapp_at,
       gre_clients (nome, cognome, telefono, email),
       gre_time_slots (ora_inizio),
       gre_prequalification_responses (response_data),
@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const rows = (bookings || []).filter((b: any) => !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent')).map((b: any) => ({
     id: b.id,
     status: b.status,
+    promemoria_inviato_at: b.promemoria_inviato_at,
     feedback_email_sent: b.feedback_email_sent,
     feedback_completed: b.feedback_completed,
     feedback_whatsapp_at: b.feedback_whatsapp_at,

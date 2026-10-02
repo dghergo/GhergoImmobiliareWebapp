@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
+import ReminderPanel from '@/components/dashboard/ReminderPanel'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -404,6 +405,13 @@ export default function OpenHouseCruscotto() {
               <SmallStat cat="non_presentati" label="Non presentati" value={stats.non_presentati} />
               <SmallStat cat="cancellate" label="Cancellate" value={stats.cancellate} />
             </div>
+
+            <ReminderPanel
+              openHouseId={openHouse.id}
+              agentName={openHouse.gre_agents ? `${openHouse.gre_agents.nome} ${openHouse.gre_agents.cognome}` : `${agent.nome} ${agent.cognome}`}
+              eventDate={openHouse.data_evento}
+              eventEnd={openHouse.ora_fine}
+            />
 
             <FeedbackPanel
               openHouseId={openHouse.id}
