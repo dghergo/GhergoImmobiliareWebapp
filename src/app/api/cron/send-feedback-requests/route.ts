@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     const { data: bookings } = await supabase
       .from('gre_bookings')
-      .select('id, gre_clients (nome, cognome, email)')
+      .select('id, agente_referente_id, gre_clients (nome, cognome, email), referente:gre_agents!gre_bookings_agente_referente_id_fkey (id, nome, cognome, email)')
       .eq('open_house_id', oh.id)
       .eq('feedback_email_sent', false)
       .eq('feedback_completed', false)
@@ -67,9 +67,12 @@ export async function GET(request: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = b.gre_clients as any
       if (!client?.email) continue
+      // la richiesta parte da chi segue il cliente (il collega che l'ha portato, altrimenti chi organizza)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const follower = (b as any).referente?.id ? (b as any).referente : agent
       try {
-        const mail = feedbackRequestEmail({ client, agent, property, bookingId: b.id })
-        await sendAsAgent(client.email, mail, agent?.id)
+        const mail = feedbackRequestEmail({ client, agent: follower, property, bookingId: b.id })
+        await sendAsAgent(client.email, mail, follower?.id)
         await supabase.from('gre_bookings').update({ feedback_email_sent: true }).eq('id', b.id)
         emailsSent++
       } catch (e) {

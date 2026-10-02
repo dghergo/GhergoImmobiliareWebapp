@@ -175,21 +175,26 @@ export function bookingAlertEmail(p: {
     ? `<div style="background:#EAF8FE; border-left:4px solid ${SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
          <div style="font-size:18px; font-weight:800;">🔗 Un tuo cliente ha prenotato</div>
          <div style="margin-top:4px;">${esc(p.client.nome)} ${esc(p.client.cognome)} ha prenotato l'Open House di <strong>${esc(titolo)}</strong> indicando te come agente di riferimento (dal tuo link o scegliendoti nel modulo).
-         ${p.stessoAgente ? '' : `<br>L'Open House è organizzato da <strong>${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}</strong>: coordinatevi per seguirlo insieme.`}</div>
+         ${p.stessoAgente ? '' : `<br>L'Open House è organizzato da <strong>${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}</strong>, ma il cliente lo segui tu dalla visita all'offerta: i suoi dati e i feedback li vedi solo tu.`}</div>
        </div>`
     : viaCollega
     ? `<div style="background:#FEF3C7; border-left:4px solid #F59E0B; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
-         <div style="font-size:18px; font-weight:800;">🤝 Cliente portato da ${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}</div>
-         <div style="margin-top:4px;">Il cliente ha indicato ${esc(p.referente!.nome)} come agente di riferimento. Anche lui/lei ha ricevuto questo avviso: coordinatevi.</div>
+         <div style="font-size:18px; font-weight:800;">🤝 Cliente di ${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}</div>
+         <div style="margin-top:4px;">Un orario del tuo Open House è stato prenotato da un cliente di ${esc(p.referente!.nome)}. Il cliente lo segue ${esc(p.referente!.nome)}, dalla visita all'offerta: contatti, questionario e feedback li vede solo lui/lei.</div>
        </div>`
     : ''
   return {
     subject: p.ruolo === 'referente' && !p.stessoAgente
       ? `🔗 Un tuo cliente ha prenotato – ${p.client.nome} ${p.client.cognome} per ${titolo}`
-      : `Nuova prenotazione${p.stessoAgente && p.referente ? ' dal tuo link' : viaCollega ? ` (via ${p.referente!.nome})` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
+      : `Nuova prenotazione${p.stessoAgente && p.referente ? ' dal tuo link' : viaCollega ? ` – cliente di ${p.referente!.nome}` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
     html: shell(`
       <p>Ciao <strong>${esc(p.destinatario.nome)}</strong>,</p>
       ${banner || `<p>hai una nuova prenotazione per l'Open House di <strong>${esc(titolo)}</strong>${p.stessoAgente && p.referente ? ' <strong>dal tuo link</strong> 🔗' : ''}.</p>`}
+      ${viaCollega ? `<table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
+        ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
+        ${row('Quando', `<span style="text-transform:capitalize;">${esc(data)}</span>${ora ? `, ${esc(ora)}` : ''}`)}
+        ${row('Lo segue', `${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}`)}
+      </table>` : `
       <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
         ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
         ${row('Telefono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}
@@ -203,7 +208,7 @@ export function bookingAlertEmail(p: {
       <div style="margin:18px 0;">
         ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
         <a href="${SITE()}/dashboard/bookings" style="background:${BLU}; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700;">Apri le prenotazioni</a>
-      </div>
+      </div>`}
     `),
   }
 }

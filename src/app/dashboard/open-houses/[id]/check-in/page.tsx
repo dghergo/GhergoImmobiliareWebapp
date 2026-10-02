@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
 import { authFetch } from '@/lib/api'
 
 interface Row {
+  mine: boolean
+  portato_da: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
@@ -63,7 +64,6 @@ export default function CheckInPage() {
     setShareBusy(false)
   }
 
-  const admin = agent ? isAdmin(agent) : false
 
   useEffect(() => {
     if (!loading && (!agent || (!isAgent(agent) && !isAdmin(agent)))) router.push('/dashboard/login')
@@ -71,51 +71,24 @@ export default function CheckInPage() {
 
   const load = useCallback(async () => {
     if (!agent || !openHouseId) return
-    let ohQuery = supabase
-      .from('gre_open_houses')
-      .select('id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona)')
-      .eq('id', openHouseId)
-    if (!admin) ohQuery = ohQuery.eq('agent_id', agent.id)
-    const { data: ohData } = await ohQuery.maybeSingle()
-    if (!ohData) {
+    // Dal server: i clienti dei colleghi arrivano con nome e orario, senza contatti né questionario
+    const res = await authFetch(`/api/open-houses/${openHouseId}/clients`, { cache: 'no-store' })
+    if (!res.ok) {
       setError('Open House non trovato o non accessibile.')
       setLoadingData(false)
       return
     }
-    setOh(ohData as unknown as OH)
-
-    const { data, error: bErr } = await supabase
-      .from('gre_bookings')
-      .select(`
-        id, status, cancellation_reason, note_cliente,
-        gre_clients!inner (nome, cognome, telefono),
-        gre_time_slots (ora_inizio, ora_fine),
-        gre_prequalification_responses (response_data)
-      `)
-      .eq('open_house_id', openHouseId)
-    if (bErr) {
-      console.error(bErr)
-      setError('Errore nel caricamento delle prenotazioni.')
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped: Row[] = (data || []).map((b: any) => ({
-        id: b.id,
-        status: b.status,
-        cancellation_reason: b.cancellation_reason,
-        note_cliente: b.note_cliente,
-        client: b.gre_clients,
-        slot: b.gre_time_slots,
-        q: b.gre_prequalification_responses?.[0]?.response_data || null,
-      }))
-      mapped.sort((a, b) =>
-        (a.slot?.ora_inizio || '99').localeCompare(b.slot?.ora_inizio || '99') ||
-        a.client.cognome.localeCompare(b.client.cognome)
-      )
-      setRows(mapped)
-      setError('')
-    }
+    const data = await res.json()
+    setOh(data.openHouse as OH)
+    const mapped: Row[] = data.rows
+    mapped.sort((a, b) =>
+      (a.slot?.ora_inizio || '99').localeCompare(b.slot?.ora_inizio || '99') ||
+      a.client.cognome.localeCompare(b.client.cognome)
+    )
+    setRows(mapped)
+    setError('')
     setLoadingData(false)
-  }, [agent, openHouseId, admin])
+  }, [agent, openHouseId])
 
   useEffect(() => {
     load()
@@ -132,8 +105,8 @@ export default function CheckInPage() {
     setSavingId(row.id)
     const prev = rows
     setRows(rs => rs.map(r => (r.id === row.id ? { ...r, status } : r)))
-    const { error: upErr } = await supabase.from('gre_bookings').update({ status }).eq('id', row.id)
-    if (upErr) {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/clients`, { method: 'POST', body: JSON.stringify({ bookingId: row.id, status }) })
+    if (!res.ok) {
       setRows(prev)
       alert('Non sono riuscito a salvare. Controlla la connessione e riprova.')
     }
@@ -304,6 +277,9 @@ export default function CheckInPage() {
                           {r.client.nome} {r.client.cognome}
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
+                          {r.portato_da && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>
+                          )}
                           {r.q?.necessita_mutuo === 'no' && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-800">Senza mutuo</span>
                           )}
@@ -315,10 +291,10 @@ export default function CheckInPage() {
                           <div className="text-xs mt-1 italic" style={{ color: 'var(--text-gray)' }}>“{r.note_cliente}”</div>
                         )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      {r.mine && <div className="flex gap-1 shrink-0">
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
-                      </div>
+                      </div>}
                     </div>
 
                     {r.status === 'confirmed' ? (

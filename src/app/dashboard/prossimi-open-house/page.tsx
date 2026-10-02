@@ -9,6 +9,7 @@ import DashboardNav from '@/components/DashboardNav'
 import { niceText } from '@/lib/text'
 import Photo from '@/components/public/Photo'
 import StoryMaker from '@/components/dashboard/StoryMaker'
+import { supabase } from '@/lib/supabase'
 
 interface UpcomingOpenHouse {
   id: string
@@ -37,6 +38,7 @@ export default function ProssimiOpenHouse() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [storyFor, setStoryFor] = useState<UpcomingOpenHouse | null>(null)
+  const [mieiClienti, setMieiClienti] = useState<Record<string, number>>({})
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -58,6 +60,12 @@ export default function ProssimiOpenHouse() {
           .filter(oh => new Date(`${oh.data_evento}T${oh.ora_fine}`) >= now)
           .sort((a, b) => `${a.data_evento}${a.ora_inizio}`.localeCompare(`${b.data_evento}${b.ora_inizio}`))
         setOpenHouses(upcoming)
+        // quanti miei clienti sono prenotati agli Open House dei colleghi
+        const { data: mine } = await supabase
+          .from('gre_bookings').select('open_house_id').eq('agente_referente_id', agent.id).neq('status', 'no_show')
+        const counts: Record<string, number> = {}
+        for (const b of mine || []) counts[b.open_house_id] = (counts[b.open_house_id] || 0) + 1
+        setMieiClienti(counts)
       } catch (e) {
         console.error('Errore caricamento prossimi open house:', e)
       } finally {
@@ -187,6 +195,15 @@ export default function ProssimiOpenHouse() {
                     Agente: {oh.agent.nome} {oh.agent.cognome}
                   </p>
 
+                  {mieiClienti[oh.id] > 0 && oh.agent.email?.toLowerCase() !== agent.email?.toLowerCase() && (
+                    <a
+                      href={`/dashboard/open-houses/${oh.id}`}
+                      className="mt-3 block rounded-lg px-3 py-2 text-sm bg-amber-50 border border-amber-200 hover:bg-amber-100"
+                      style={{ color: 'var(--text-dark)' }}
+                    >
+                      🤝 <b>{mieiClienti[oh.id]}</b> {mieiClienti[oh.id] === 1 ? 'tuo cliente prenotato' : 'tuoi clienti prenotati'} → apri il cruscotto
+                    </a>
+                  )}
                   <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
                     <button onClick={() => copyLink(oh)} className="btn-primary px-3 py-2 text-sm flex-1 min-w-[120px]">
                       {copiedId === oh.id ? '✓ Link copiato' : 'Copia link'}
