@@ -8,6 +8,7 @@ import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import { niceText } from '@/lib/text'
 import Photo from '@/components/public/Photo'
+import StoryMaker from '@/components/dashboard/StoryMaker'
 
 interface UpcomingOpenHouse {
   id: string
@@ -20,6 +21,7 @@ interface UpcomingOpenHouse {
     prezzo: number | null
     tipologia: string
     immagini: string[] | null
+    caratteristiche?: { mq?: number; locali?: number; bagni?: number; cantiere?: boolean } | null
   }
   agent: { nome: string; cognome: string; email: string }
 }
@@ -34,6 +36,7 @@ export default function ProssimiOpenHouse() {
   const [loadingData, setLoadingData] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [storyFor, setStoryFor] = useState<UpcomingOpenHouse | null>(null)
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -196,6 +199,13 @@ export default function ProssimiOpenHouse() {
                     >
                       Invia su WhatsApp
                     </a>
+                    <button
+                      onClick={() => setStoryFor(oh)}
+                      className="px-3 py-2 text-sm rounded text-white text-center flex-1 min-w-[120px]"
+                      style={{ background: 'linear-gradient(45deg,#f58529,#dd2a7b,#8134af)' }}
+                    >
+                      📸 Storia Instagram
+                    </button>
                     <a
                       href={`/oh/${oh.id}`}
                       target="_blank"
@@ -211,6 +221,7 @@ export default function ProssimiOpenHouse() {
           </div>
         )}
       </main>
+      {storyFor && <StoryMaker oh={storyFor} link={linkFor(storyFor.id)} onClose={() => setStoryFor(null)} />}
     </div>
   )
 }
