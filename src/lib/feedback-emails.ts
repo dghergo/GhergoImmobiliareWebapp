@@ -39,7 +39,12 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
     html: shell(`
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
       <p>grazie per essere venuto a vedere <strong>${esc(p.property.titolo)}</strong>${luogo ? ` (${esc(luogo)})` : ''}.</p>
-      <p>Mi aiuti con <strong>30 secondi</strong>? Bastano pochi tocchi: le tue impressioni servono a me e ai proprietari.</p>
+      <div style="background:#FEF3C7; border:2px solid #F59E0B; border-radius:14px; padding:20px; margin:22px 0; text-align:center;">
+        <div style="font-size:20px; font-weight:800; color:${BLU};">🔑 La casa ti è piaciuta?</div>
+        <div style="font-size:15px; margin:8px 0 16px; color:#374151;">Prenota subito il tuo appuntamento in ufficio per fare un'offerta, prima che lo faccia qualcun altro.</div>
+        <a href="${link}?passo=offerta" style="background:${BLU}; color:#fff; padding:15px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800; font-size:16px;">Voglio fare un'offerta</a>
+      </div>
+      <p>Altrimenti, mi aiuti con <strong>30 secondi</strong>? Bastano pochi tocchi: le tue impressioni servono a me e ai proprietari.</p>
       <div style="text-align:center; background:#fff; border-radius:12px; padding:18px; margin:22px 0;">
         <div style="font-size:14px; color:#6b7280; margin-bottom:8px;">Che voto dai all'immobile?</div>
         <div>${stelle}</div>
@@ -47,7 +52,6 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
       <div style="text-align:center; margin: 8px 0 22px;">
         <a href="${link}" style="background:${SKY}; color:#fff; padding:14px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:700;">Rispondi in 30 secondi</a>
       </div>
-      <p style="font-size:14px; color:#6b7280;">Se l'immobile ti interessa, dal modulo puoi anche chiedere di fare un'offerta: ti ricontatto subito.</p>
       <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
     `),
   }

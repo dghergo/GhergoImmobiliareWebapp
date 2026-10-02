@@ -59,7 +59,9 @@ function Step({ n, title, hint, children }: { n: number; title: string; hint?: s
 
 function FeedbackForm() {
   const { bookingId } = useParams<{ bookingId: string }>()
-  const votoParam = Number(useSearchParams().get('voto'))
+  const search = useSearchParams()
+  const votoParam = Number(search.get('voto'))
+  const passoParam = search.get('passo') === 'offerta' ? 'offerta' : ''
 
   const [info, setInfo] = useState<BookingInfo | null>(null)
   const [state, setState] = useState<'loading' | 'notfound' | 'done' | 'form' | 'sent'>('loading')
@@ -67,7 +69,7 @@ function FeedbackForm() {
   const [prezzo, setPrezzo] = useState('')
   const [piaciuto, setPiaciuto] = useState<string[]>([])
   const [nonConvinto, setNonConvinto] = useState<string[]>([])
-  const [passo, setPasso] = useState('')
+  const [passo, setPasso] = useState(passoParam)
   const [quando, setQuando] = useState('')
   const [commenti, setCommenti] = useState('')
   const [error, setError] = useState('')
@@ -185,6 +187,14 @@ function FeedbackForm() {
           {info?.cliente ? `Ciao ${niceText(info.cliente)}, ` : ''}bastano pochi tocchi: le tue impressioni servono a {info?.agente || 'noi'} e ai proprietari.
         </p>
 
+        {passoParam === 'offerta' && (
+          <div className="mt-6 p-5 rounded-2xl" style={{ background: '#FEF3C7', border: '2px solid #F59E0B' }}>
+            <p className="text-lg font-bold" style={{ color: 'var(--ink)' }}>🔑 Ottimo! Quando puoi passare in ufficio per l&apos;offerta?</p>
+            <p className="pub-muted text-sm mb-3">{info?.agente || 'Il tuo agente'} ti contatta subito per confermare. Poi completa le domande qui sotto.</p>
+            <Chips options={OFFERTA_QUANDO} value={[quando]} onToggle={setQuando} />
+          </div>
+        )}
+
         <div className="mt-4">
           <Step n={1} title="Che voto dai all'immobile?">
             <div className="flex gap-1" role="radiogroup" aria-label="Voto">
@@ -231,7 +241,7 @@ function FeedbackForm() {
                 </button>
               ))}
             </div>
-            {passo === 'offerta' && (
+            {passo === 'offerta' && passoParam !== 'offerta' && (
               <div className="mt-5 p-4 rounded-2xl" style={{ background: '#EAF8FE' }}>
                 <p className="font-bold" style={{ color: 'var(--ink)' }}>Quando puoi passare in ufficio per formalizzare l&apos;offerta?</p>
                 <p className="pub-muted text-sm mb-3">{info?.agente || 'Il tuo agente'} ti contatta subito per confermare.</p>
