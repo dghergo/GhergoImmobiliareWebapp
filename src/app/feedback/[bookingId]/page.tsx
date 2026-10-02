@@ -1,251 +1,277 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import Logo from '@/components/Logo'
+import { Suspense, useEffect, useState } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import Photo from '@/components/public/Photo'
+import { niceText } from '@/lib/text'
+import { ASPETTI, OFFERTA_QUANDO, PREZZO, PROSSIMO_PASSO } from '@/lib/feedback'
 
-interface BookingData {
+interface BookingInfo {
   id: string
   feedback_completed: boolean
-  gre_open_houses: {
-    id: string
-    data_evento: string
-    gre_properties: {
-      id: string
-      titolo: string
-      zona: string
-    }
-  }
+  cliente: string
+  immobile: { titolo: string; zona: string; foto: string | null }
+  agente: string
 }
 
-export default function FeedbackPage() {
-  const params = useParams()
-  const bookingId = params.bookingId as string
+function Chips({ options, value, onToggle, multi }: {
+  options: { value: string; label: string }[]
+  value: string[]
+  onToggle: (v: string) => void
+  multi?: boolean
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role={multi ? 'group' : 'radiogroup'}>
+      {options.map(o => {
+        const on = value.includes(o.value)
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role={multi ? 'checkbox' : 'radio'}
+            aria-checked={on}
+            onClick={() => onToggle(o.value)}
+            className={`pub-chip ${on ? 'is-active' : ''}`}
+            style={{ padding: '10px 16px', fontSize: '1rem' }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
-  const [booking, setBooking] = useState<BookingData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-  const [alreadySubmitted, setAlreadySubmitted] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="py-6" style={{ borderTop: '1px solid var(--line)' }}>
+      <div className="flex items-baseline gap-3 mb-1">
+        <span className="text-sm font-bold" style={{ color: 'var(--sky)' }}>{n}</span>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--ink)' }}>{title}</h2>
+      </div>
+      {hint && <p className="pub-muted text-sm mb-3 ml-6">{hint}</p>}
+      <div className="ml-6 mt-3">{children}</div>
+    </section>
+  )
+}
 
+function FeedbackForm() {
+  const { bookingId } = useParams<{ bookingId: string }>()
+  const votoParam = Number(useSearchParams().get('voto'))
+
+  const [info, setInfo] = useState<BookingInfo | null>(null)
+  const [state, setState] = useState<'loading' | 'notfound' | 'done' | 'form' | 'sent'>('loading')
+  const [voto, setVoto] = useState(votoParam >= 1 && votoParam <= 5 ? votoParam : 0)
+  const [prezzo, setPrezzo] = useState('')
+  const [piaciuto, setPiaciuto] = useState<string[]>([])
+  const [nonConvinto, setNonConvinto] = useState<string[]>([])
+  const [passo, setPasso] = useState('')
+  const [quando, setQuando] = useState('')
   const [commenti, setCommenti] = useState('')
-  const [vuoleFareOfferta, setVuoleFareOfferta] = useState(false)
+  const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
-    if (bookingId) {
-      loadBooking()
-    }
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/public/feedback/${bookingId}`, { cache: 'no-store' })
+        if (!res.ok) return setState('notfound')
+        const { booking } = await res.json()
+        setInfo(booking)
+        setState(booking.feedback_completed ? 'done' : 'form')
+      } catch {
+        setState('notfound')
+      }
+    })()
   }, [bookingId])
 
-  const loadBooking = async () => {
-    try {
-      const response = await fetch(`/api/public/feedback/${bookingId}`, { cache: 'no-store' })
-      const json = response.ok ? await response.json() : null
-      const data = json?.booking
-      const error = !response.ok
+  const toggle = (list: string[], set: (v: string[]) => void) => (v: string) =>
+    set(list.includes(v) ? list.filter(x => x !== v) : [...list, v])
 
-      if (error || !data) {
-        setNotFound(true)
-        return
-      }
+  const missing = !voto ? 'il voto' : !prezzo ? 'il prezzo' : !passo ? 'il prossimo passo' : passo === 'offerta' && !quando ? 'quando puoi passare in ufficio' : ''
 
-      // Normalize Supabase joined data
-      const normalized = {
-        ...data,
-        gre_open_houses: data.gre_open_houses as any
-      } as BookingData
-
-      if (normalized.feedback_completed) {
-        setAlreadySubmitted(true)
-        setBooking(normalized)
-        return
-      }
-
-      setBooking(normalized)
-    } catch (error) {
-      console.error('Error loading booking:', error)
-      setNotFound(true)
-    } finally {
-      setLoading(false)
+  const submit = async () => {
+    if (missing) {
+      setError(`Manca ${missing}.`)
+      return
     }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!booking) return
-
-    setSubmitting(true)
-
+    setSending(true)
+    setError('')
     try {
-      const response = await fetch('/api/feedback', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookingId: booking.id,
+          bookingId,
+          risposte: { voto, prezzo, piaciuto, non_convinto: nonConvinto, prossimo_passo: passo },
+          offerta_quando: passo === 'offerta' ? quando : null,
           commenti,
-          vuole_fare_offerta: vuoleFareOfferta
-        })
+        }),
       })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        alert(result.error || 'Errore nell\'invio del feedback')
-        return
-      }
-
-      setSubmitted(true)
-    } catch (error) {
-      console.error('Error submitting feedback:', error)
-      alert('Errore nell\'invio del feedback. Riprova.')
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 409) return setState('done')
+      if (!res.ok) throw new Error(data.error || 'Invio non riuscito')
+      setState('sent')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Invio non riuscito. Riprova.')
     } finally {
-      setSubmitting(false)
+      setSending(false)
     }
   }
 
-  if (loading) {
+  const header = (
+    <header className="pub-wrap flex items-center justify-between py-5">
+      <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={160} height={40} className="h-8 w-auto" priority />
+    </header>
+  )
+
+  if (state === 'loading') {
+    return <div className="pub min-h-screen flex items-center justify-center"><div className="pub-spinner" aria-label="Caricamento" /></div>
+  }
+
+  if (state === 'notfound') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--accent-blue)' }}></div>
+      <div className="pub min-h-screen">
+        {header}
+        <main className="pub-wrap py-20 max-w-xl">
+          <h1 className="pub-display text-3xl">Link non valido</h1>
+          <p className="pub-body pub-muted mt-3">Il link potrebbe essere incompleto. Scrivi al tuo agente e te lo rimanda.</p>
+        </main>
       </div>
     )
   }
 
-  if (notFound) {
+  if (state === 'done' || state === 'sent') {
+    const offerta = state === 'sent' && passo === 'offerta'
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-6xl mb-4">&#128533;</div>
-          <h1 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-dark)' }}>
-            Prenotazione non trovata
-          </h1>
-          <p style={{ color: 'var(--text-gray)' }}>
-            Il link potrebbe essere errato o la prenotazione non esiste.
+      <div className="pub min-h-screen">
+        {header}
+        <main className="pub-wrap py-16 max-w-xl text-center">
+          <div className="pub-check-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l5 5L20 7" /></svg>
+          </div>
+          <h1 className="pub-display text-3xl mt-6">{state === 'done' ? 'Feedback già inviato' : 'Grazie!'}</h1>
+          <p className="pub-body pub-muted mt-3">
+            {offerta
+              ? `${info?.agente || 'Il tuo agente'} ha ricevuto la tua richiesta e ti contatta a breve per fissare l'appuntamento in ufficio.`
+              : state === 'done'
+              ? 'Abbiamo già ricevuto le tue impressioni su questa visita.'
+              : 'Le tue impressioni ci aiutano davvero. Se cambi idea o hai domande, scrivi pure al tuo agente.'}
           </p>
-        </div>
+          <Link href="/" className="pub-btn mt-8">Guarda gli altri Open House</Link>
+        </main>
       </div>
     )
   }
-
-  if (alreadySubmitted) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
-        <div className="container mx-auto px-4 h-full">
-            <Logo height={56} />
-          </div>
-        </header>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center max-w-md mx-auto px-4">
-            <div className="text-6xl mb-4">&#10003;</div>
-            <h1 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-dark)' }}>
-              Feedback già inviato
-            </h1>
-            <p style={{ color: 'var(--text-gray)' }}>
-              Ha già condiviso il suo feedback per questa visita. Grazie!
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
-        <div className="container mx-auto px-4 h-full">
-            <Logo height={56} />
-          </div>
-        </header>
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center max-w-md mx-auto px-4">
-            <div className="text-6xl mb-4">&#128588;</div>
-            <h1 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-dark)' }}>
-              Grazie per il suo feedback!
-            </h1>
-            <p style={{ color: 'var(--text-gray)' }}>
-              Le sue impressioni sono preziose per noi e ci aiutano a migliorare il servizio.
-            </p>
-            {vuoleFareOfferta && (
-              <p className="mt-4 font-medium" style={{ color: 'var(--primary-blue)' }}>
-                Il suo agente la contatterà al più presto per discutere la sua offerta.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const property = booking!.gre_open_houses.gre_properties
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
-        <div className="container mx-auto px-4 h-full">
-          <Logo height={56} />
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-lg mx-auto">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            {/* Card Header */}
-            <div className="px-6 py-4" style={{ backgroundColor: 'var(--primary-blue)' }}>
-              <h2 className="text-xl font-bold text-white">Il suo feedback</h2>
-              <p className="text-sm text-blue-100 mt-1">
-                {property.titolo} - {property.zona}
-              </p>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-                  Condivida le sue impressioni sulla visita
-                </label>
-                <textarea
-                  rows={5}
-                  value={commenti}
-                  onChange={(e) => setCommenti(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Come è andata la visita? L'immobile ha corrisposto alle sue aspettative? Ha suggerimenti per migliorare la nostra organizzazione?"
-                />
-              </div>
-
-              <div className="p-4 rounded-lg border-2 border-gray-200">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={vuoleFareOfferta}
-                    onChange={(e) => setVuoleFareOfferta(e.target.checked)}
-                    className="mt-1 w-5 h-5 accent-blue-600"
-                  />
-                  <div>
-                    <span className="font-semibold" style={{ color: 'var(--text-dark)' }}>
-                      Sono interessato/a a fare un&apos;offerta per questo immobile
-                    </span>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-                      Selezionando questa opzione, il suo agente la contatterà per discutere i dettagli.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full btn-primary py-3 font-bold text-lg disabled:opacity-50"
-              >
-                {submitting ? 'Invio in corso...' : 'INVIA FEEDBACK'}
-              </button>
-            </form>
+    <div className="pub min-h-screen pb-32">
+      {header}
+      <main className="pub-wrap max-w-2xl">
+        <div className="flex gap-4 items-center">
+          {info?.immobile.foto && (
+            <Photo src={info.immobile.foto} width={300} quality={82} alt="" className="w-24 h-24 md:w-28 md:h-28 object-cover rounded-2xl shrink-0" />
+          )}
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--sky)' }}>La tua visita</p>
+            <h1 className="pub-display text-2xl md:text-3xl leading-tight">{niceText(info?.immobile.titolo || '')}</h1>
+            <p className="pub-muted">{niceText(info?.immobile.zona || '')}</p>
           </div>
+        </div>
+        <p className="pub-body mt-6">
+          {info?.cliente ? `Ciao ${niceText(info.cliente)}, ` : ''}bastano pochi tocchi: le tue impressioni servono a {info?.agente || 'noi'} e ai proprietari.
+        </p>
+
+        <div className="mt-4">
+          <Step n={1} title="Che voto dai all'immobile?">
+            <div className="flex gap-1" role="radiogroup" aria-label="Voto">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={voto === n}
+                  aria-label={`${n} su 5`}
+                  onClick={() => setVoto(n)}
+                  className="text-5xl leading-none px-1 transition-transform active:scale-90"
+                  style={{ color: n <= voto ? '#f59e0b' : '#d1d5db' }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </Step>
+
+          <Step n={2} title="Il prezzo ti sembra…">
+            <Chips options={PREZZO} value={[prezzo]} onToggle={setPrezzo} />
+          </Step>
+
+          <Step n={3} title="Cosa ti è piaciuto?" hint="Puoi sceglierne più di uno">
+            <Chips multi options={ASPETTI} value={piaciuto} onToggle={toggle(piaciuto, setPiaciuto)} />
+          </Step>
+
+          <Step n={4} title="Cosa non ti ha convinto?" hint="Puoi sceglierne più di uno, o nessuno">
+            <Chips multi options={ASPETTI} value={nonConvinto} onToggle={toggle(nonConvinto, setNonConvinto)} />
+          </Step>
+
+          <Step n={5} title="E adesso?">
+            <div className="grid gap-2">
+              {PROSSIMO_PASSO.map(o => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setPasso(o.value)}
+                  className={`pub-option text-left ${passo === o.value ? 'is-active' : ''}`}
+                  style={o.value === 'offerta' ? { fontWeight: 700 } : undefined}
+                >
+                  {o.value === 'offerta' ? '🔑 ' : ''}{o.label}
+                </button>
+              ))}
+            </div>
+            {passo === 'offerta' && (
+              <div className="mt-5 p-4 rounded-2xl" style={{ background: '#EAF8FE' }}>
+                <p className="font-bold" style={{ color: 'var(--ink)' }}>Quando puoi passare in ufficio per formalizzare l&apos;offerta?</p>
+                <p className="pub-muted text-sm mb-3">{info?.agente || 'Il tuo agente'} ti contatta subito per confermare.</p>
+                <Chips options={OFFERTA_QUANDO} value={[quando]} onToggle={setQuando} />
+              </div>
+            )}
+          </Step>
+
+          <Step n={6} title="Vuoi aggiungere qualcosa?" hint="Facoltativo">
+            <textarea
+              rows={4}
+              value={commenti}
+              onChange={e => setCommenti(e.target.value)}
+              maxLength={2000}
+              className="w-full p-4 rounded-2xl text-base"
+              style={{ border: '1px solid var(--line)' }}
+              placeholder="Un dettaglio che ti ha colpito, un dubbio, una domanda…"
+            />
+          </Step>
+        </div>
+      </main>
+
+      <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="pub-wrap max-w-2xl py-3 flex items-center gap-4">
+          <p className="flex-1 text-sm" style={{ color: error ? '#dc2626' : 'var(--muted, #6b7280)' }}>
+            {error || (missing ? `Manca ${missing}` : 'Tutto pronto')}
+          </p>
+          <button type="button" onClick={submit} disabled={sending} className="pub-btn pub-btn-sm">
+            {sending ? 'Invio…' : passo === 'offerta' ? 'Invia la richiesta' : 'Invia'}
+          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function FeedbackPage() {
+  return (
+    <Suspense fallback={null}>
+      <FeedbackForm />
+    </Suspense>
   )
 }

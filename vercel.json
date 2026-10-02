@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/send-feedback-requests",
-      "schedule": "0 10 * * *"
+      "schedule": "15 * * * *"
     }
   ],
   "regions": [

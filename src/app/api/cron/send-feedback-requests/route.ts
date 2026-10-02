@@ -1,121 +1,83 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { sendEmail, createEmailTemplate } from '@/lib/gmail'
-import { hasCronSecret, requireStaff } from '@/lib/server-auth'
+import { getSupabaseAdmin, hasCronSecret, requireStaff } from '@/lib/server-auth'
+import { feedbackRequestEmail, sendAsAgent } from '@/lib/feedback-emails'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const maxDuration = 300
+
+// Richiesta di feedback lo stesso giorno: parte 1 ora dopo la fine dell'Open House,
+// solo a chi non è stato segnato "Non venuto", dalla casella dell'agente. Mai di notte.
+const HOURS_AFTER_END = 1
+
+const romeNow = () => {
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date())
+  return parts.replace(' ', 'T') // "YYYY-MM-DDTHH:MM" ora italiana
+}
 
 export async function GET(request: Request) {
-  try {
-    // Accesso: controllo automatico di Vercel (CRON_SECRET) oppure amministratore loggato
-    if (!hasCronSecret(request)) {
-      const auth = await requireStaff(request, { adminOnly: true })
-      if (auth.error) return auth.error
-    }
-
-    // Trova open house terminati da almeno 4 ore
-    const now = new Date()
-    const { data: openHouses, error: ohError } = await supabaseAdmin
-      .from('gre_open_houses')
-      .select(`
-        id,
-        data_evento,
-        ora_fine,
-        gre_properties (id, titolo, zona)
-      `)
-
-    if (ohError) {
-      throw ohError
-    }
-
-    let emailsSent = 0
-    let errors = 0
-
-    for (const oh of (openHouses || [])) {
-      // Calcola quando l'open house è finito + 4 ore
-      const eventEnd = new Date(`${oh.data_evento}T${oh.ora_fine}`)
-      const feedbackThreshold = new Date(eventEnd.getTime() + 4 * 60 * 60 * 1000) // +4 ore
-
-      if (feedbackThreshold >= now) {
-        continue
-      }
-
-      // Trova bookings da notificare
-      const { data: bookings, error: bookingsError } = await supabaseAdmin
-        .from('gre_bookings')
-        .select(`
-          id,
-          feedback_email_sent,
-          feedback_completed,
-          gre_clients (id, nome, cognome, email, telefono),
-          gre_open_houses (
-            id,
-            gre_properties (id, titolo, zona),
-            gre_agents (id, nome, cognome, email)
-          )
-        `)
-        .eq('open_house_id', oh.id)
-        .eq('feedback_email_sent', false)
-        .eq('feedback_completed', false)
-        .in('status', ['confirmed', 'completed'])
-
-      if (bookingsError) {
-        console.error(`Error fetching bookings for OH ${oh.id}:`, bookingsError)
-        errors++
-        continue
-      }
-
-      for (const booking of (bookings || [])) {
-        try {
-          const client = booking.gre_clients as any
-          const openHouseData = booking.gre_open_houses as any
-          const property = openHouseData.gre_properties
-          const agent = openHouseData.gre_agents
-
-          const template = createEmailTemplate('feedback_request', {
-            client,
-            property,
-            agent,
-            bookingId: booking.id
-          })
-
-          await sendEmail({
-            to: client.email,
-            subject: template.subject,
-            html: template.html,
-            agentId: agent?.id
-          })
-
-          // Segna come inviata
-          await supabaseAdmin
-            .from('gre_bookings')
-            .update({ feedback_email_sent: true })
-            .eq('id', booking.id)
-
-          emailsSent++
-          console.log(`✅ Feedback email sent to ${client.email} for booking ${booking.id}`)
-        } catch (emailError) {
-          console.error(`Error sending feedback email for booking ${booking.id}:`, emailError)
-          errors++
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      emailsSent,
-      errors,
-      timestamp: new Date().toISOString()
-    })
-
-  } catch (error) {
-    console.error('Error in send-feedback-requests cron:', error)
-    return NextResponse.json({
-      error: 'Errore interno',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+  if (!hasCronSecret(request)) {
+    const auth = await requireStaff(request, { adminOnly: true })
+    if (auth.error) return auth.error
   }
+
+  const nowRome = romeNow()
+  const hour = Number(nowRome.slice(11, 13))
+  if (hour < 8 || hour >= 21) {
+    return NextResponse.json({ success: true, skipped: 'fuori orario', emailsSent: 0 })
+  }
+
+  const supabase = getSupabaseAdmin()
+  const today = nowRome.slice(0, 10)
+  // solo gli ultimi 7 giorni: niente richieste per visite vecchie
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+
+  const { data: openHouses, error } = await supabase
+    .from('gre_open_houses')
+    .select('id, data_evento, ora_fine, gre_properties (titolo, zona, indirizzo), gre_agents (id, nome, cognome, email)')
+    .gte('data_evento', since)
+    .lte('data_evento', today)
+  if (error) return NextResponse.json({ error: 'Errore caricamento' }, { status: 500 })
+
+  let emailsSent = 0
+  let errors = 0
+
+  for (const oh of openHouses || []) {
+    // fine evento + 1 ora, confrontata in ora italiana
+    const [h, m] = String(oh.ora_fine).split(':').map(Number)
+    const end = new Date(`${oh.data_evento}T00:00:00Z`)
+    end.setUTCMinutes(h * 60 + m + HOURS_AFTER_END * 60)
+    const threshold = end.toISOString().slice(0, 16)
+    if (threshold > nowRome) continue
+
+    const { data: bookings } = await supabase
+      .from('gre_bookings')
+      .select('id, gre_clients (nome, cognome, email)')
+      .eq('open_house_id', oh.id)
+      .eq('feedback_email_sent', false)
+      .eq('feedback_completed', false)
+      .in('status', ['confirmed', 'completed'])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agent = oh.gre_agents as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const property = oh.gre_properties as any
+
+    for (const b of bookings || []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = b.gre_clients as any
+      if (!client?.email) continue
+      try {
+        const mail = feedbackRequestEmail({ client, agent, property, bookingId: b.id })
+        await sendAsAgent(client.email, mail, agent?.id)
+        await supabase.from('gre_bookings').update({ feedback_email_sent: true }).eq('id', b.id)
+        emailsSent++
+      } catch (e) {
+        console.error(`Richiesta feedback non inviata (${b.id}):`, e)
+        errors++
+      }
+    }
+  }
+
+  return NextResponse.json({ success: true, emailsSent, errors, at: nowRome })
 }

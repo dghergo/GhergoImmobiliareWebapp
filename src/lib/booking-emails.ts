@@ -1,3 +1,4 @@
+import { feedbackRequestEmail, sendAsAgent } from './feedback-emails'
 import { sendEmail, createEmailTemplate } from './gmail'
 import { createOpenHouseEvent } from './calendar'
 import { getSupabaseAdmin } from './server-auth'
@@ -244,20 +245,8 @@ export async function sendBookingEmail(
 
     // Template email per richiesta feedback
     if (type === 'feedback_request') {
-      const template = createEmailTemplate('feedback_request', {
-        client,
-        property,
-        openHouse,
-        agent,
-        bookingId
-      })
-
-      await sendEmail({
-        to: client.email,
-        subject: template.subject,
-        html: template.html,
-        agentId: agent.id
-      })
+      const template = feedbackRequestEmail({ client, agent, property, bookingId })
+      await sendAsAgent(client.email, template, agent.id)
 
       console.log(`✅ Email richiesta feedback inviata a ${client.email}`)
     }

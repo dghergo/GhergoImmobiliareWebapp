@@ -1,0 +1,106 @@
+import { sendEmail } from './gmail'
+import { ASPETTI, OFFERTA_QUANDO, PREZZO, PROSSIMO_PASSO, labelOf, type FeedbackAnswers } from './feedback'
+
+// Email del feedback: richiesta al cliente (a nome del suo agente) e avvisi immediati all'agente.
+
+const esc = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+
+const SITE = () => process.env.NEXT_PUBLIC_SITE_URL || 'https://openhouse.ghergoimmobiliare.com'
+const BLU = '#203162'
+const SKY = '#00AEEF'
+
+const wa = (phone: string) => {
+  let c = String(phone || '').replace(/\D/g, '')
+  if (c && !c.startsWith('39')) c = '39' + c
+  return c
+}
+
+const shell = (inner: string) => `
+<div style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+  <div style="background:${BLU}; color:#fff; padding:18px 24px; border-radius: 12px 12px 0 0;">
+    <div style="font-weight:800; letter-spacing:.08em; font-size:15px;">GHERGO IMMOBILIARE</div>
+  </div>
+  <div style="padding:24px; background:#f8fafc; border-radius: 0 0 12px 12px;">${inner}</div>
+</div>`
+
+interface Person { nome: string; cognome: string; email?: string; telefono?: string }
+interface Property { titolo: string; zona?: string; indirizzo?: string | null }
+
+/** Richiesta di feedback al cliente, firmata dal suo agente e inviata dalla sua casella. */
+export function feedbackRequestEmail(p: { client: Person; agent: Person; property: Property; bookingId: string }) {
+  const link = `${SITE()}/feedback/${p.bookingId}`
+  const luogo = p.property.indirizzo || p.property.zona || ''
+  const stelle = [1, 2, 3, 4, 5]
+    .map(n => `<a href="${link}?voto=${n}" style="display:inline-block; text-decoration:none; font-size:30px; line-height:1; color:#f59e0b; padding:0 3px;">★</a>`)
+    .join('')
+  return {
+    subject: `${p.agent.nome} di Ghergo Immobiliare – com'è andata la visita${luogo ? ` in ${luogo}` : ''}?`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>grazie per essere venuto a vedere <strong>${esc(p.property.titolo)}</strong>${luogo ? ` (${esc(luogo)})` : ''}.</p>
+      <p>Mi aiuti con <strong>30 secondi</strong>? Bastano pochi tocchi: le tue impressioni servono a me e ai proprietari.</p>
+      <div style="text-align:center; background:#fff; border-radius:12px; padding:18px; margin:22px 0;">
+        <div style="font-size:14px; color:#6b7280; margin-bottom:8px;">Che voto dai all'immobile?</div>
+        <div>${stelle}</div>
+      </div>
+      <div style="text-align:center; margin: 8px 0 22px;">
+        <a href="${link}" style="background:${SKY}; color:#fff; padding:14px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:700;">Rispondi in 30 secondi</a>
+      </div>
+      <p style="font-size:14px; color:#6b7280;">Se l'immobile ti interessa, dal modulo puoi anche chiedere di fare un'offerta: ti ricontatto subito.</p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+    `),
+  }
+}
+
+const row = (k: string, v: string) =>
+  v ? `<tr><td style="padding:6px 0; color:#6b7280; width:150px; vertical-align:top;">${k}</td><td style="padding:6px 0;"><strong>${v}</strong></td></tr>` : ''
+
+/** Avviso immediato all'agente quando il cliente vuole fare un'offerta o rivedere l'immobile. */
+export function agentAlertEmail(p: {
+  client: Person; agent: Person; property: Property; answers: FeedbackAnswers; commenti: string; quando: string | null
+}) {
+  const offerta = p.answers.prossimo_passo === 'offerta'
+  const tel = p.client.telefono || ''
+  const titolo = offerta ? '🔥 OFFERTA' : '🔁 Vuole rivederlo'
+  const azioni = `
+    <div style="margin:18px 0;">
+      ${tel ? `<a href="tel:${esc(tel)}" style="background:${BLU}; color:#fff; padding:12px 20px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">📞 Chiama ${esc(tel)}</a>` : ''}
+      ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:12px 20px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
+    </div>`
+  return {
+    subject: `${titolo} – ${p.client.nome} ${p.client.cognome} per ${p.property.titolo}`,
+    html: shell(`
+      <div style="background:${offerta ? '#fef3c7' : '#e0f2fe'}; border-left:4px solid ${offerta ? '#f59e0b' : SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
+        <div style="font-size:18px; font-weight:800;">${titolo}</div>
+        <div style="margin-top:4px;">${offerta
+          ? `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vuole fare un'offerta per <strong>${esc(p.property.titolo)}</strong>. Fissa subito l'appuntamento in ufficio.`
+          : `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vorrebbe rivedere <strong>${esc(p.property.titolo)}</strong>.`}</div>
+      </div>
+      ${azioni}
+      <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px; padding:8px 14px;">
+        ${row('Può passare', esc(labelOf(OFFERTA_QUANDO, p.quando)))}
+        ${row('Telefono', esc(tel))}
+        ${row('Email', esc(p.client.email))}
+        ${row('Voto', '★'.repeat(p.answers.voto) + '☆'.repeat(5 - p.answers.voto))}
+        ${row('Prezzo', esc(labelOf(PREZZO, p.answers.prezzo)))}
+        ${row('Gli è piaciuto', esc(p.answers.piaciuto.map(v => labelOf(ASPETTI, v)).join(', ')))}
+        ${row('Non lo convince', esc(p.answers.non_convinto.map(v => labelOf(ASPETTI, v)).join(', ')))}
+        ${row('Prossimo passo', esc(labelOf(PROSSIMO_PASSO, p.answers.prossimo_passo)))}
+      </table>
+      ${p.commenti ? `<p style="background:#fff; padding:12px 14px; border-radius:8px; font-style:italic; white-space:pre-line;">“${esc(p.commenti)}”</p>` : ''}
+      <p style="font-size:13px; color:#6b7280;">La richiesta resta in evidenza nel cruscotto dell'Open House finché non la segni come gestita.</p>
+    `),
+  }
+}
+
+/** Invia dalla casella dell'agente; se non disponibile, dalla casella dell'agenzia. */
+export async function sendAsAgent(to: string, mail: { subject: string; html: string }, agentId?: string | null) {
+  try {
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, agentId: agentId || undefined })
+  } catch (e) {
+    if (!agentId) throw e
+    console.error('Invio dalla casella dell\'agente non riuscito, uso quella dell\'agenzia:', e)
+    return await sendEmail({ to, subject: mail.subject, html: mail.html })
+  }
+}

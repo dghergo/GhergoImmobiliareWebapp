@@ -1,103 +1,82 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { sendEmail, createEmailTemplate } from '@/lib/gmail'
+import { getSupabaseAdmin } from '@/lib/server-auth'
+import { validateFeedback, isOffertaQuando } from '@/lib/feedback'
+import { agentAlertEmail, sendAsAgent } from '@/lib/feedback-emails'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const maxDuration = 60
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Feedback del cliente dopo la visita (dal link nell'email o su WhatsApp)
 export async function POST(request: Request) {
-  try {
-    const { bookingId, commenti, vuole_fare_offerta } = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body) return NextResponse.json({ error: 'Richiesta non valida' }, { status: 400 })
 
-    if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID mancante' }, { status: 400 })
+  const bookingId = typeof body.bookingId === 'string' ? body.bookingId : ''
+  if (!UUID_RE.test(bookingId)) return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
+
+  const answers = validateFeedback(body.risposte)
+  if (!answers) {
+    return NextResponse.json({ error: 'Rispondi a tutte le domande per inviare.' }, { status: 400 })
+  }
+  const commenti = typeof body.commenti === 'string' ? body.commenti.trim().slice(0, 2000) : ''
+  const quando = answers.prossimo_passo === 'offerta' && isOffertaQuando(body.offerta_quando) ? body.offerta_quando : null
+  if (answers.prossimo_passo === 'offerta' && !quando) {
+    return NextResponse.json({ error: 'Indica quando puoi passare in ufficio.' }, { status: 400 })
+  }
+
+  const supabase = getSupabaseAdmin()
+  const { data: booking } = await supabase
+    .from('gre_bookings')
+    .select(`
+      id, feedback_completed, agente_referente_id,
+      gre_clients (nome, cognome, email, telefono),
+      gre_open_houses (id, gre_properties (titolo, zona, indirizzo), gre_agents (id, nome, cognome, email))
+    `)
+    .eq('id', bookingId)
+    .maybeSingle()
+
+  if (!booking) return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
+  if (booking.feedback_completed) {
+    return NextResponse.json({ error: 'Hai già inviato il tuo feedback per questa visita. Grazie!' }, { status: 409 })
+  }
+
+  const { error: insertError } = await supabase.from('gre_feedback_responses').insert({
+    booking_id: bookingId,
+    rating: answers.voto,
+    commenti,
+    interesse_acquisto: answers.prossimo_passo === 'offerta',
+    richiesta_appuntamento: answers.prossimo_passo === 'rivedere',
+    risposte: answers,
+    offerta_quando: quando,
+  })
+  if (insertError) {
+    console.error('Errore salvataggio feedback:', insertError)
+    return NextResponse.json({ error: 'Non siamo riusciti a salvare. Riprova.' }, { status: 500 })
+  }
+  await supabase.from('gre_bookings').update({ feedback_completed: true }).eq('id', bookingId)
+
+  // Offerta o richiesta di rivedere: avviso immediato all'agente
+  if (answers.prossimo_passo === 'offerta' || answers.prossimo_passo === 'rivedere') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const oh = booking.gre_open_houses as any
+    let agent = oh?.gre_agents
+    // se il cliente ha scelto un agente di riferimento diverso, avvisa lui
+    if (booking.agente_referente_id && booking.agente_referente_id !== agent?.id) {
+      const { data: ref } = await supabase
+        .from('gre_agents').select('id, nome, cognome, email').eq('id', booking.agente_referente_id).eq('is_active', true).maybeSingle()
+      if (ref) agent = ref
     }
-
-    // Verifica che il booking esista e non abbia già feedback
-    const { data: booking, error: bookingError } = await supabaseAdmin
-      .from('gre_bookings')
-      .select(`
-        id,
-        feedback_completed,
-        gre_clients (id, nome, cognome, email, telefono),
-        gre_open_houses (
-          id,
-          gre_properties (id, titolo, zona),
-          gre_agents (id, nome, cognome, email)
-        )
-      `)
-      .eq('id', bookingId)
-      .single()
-
-    if (bookingError || !booking) {
-      return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
-    }
-
-    if (booking.feedback_completed) {
-      return NextResponse.json({ error: 'Feedback già inviato per questa prenotazione' }, { status: 400 })
-    }
-
-    // Salva il feedback in gre_feedback_responses
-    const { error: feedbackError } = await supabaseAdmin
-      .from('gre_feedback_responses')
-      .insert({
-        booking_id: bookingId,
-        commenti: commenti || '',
-        interesse_acquisto: vuole_fare_offerta || false
-      })
-
-    if (feedbackError) {
-      console.error('Error saving feedback:', feedbackError)
-      return NextResponse.json({ error: 'Errore nel salvataggio del feedback' }, { status: 500 })
-    }
-
-    // Aggiorna booking come feedback_completed
-    await supabaseAdmin
-      .from('gre_bookings')
-      .update({ feedback_completed: true })
-      .eq('id', bookingId)
-
-    // Se vuole fare offerta, invia email all'agente
-    if (vuole_fare_offerta) {
+    if (agent?.email) {
       try {
-        const client = booking.gre_clients as any
-        const openHouseData = booking.gre_open_houses as any
-        const property = openHouseData.gre_properties
-        const agent = openHouseData.gre_agents
-
-        const template = createEmailTemplate('agent_offer_notification', {
-          client,
-          property,
-          agent,
-          commenti
-        })
-
-        await sendEmail({
-          to: agent.email,
-          subject: template.subject,
-          html: template.html,
-          agentId: agent.id
-        })
-
-        console.log(`✅ Email notifica offerta inviata all'agente ${agent.email}`)
-      } catch (emailError) {
-        console.error('Error sending offer notification email:', emailError)
-        // Non bloccare la risposta se l'email fallisce
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mail = agentAlertEmail({ client: booking.gre_clients as any, agent, property: oh.gre_properties, answers, commenti, quando })
+        await sendAsAgent(agent.email, mail, agent.id)
+      } catch (e) {
+        console.error('Avviso all\'agente non inviato:', e)
       }
     }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Feedback salvato con successo'
-    })
-
-  } catch (error) {
-    console.error('Error in feedback API:', error)
-    return NextResponse.json({
-      error: 'Errore interno del server',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
   }
+
+  return NextResponse.json({ success: true })
 }
