@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
+import { niceText } from '@/lib/text'
 
 interface UpcomingOpenHouse {
   id: string
@@ -65,7 +66,7 @@ export default function ProssimiOpenHouse() {
     const q = search.trim().toLowerCase()
     if (!q) return openHouses
     return openHouses.filter(oh =>
-      `${oh.property.titolo} ${oh.property.zona} ${oh.agent.nome} ${oh.agent.cognome}`.toLowerCase().includes(q)
+      `${oh.property.titolo} ${niceText(oh.property.zona)} ${oh.agent.nome} ${oh.agent.cognome}`.toLowerCase().includes(q)
     )
   }, [openHouses, search])
 
@@ -76,7 +77,7 @@ export default function ProssimiOpenHouse() {
     new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
 
   const inviteText = (oh: UpcomingOpenHouse) =>
-    `Ciao! Ti invito all'Open House "${oh.property.titolo.trim()}" (${oh.property.zona}) ` +
+    `Ciao! Ti invito all'Open House "${niceText(oh.property.titolo)}" (${niceText(oh.property.zona)}) ` +
     `${formatDate(oh.data_evento)} dalle ${oh.ora_inizio.slice(0, 5)} alle ${oh.ora_fine.slice(0, 5)}. ` +
     `Puoi prenotare il tuo orario qui: ${linkFor(oh.id)}`
 
@@ -172,10 +173,10 @@ export default function ProssimiOpenHouse() {
                     {formatDate(oh.data_evento)} · {oh.ora_inizio.slice(0, 5)}–{oh.ora_fine.slice(0, 5)}
                   </div>
                   <h2 className="font-semibold text-lg leading-snug" style={{ color: 'var(--primary-blue)' }}>
-                    {oh.property.titolo}
+                    {niceText(oh.property.titolo)}
                   </h2>
                   <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
-                    📍 {oh.property.zona}
+                    📍 {niceText(oh.property.zona)}
                     {oh.property.prezzo ? ` · ${formatPrice(oh.property.prezzo)}` : ''}
                   </p>
                   <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>

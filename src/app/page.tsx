@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import { niceText } from '@/lib/text'
 import Link from 'next/link'
 import Countdown from '@/components/public/Countdown'
 import Reveal from '@/components/public/Reveal'
@@ -132,8 +133,8 @@ export default function Home() {
           {next && (
             <Link href={`/open-house/${next.id}`} className="pub-next">
               <span className="pub-next-label">Prossimo Open House</span>
-              <span className="pub-next-title">{next.property.titolo.trim()}</span>
-              <span className="pub-next-meta">{next.property.zona} — <span className="capitalize">{weekday(next.data_evento)}</span> {day(next.data_evento)} {month(next.data_evento)}, ore {t(next.ora_inizio)}</span>
+              <span className="pub-next-title">{niceText(next.property.titolo)}</span>
+              <span className="pub-next-meta">{niceText(next.property.zona)} — <span className="capitalize">{weekday(next.data_evento)}</span> {day(next.data_evento)} {month(next.data_evento)}, ore {t(next.ora_inizio)}</span>
               <Countdown date={next.data_evento} time={next.ora_inizio} />
               <span className="pub-next-cta">Prenota la visita</span>
             </Link>
@@ -223,8 +224,8 @@ export default function Home() {
                       <p className="mt-5 text-sm font-semibold first-letter:uppercase" style={{ color: 'var(--ink)' }}>
                         {formatDate(oh.data_evento)}, {t(oh.ora_inizio)}–{t(oh.ora_fine)}
                       </p>
-                      <h3 className="pub-display pub-card-title mt-2">{oh.property.titolo.trim()}</h3>
-                      <p className="pub-muted mt-1">{oh.property.zona}</p>
+                      <h3 className="pub-display pub-card-title mt-2">{niceText(oh.property.titolo)}</h3>
+                      <p className="pub-muted mt-1">{niceText(oh.property.zona)}</p>
                       <div className="flex items-baseline justify-between gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
                         <span className="font-medium" style={{ color: 'var(--ink)' }}>
                           {oh.property.prezzo ? `${c.cantiere ? 'da ' : ''}${oh.property.prezzo.toLocaleString('it-IT')} €` : 'Prezzo su richiesta'}

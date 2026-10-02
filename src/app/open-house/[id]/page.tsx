@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import Image from 'next/image'
+import { niceText } from '@/lib/text'
 import Countdown from '@/components/public/Countdown'
 
 // Helper function per rimuovere i secondi dagli orari
@@ -450,9 +451,9 @@ export default function OpenHouseDetail() {
         </header>
 
         <div className="pub-wrap pub-hero-body">
-          <p className="pub-hero-kicker">{property.zona}</p>
+          <p className="pub-hero-kicker">{niceText(property.zona)}</p>
           <h1 className="pub-display pub-hero-title pub-hero-title-oh">
-            <span className="pub-line"><span>{property.titolo.trim()}</span></span>
+            <span className="pub-line"><span>{niceText(property.titolo)}</span></span>
           </h1>
           <div className="pub-hero-foot">
             <span className="pub-hero-price">{priceLabel}</span>
@@ -502,7 +503,7 @@ export default function OpenHouseDetail() {
           <div className="pub-info mt-12">
             <div>
               <h2 className="pub-h3 mb-2">Dove</h2>
-              <p className="pub-body">{property.indirizzo || property.zona}</p>
+              <p className="pub-body">{niceText(property.indirizzo || property.zona)}</p>
               {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="pub-link mt-2 inline-block">Apri in Google Maps</a>}
             </div>
             <div>

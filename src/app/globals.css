@@ -109,7 +109,7 @@ h1, h2, h3, h4, h5, h6 {
   --line: #E4E5E8;         /* linee sottili */
   --paper: #F4F5F6;        /* fondo sezioni */
   --sky: #00AEEF;          /* azzurro Ghergo: solo stati di selezione */
-  font-family: 'Urbanist Variable', 'Work Sans', system-ui, sans-serif;
+  font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif;
   font-weight: 400;
   color: var(--text);
   background: #fff;
@@ -229,11 +229,11 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== Versione 2: più grafica, con movimento ===== */
 .pub { --deep: #111A38; }
-.pub .pub-display { font-family: 'Bodoni Moda Variable', 'Bodoni 72', Didot, Georgia, serif; font-weight: 400; letter-spacing: -0.01em; font-optical-sizing: auto; }
+.pub .pub-display { font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-weight: 400; letter-spacing: -0.01em; font-optical-sizing: auto; }
 .pub-section-title { color: var(--ink); font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1; }
 .pub-section-title-sm { color: var(--ink); font-size: clamp(1.7rem, 2.8vw, 2.3rem); line-height: 1.1; }
 .pub-card-title { color: var(--ink); font-size: clamp(1.55rem, 2.2vw, 1.9rem); line-height: 1.1; }
-.pub-date { font-family: 'Bodoni Moda Variable', Georgia, serif; font-weight: 400; font-size: 1.7rem; }
+.pub-date { font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-weight: 400; font-size: 1.7rem; }
 
 /* Apertura a tutto schermo */
 .pub-hero { position: relative; min-height: 100svh; color: #fff; overflow: hidden; background: var(--deep); display: flex; flex-direction: column; }
@@ -276,7 +276,7 @@ h1, h2, h3, h4, h5, h6 {
 .pub-next { display: grid; gap: 6px; padding: 26px 26px 22px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #fff; opacity: 0; animation: pub-fade .9s .55s ease forwards; transition: background .25s; }
 .pub-next:hover { background: rgba(255,255,255,.14); }
 .pub-next-label { font-size: .85rem; opacity: .8; }
-.pub-next-title { font-family: 'Bodoni Moda Variable', Georgia, serif; font-size: 1.75rem; line-height: 1.1; }
+.pub-next-title { font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-size: 1.75rem; line-height: 1.1; }
 .pub-next-meta { font-size: .95rem; opacity: .85; margin-bottom: 12px; }
 .pub-next-cta { margin-top: 14px; display: inline-flex; justify-content: center; background: #fff; color: var(--ink); font-weight: 600; padding: 14px 20px; }
 @keyframes pub-fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -284,7 +284,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Conto alla rovescia */
 .pub-countdown { display: inline-flex; gap: 18px; }
 .pub-countdown-unit { display: inline-flex; flex-direction: column; min-width: 2.2ch; }
-.pub-countdown-unit b { font-family: 'Bodoni Moda Variable', Georgia, serif; font-weight: 400; font-size: 2.3rem; line-height: 1; font-variant-numeric: tabular-nums lining-nums; }
+.pub-countdown-unit b { font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-weight: 400; font-size: 2.3rem; line-height: 1; font-variant-numeric: tabular-nums lining-nums; }
 .pub-countdown-unit small { font-size: .75rem; opacity: .75; margin-top: 4px; }
 .pub-countdown.is-dark { color: var(--ink); }
 .pub-countdown.is-dark small { color: var(--muted); opacity: 1; }
@@ -302,7 +302,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Calendario sulle schede */
 .pub-card-img { position: relative; }
 .pub-cal { position: absolute; left: 0; bottom: 0; background: #fff; color: var(--ink); padding: 10px 14px 8px; display: flex; flex-direction: column; align-items: center; min-width: 64px; }
-.pub-cal b { font-family: 'Bodoni Moda Variable', Georgia, serif; font-weight: 400; font-size: 2.1rem; line-height: 1; }
+.pub-cal b { font-family: 'Bricolage Grotesque Variable', system-ui, sans-serif; font-weight: 400; font-size: 2.1rem; line-height: 1; }
 .pub-cal small { font-size: .78rem; text-transform: lowercase; color: var(--muted); }
 .pub-cal-lg { position: static; background: var(--ink); color: #fff; padding: 12px 16px 10px; min-width: 76px; }
 .pub-cal-lg b { font-size: 2.8rem; }
@@ -332,3 +332,44 @@ h1, h2, h3, h4, h5, h6 {
   .pub-reveal .pub-card-img { clip-path: none; }
   .pub-reveal .pub-card-img img { transform: none; }
 }
+
+
+/* ===== Versione 3: moderna, giovane, fresca — un solo carattere ovunque ===== */
+.pub { font-optical-sizing: auto; letter-spacing: -0.005em; }
+.pub .pub-display { font-weight: 700; letter-spacing: -0.025em; font-variation-settings: 'opsz' 96; }
+.pub-hero-title { font-size: clamp(3.4rem, 9.5vw, 9rem); line-height: .9; letter-spacing: -0.035em !important; }
+.pub-hero-title-oh { font-size: clamp(2.6rem, 6.6vw, 6.4rem); line-height: .94; letter-spacing: -0.03em !important; }
+.pub-section-title { font-size: clamp(2.4rem, 5.2vw, 4.6rem); line-height: .95; }
+.pub-card-title { font-size: clamp(1.45rem, 2vw, 1.75rem); line-height: 1.08; letter-spacing: -0.02em !important; }
+.pub-section-title-sm { font-size: clamp(1.6rem, 2.6vw, 2.2rem); }
+.pub-date { font-weight: 700; letter-spacing: -0.03em; font-size: 1.6rem; }
+.pub-h3 { font-weight: 700; letter-spacing: -0.01em; }
+
+/* Forme morbide e pulsanti a pillola */
+.pub-btn, .pub-next-cta, .pub-hero-photos { border-radius: 999px; }
+.pub-btn { background: var(--ink); }
+.pub-btn:hover { background: var(--sky); }
+.pub-next-cta { transition: background .2s, color .2s; }
+.pub-next:hover .pub-next-cta { background: var(--sky); color: #fff; }
+.pub-card-img, .pub-thumbs button, .pub-gallery-empty { border-radius: 18px; }
+.pub-panel { border-radius: 24px; border-color: transparent; }
+.pub-next { border-radius: 24px; }
+.pub-slot { border-radius: 14px; }
+.pub-option { border-radius: 14px; }
+.pub-modal { border-radius: 24px 24px 0 0; }
+@media (min-width: 768px) { .pub-modal { border-radius: 24px; } }
+.pub-chip.is-active { background: var(--sky); border-color: var(--sky); }
+
+/* Data sulle schede: etichetta azzurra */
+.pub-cal { left: 14px; bottom: 14px; background: var(--sky); color: #fff; border-radius: 14px; padding: 8px 12px 7px; min-width: 58px; }
+.pub-cal b { font-weight: 800; font-size: 1.8rem; letter-spacing: -0.04em; }
+.pub-cal small { color: rgba(255,255,255,.9); font-weight: 600; }
+.pub-cal-lg { background: var(--sky); border-radius: 18px; }
+.pub-cal-lg b { font-size: 2.4rem; }
+
+/* Conto alla rovescia in grassetto */
+.pub-countdown-unit b { font-weight: 800; letter-spacing: -0.04em; }
+.pub-proof { border-left-color: var(--sky); }
+.pub-slot.is-active { background: var(--sky); border-color: var(--sky); }
+.pub-option.is-active { border-color: var(--sky); background: #EAF8FE; color: var(--ink); }
+.pub-progress > div { background: var(--sky); }
