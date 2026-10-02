@@ -1,4 +1,5 @@
 import { sendEmail } from './gmail'
+import { niceText } from './text'
 import { ASPETTI, OFFERTA_QUANDO, PREZZO, PROSSIMO_PASSO, labelOf, type FeedbackAnswers } from './feedback'
 
 // Email del feedback: richiesta al cliente (a nome del suo agente) e avvisi immediati all'agente.
@@ -38,7 +39,7 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
     subject: `${p.agent.nome} di Ghergo Immobiliare – com'è andata la visita${luogo ? ` in ${luogo}` : ''}?`,
     html: shell(`
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
-      <p>grazie per essere venuto a vedere <strong>${esc(p.property.titolo)}</strong>${luogo ? ` (${esc(luogo)})` : ''}.</p>
+      <p>grazie per essere venuto a vedere <strong>${esc(niceText(p.property.titolo))}</strong>${luogo ? ` (${esc(luogo)})` : ''}.</p>
       <div style="background:#FEF3C7; border:2px solid #F59E0B; border-radius:14px; padding:20px; margin:22px 0; text-align:center;">
         <div style="font-size:20px; font-weight:800; color:${BLU};">🔑 La casa ti è piaciuta?</div>
         <div style="font-size:15px; margin:8px 0 16px; color:#374151;">Prenota subito il tuo appuntamento in ufficio per fare un'offerta.</div>
@@ -73,13 +74,13 @@ export function agentAlertEmail(p: {
       ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:12px 20px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
     </div>`
   return {
-    subject: `${titolo} – ${p.client.nome} ${p.client.cognome} per ${p.property.titolo}`,
+    subject: `${titolo} – ${p.client.nome} ${p.client.cognome} per ${niceText(p.property.titolo)}`,
     html: shell(`
       <div style="background:${offerta ? '#fef3c7' : '#e0f2fe'}; border-left:4px solid ${offerta ? '#f59e0b' : SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
         <div style="font-size:18px; font-weight:800;">${titolo}</div>
         <div style="margin-top:4px;">${offerta
-          ? `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vuole fare un'offerta per <strong>${esc(p.property.titolo)}</strong>. Fissa subito l'appuntamento in ufficio.`
-          : `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vorrebbe rivedere <strong>${esc(p.property.titolo)}</strong>.`}</div>
+          ? `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vuole fare un'offerta per <strong>${esc(niceText(p.property.titolo))}</strong>. Fissa subito l'appuntamento in ufficio.`
+          : `<strong>${esc(p.client.nome)} ${esc(p.client.cognome)}</strong> vorrebbe rivedere <strong>${esc(niceText(p.property.titolo))}</strong>.`}</div>
       </div>
       ${azioni}
       <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px; padding:8px 14px;">
@@ -128,10 +129,10 @@ export function reminderEmail(p: {
   const luogo = [p.property.indirizzo, p.property.zona].filter(Boolean).join(', ')
   const maps = luogo ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}` : ''
   return {
-    subject: `Promemoria: ti aspettiamo ${giorno}${ora ? ` alle ${ora}` : ''} – ${p.property.titolo}`,
+    subject: `Promemoria: ti aspettiamo ${giorno}${ora ? ` alle ${ora}` : ''} – ${niceText(p.property.titolo)}`,
     html: shell(`
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
-      <p>ti ricordo l'appuntamento per l'Open House di <strong>${esc(p.property.titolo)}</strong>.</p>
+      <p>ti ricordo l'appuntamento per l'Open House di <strong>${esc(niceText(p.property.titolo))}</strong>.</p>
       <div style="background:#fff; border-radius:12px; padding:18px; margin:18px 0; border-left:4px solid ${SKY};">
         <div style="font-size:20px; font-weight:800; color:${BLU};">${esc(giorno.charAt(0).toUpperCase() + giorno.slice(1))}${ora ? ` alle ${esc(ora)}` : ''}</div>
         ${luogo ? `<div style="margin-top:6px;">📍 ${esc(luogo)}${maps ? ` · <a href="${maps}" style="color:${SKY};">Apri la mappa</a>` : ''}</div>` : ''}
