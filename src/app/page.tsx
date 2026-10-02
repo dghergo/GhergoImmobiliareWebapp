@@ -118,7 +118,7 @@ export default function Home() {
 
         <header className="pub-hero-top pub-wrap">
           <Link href="/" aria-label="Ghergo Immobiliare">
-            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-12 w-auto pub-logo-white" priority />
+            <Image src="/logo-ghergo-bianco.png" alt="Ghergo Immobiliare" width={719} height={188} className="h-9 md:h-12 w-auto object-contain" priority />
           </Link>
           <a href="#open-house" className="pub-hero-link">Tutti gli Open House</a>
         </header>
@@ -242,7 +242,7 @@ export default function Home() {
 
       <footer className="pub-footer">
         <div className="pub-wrap py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-10 w-auto pub-logo-white" />
+          <Image src="/logo-ghergo-bianco.png" alt="Ghergo Immobiliare" width={719} height={188} className="h-10 w-auto self-start object-contain" />
           <div className="flex items-center gap-6 text-sm">
             <span className="opacity-80">Sogna, Realizza, Abita</span>
             <Link href="/dashboard/login" className="opacity-60 hover:opacity-100">Area agenti</Link>

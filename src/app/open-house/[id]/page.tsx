@@ -442,7 +442,7 @@ export default function OpenHouseDetail() {
 
         <header className="pub-hero-top pub-wrap">
           <button onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')} aria-label="Ghergo Immobiliare, tutti gli Open House">
-            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-12 w-auto pub-logo-white" priority />
+            <Image src="/logo-ghergo-bianco.png" alt="Ghergo Immobiliare" width={719} height={188} className="h-9 md:h-12 w-auto object-contain" priority />
           </button>
           <div className="flex items-center gap-5 md:gap-8">
             <button onClick={() => router.push('/')} className="pub-hero-link hidden sm:inline">Tutti gli Open House</button>
@@ -644,7 +644,7 @@ export default function OpenHouseDetail() {
 
       <footer className="pub-footer">
         <div className="pub-wrap py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-10 w-auto pub-logo-white" />
+          <Image src="/logo-ghergo-bianco.png" alt="Ghergo Immobiliare" width={719} height={188} className="h-10 w-auto self-start object-contain" />
           <p className="text-sm opacity-80">Sogna, Realizza, Abita</p>
         </div>
       </footer>
