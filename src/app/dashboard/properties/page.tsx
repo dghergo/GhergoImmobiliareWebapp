@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { sized, compressForUpload } from '@/lib/img'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import AgentSelector from '@/components/AgentSelector'
@@ -143,7 +144,9 @@ export default function PropertiesManagement() {
     const uploadedUrls: string[] = []
 
     try {
-      for (const file of imageFiles) {
+      for (const original of imageFiles) {
+        // Le foto vengono ridotte prima del caricamento (max 2400 px): pagine molto più veloci
+        const file = await compressForUpload(original)
         const fileExt = file.name.split('.').pop()
         const fileName = `${propertyId}/${Date.now()}.${fileExt}`
 
@@ -751,7 +754,7 @@ export default function PropertiesManagement() {
                       {editingProperty.immagini.map((imageUrl, index) => (
                         <div key={index} className="relative">
                           <img
-                            src={imageUrl}
+                            src={sized(imageUrl, 300)}
                             alt={`Immagine ${index + 1}`}
                             className="w-full h-24 object-cover rounded-lg"
                           />
@@ -948,7 +951,8 @@ export default function PropertiesManagement() {
                     {property.immagini && property.immagini.length > 0 ? (
                       <div className="relative w-full h-full">
                         <img
-                          src={property.immagini[0]}
+                          src={sized(property.immagini[0], 700)}
+                          loading="lazy"
                           alt={property.titolo}
                           className="w-full h-full object-cover"
                         />

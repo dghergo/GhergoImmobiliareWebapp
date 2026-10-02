@@ -6,6 +6,7 @@ import { niceText } from '@/lib/text'
 import Link from 'next/link'
 import Countdown from '@/components/public/Countdown'
 import Reveal from '@/components/public/Reveal'
+import Photo from '@/components/public/Photo'
 
 interface OpenHouse {
   id: string
@@ -107,8 +108,7 @@ export default function Home() {
         <div className="pub-hero-media" aria-hidden="true">
           {heroImages.length > 0 ? (
             heroImages.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={src} src={src} alt="" className="pub-kenburns" style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(heroImages.length, 1) * 7}s` }} />
+              <Photo key={src} src={src} width={1920} quality={70} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(heroImages.length, 1) * 7}s` }} />
             ))
           ) : (
             <div className="pub-hero-fallback" />
@@ -211,8 +211,7 @@ export default function Home() {
                     <Link href={`/open-house/${oh.id}`} className="pub-card group">
                       <div className="pub-card-img">
                         {oh.property.immagini?.[0] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={oh.property.immagini[0]} alt={oh.property.titolo} loading="lazy" />
+                          <Photo src={oh.property.immagini[0]} width={900} alt={oh.property.titolo} loading="lazy" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center pub-muted">Foto in arrivo</div>
                         )}

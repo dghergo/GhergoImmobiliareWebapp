@@ -7,6 +7,7 @@ import { isAgent, isAdmin } from '@/lib/auth'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import { niceText } from '@/lib/text'
+import Photo from '@/components/public/Photo'
 
 interface UpcomingOpenHouse {
   id: string
@@ -164,7 +165,7 @@ export default function ProssimiOpenHouse() {
               <div key={oh.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
                 {oh.property.immagini?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={oh.property.immagini[0]} alt="" className="w-full h-40 object-cover" />
+                  <Photo src={oh.property.immagini[0]} width={700} alt="" className="w-full h-40 object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-40" style={{ background: 'var(--light-gray)' }} />
                 )}

@@ -33,5 +33,6 @@ export async function GET() {
     agent: item.gre_agents
   }))
 
-  return NextResponse.json({ openHouses })
+  // Cache breve sulla rete Vercel: pagina più veloce, dati aggiornati entro un minuto
+  return NextResponse.json({ openHouses }, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } })
 }

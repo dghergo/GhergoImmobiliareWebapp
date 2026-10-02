@@ -7,6 +7,7 @@ import { isAdmin } from '@/lib/auth'
 import Image from 'next/image'
 import { niceText } from '@/lib/text'
 import Countdown from '@/components/public/Countdown'
+import Photo from '@/components/public/Photo'
 
 // Helper function per rimuovere i secondi dagli orari
 const formatTime = (timeString: string): string => {
@@ -431,8 +432,7 @@ export default function OpenHouseDetail() {
         <div className="pub-hero-media" aria-hidden="true">
           {images.length > 0 ? (
             images.slice(0, 5).map((src, i, arr) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={src} src={src} alt="" className="pub-kenburns" style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(arr.length, 1) * 7}s` }} />
+              <Photo key={src} src={src} width={1920} quality={70} alt="" className="pub-kenburns" fetchPriority={i === 0 ? 'high' : 'low'} loading={i === 0 ? 'eager' : 'lazy'} style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(arr.length, 1) * 7}s` }} />
             ))
           ) : (
             <div className="pub-hero-fallback" />
@@ -496,8 +496,7 @@ export default function OpenHouseDetail() {
             <div className="pub-thumbs mt-12">
               {images.slice(0, 8).map((img, i) => (
                 <button key={img} onClick={() => { setCurrentImageIndex(i); setShowGallery(true) }} aria-label={`Apri la foto ${i + 1}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt="" loading="lazy" />
+                  <Photo src={img} width={400} alt="" loading="lazy" />
                 </button>
               ))}
             </div>
@@ -665,8 +664,7 @@ export default function OpenHouseDetail() {
       {showGallery && images.length > 0 && (
         <div className="pub-lightbox" role="dialog" aria-modal="true" aria-label="Foto dell'immobile">
           <button className="pub-lightbox-close" onClick={() => setShowGallery(false)}>Chiudi</button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={images[currentImageIndex]} alt={`${property.titolo}, foto ${currentImageIndex + 1}`} />
+          <Photo key={images[currentImageIndex]} src={images[currentImageIndex]} width={1800} quality={78} alt={`${property.titolo}, foto ${currentImageIndex + 1}`} />
           {images.length > 1 && (
             <>
               <button className="pub-lightbox-nav left-2 md:left-6" aria-label="Foto precedente" onClick={() => setCurrentImageIndex(i => (i === 0 ? images.length - 1 : i - 1))}>‹</button>

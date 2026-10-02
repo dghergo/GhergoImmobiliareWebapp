@@ -65,5 +65,5 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     timeSlots,
     totalBookings: (bookings || []).length,
     referenceAgents: agents || []
-  })
+  }, { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } })
 }
