@@ -1,12 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Logo from '@/components/Logo'
-
-// Helper function per rimuovere i secondi dagli orari
-const formatTime = (timeString: string): string => {
-  return timeString.slice(0, 5) // Prende solo HH:MM
-}
+import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
 
 interface OpenHouse {
   id: string
@@ -16,389 +12,193 @@ interface OpenHouse {
   property: {
     titolo: string
     descrizione: string
-    prezzo: number
+    prezzo: number | null
     zona: string
     tipologia: string
-    caratteristiche: any
-    immagini: string[]
+    caratteristiche: { mq?: number; locali?: number; bagni?: number; cantiere?: boolean } | null
+    immagini: string[] | null
   }
-  agent: {
-    nome: string
-    cognome: string
-    email: string
-  }
+  agent: { nome: string; cognome: string; email: string }
 }
 
+const PRICE_RANGES = [
+  { value: '', label: 'Qualsiasi prezzo' },
+  { value: 'under-200k', label: 'Fino a 200.000 €' },
+  { value: '200k-400k', label: '200.000 – 400.000 €' },
+  { value: '400k-600k', label: '400.000 – 600.000 €' },
+  { value: 'over-600k', label: 'Oltre 600.000 €' },
+]
+
+const TYPE_LABELS: Record<string, string> = {
+  appartamento: 'Appartamenti',
+  villa: 'Ville e case',
+  ufficio: 'Uffici',
+  locale_commerciale: 'Locali commerciali',
+  terreno: 'Terreni',
+}
+
+const t = (s: string) => s.slice(0, 5)
+
 export default function Home() {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null)
   const [openHouses, setOpenHouses] = useState<OpenHouse[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCity, setSelectedCity] = useState('')
   const [selectedType, setSelectedType] = useState('')
   const [priceRange, setPriceRange] = useState('')
 
   useEffect(() => {
-    async function loadData() {
+    ;(async () => {
       try {
         const response = await fetch('/api/public/open-houses', { cache: 'no-store' })
-        setIsConnected(response.ok)
-        if (response.ok) {
-          const data = await response.json()
-          setOpenHouses(data.openHouses || [])
-        } else {
-          console.error('Error loading open houses:', response.status)
-        }
+        if (!response.ok) throw new Error(String(response.status))
+        const data = await response.json()
+        const now = new Date()
+        // Solo gli Open House non ancora conclusi, dal più vicino
+        const upcoming = (data.openHouses as OpenHouse[])
+          .filter(oh => new Date(`${oh.data_evento}T${oh.ora_fine}`) >= now)
+          .sort((a, b) => `${a.data_evento}${a.ora_inizio}`.localeCompare(`${b.data_evento}${b.ora_inizio}`))
+        setOpenHouses(upcoming)
       } catch (err) {
-        setIsConnected(false)
+        console.error('Error loading open houses:', err)
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
-    }
-
-    loadData()
+    })()
   }, [])
 
-  // Logica filtri
-  const filteredOpenHouses = openHouses.filter(oh => {
-    const matchesSearch = searchTerm === '' ||
-      oh.property.titolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      oh.property.zona.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      oh.property.descrizione.toLowerCase().includes(searchTerm.toLowerCase())
+  const types = useMemo(() => [...new Set(openHouses.map(oh => oh.property.tipologia))].sort(), [openHouses])
 
-    const matchesCity = selectedCity === '' ||
-      oh.property.zona.toLowerCase() === selectedCity.toLowerCase()
-
-    const matchesType = selectedType === '' ||
-      oh.property.tipologia.toLowerCase() === selectedType.toLowerCase()
-
-    let matchesPrice = true
-    if (priceRange) {
-      const price = oh.property.prezzo
-      switch (priceRange) {
-        case 'under-200k':
-          matchesPrice = price < 200000
-          break
-        case '200k-400k':
-          matchesPrice = price >= 200000 && price < 400000
-          break
-        case '400k-600k':
-          matchesPrice = price >= 400000 && price < 600000
-          break
-        case 'over-600k':
-          matchesPrice = price >= 600000
-          break
-      }
-    }
-
-    return matchesSearch && matchesCity && matchesType && matchesPrice
+  const filtered = openHouses.filter(oh => {
+    const q = searchTerm.trim().toLowerCase()
+    const matchesSearch =
+      !q ||
+      oh.property.titolo.toLowerCase().includes(q) ||
+      oh.property.zona.toLowerCase().includes(q) ||
+      (oh.property.descrizione || '').toLowerCase().includes(q)
+    const matchesType = !selectedType || oh.property.tipologia === selectedType
+    const price = oh.property.prezzo || 0
+    const matchesPrice =
+      !priceRange ||
+      (priceRange === 'under-200k' && price < 200000) ||
+      (priceRange === '200k-400k' && price >= 200000 && price < 400000) ||
+      (priceRange === '400k-600k' && price >= 400000 && price < 600000) ||
+      (priceRange === 'over-600k' && price >= 600000)
+    return matchesSearch && matchesType && matchesPrice
   })
 
-
-  // Opzioni per i filtri
-  const cities = [...new Set(openHouses.map(oh => oh.property.zona))].sort()
-  const types = [...new Set(openHouses.map(oh => oh.property.tipologia))].sort()
+  const formatDate = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="min-h-screen">
-      {/* Header Navigation */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="nav-text text-sm flex items-center space-x-3 md:space-x-4">
-              <span className="hidden sm:inline">OPEN HOUSE</span>
-              <a href="/admin/login" className="text-white hover:text-gray-200 transition-colors">
-                ADMIN
-              </a>
-              <div className="flex items-center gap-2">
-                {isConnected === null ? (
-                  <>
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                    <span>Caricamento...</span>
-                  </>
-                ) : isConnected ? (
-                  <>
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Online</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span>Offline</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="pub min-h-screen">
+      <header className="pub-header">
+        <div className="pub-wrap flex items-center justify-between h-16 md:h-20">
+          <Link href="/" aria-label="Ghergo Immobiliare">
+            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-11 w-auto" priority />
+          </Link>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <div className="bg-white py-6 md:py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4" style={{ color: 'var(--text-dark)' }}>
-            Open House Disponibili
-          </h1>
-          <p className="text-base md:text-lg mb-4 md:mb-8" style={{ color: 'var(--text-gray)' }}>
-            Prenota la tua visita e scopri la casa dei tuoi sogni
-          </p>
+      {/* Apertura */}
+      <section className="pub-wrap pt-14 md:pt-24 pb-10 md:pb-14">
+        <h1 className="pub-h1 max-w-3xl">Visita la tua prossima casa durante un Open House</h1>
+        <p className="pub-body pub-muted mt-5 max-w-2xl">
+          Scegli l&apos;immobile, prenota un orario e vieni a vederlo con calma insieme a uno dei nostri agenti.
+        </p>
 
-          {/* Filters Section */}
-          <div className="max-w-6xl mx-auto bg-gray-50 rounded-lg p-4 md:p-6 mb-4 md:mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-
-              {/* Search Input */}
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium mb-2 text-left" style={{ color: 'var(--text-dark)' }}>
-                  Cerca immobile
-                </label>
-                <input
-                  type="text"
-                  placeholder="Cerca per titolo, città..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Zone Filter */}
-              <div>
-                <label className="block text-sm font-medium mb-2 text-left" style={{ color: 'var(--text-dark)' }}>
-                  Zona
-                </label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Tutte le zone</option>
-                  {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Type Filter */}
-              <div>
-                <label className="block text-sm font-medium mb-2 text-left" style={{ color: 'var(--text-dark)' }}>
-                  Tipologia
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Tutti i tipi</option>
-                  {types.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Price Range Filter */}
-              <div>
-                <label className="block text-sm font-medium mb-2 text-left" style={{ color: 'var(--text-dark)' }}>
-                  Fascia prezzo
-                </label>
-                <select
-                  value={priceRange}
-                  onChange={(e) => setPriceRange(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Tutti i prezzi</option>
-                  <option value="under-200k">Fino a €200.000</option>
-                  <option value="200k-400k">€200.000 - €400.000</option>
-                  <option value="400k-600k">€400.000 - €600.000</option>
-                  <option value="over-600k">Oltre €600.000</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Results Count */}
-            <div className="mt-4 text-center">
-              <span className="text-sm" style={{ color: 'var(--text-gray)' }}>
-                {loading ? 'Caricamento...' : `${filteredOpenHouses.length} Open House ${filteredOpenHouses.length === 1 ? 'trovato' : 'trovati'}`}
-              </span>
-            </div>
-          </div>
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px] gap-6 md:gap-10 items-end">
+          <label className="block">
+            <span className="sr-only">Cerca</span>
+            <input
+              type="search"
+              className="pub-search"
+              placeholder="Cerca per zona, città o immobile"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </label>
+          <label className="pub-field">
+            <span>Prezzo</span>
+            <select value={priceRange} onChange={e => setPriceRange(e.target.value)}>
+              {PRICE_RANGES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </label>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 pb-12">
-
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: 'var(--accent-blue)' }}></div>
-            <p className="mt-4" style={{ color: 'var(--text-gray)' }}>Caricamento immobili...</p>
-          </div>
-        ) : filteredOpenHouses.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="max-w-md mx-auto bg-white rounded-lg p-8 shadow-md">
-              <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-dark)' }}>
-                Nessun Open House disponibile
-              </h3>
-              <p style={{ color: 'var(--text-gray)' }}>
-                {openHouses.length === 0
-                  ? 'Al momento non ci sono eventi programmati. Controlla più tardi per nuove opportunità.'
-                  : 'Nessun immobile corrisponde ai filtri selezionati. Prova a modificare i criteri di ricerca.'
-                }
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-8 lg:grid-cols-1 xl:grid-cols-1 max-w-4xl mx-auto">
-            {filteredOpenHouses.map((openHouse) => {
-              const isExpired = new Date(openHouse.data_evento) < new Date(new Date().toDateString())
-              return (
-              <div key={openHouse.id} className={`property-card relative ${isExpired ? 'opacity-80' : ''}`}>
-                {/* Property Images */}
-                <div className="h-48 md:h-64 relative overflow-hidden">
-                  {/* Watermark per eventi scaduti */}
-                  {isExpired && (
-                    <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-10">
-                      <div className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold text-lg transform -rotate-12">
-                        EVENTO SCADUTO
-                      </div>
-                    </div>
-                  )}
-                  {openHouse.property.immagini && openHouse.property.immagini.length > 0 ? (
-                    <img
-                      src={openHouse.property.immagini[0]}
-                      alt={openHouse.property.titolo}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const nextSibling = e.currentTarget.nextElementSibling as HTMLElement;
-                        if (nextSibling) nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-300 flex items-center justify-center"
-                    style={{ display: openHouse.property.immagini?.length > 0 ? 'none' : 'flex' }}
-                  >
-                    <span style={{ color: 'var(--text-gray)' }}>Immagine non disponibile</span>
-                  </div>
-
-                  {/* Image count indicator */}
-                  {openHouse.property.immagini && openHouse.property.immagini.length > 1 && (
-                    <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                      {openHouse.property.immagini.length} foto
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-4 md:p-6">
-                  {/* Status Tag */}
-                  <div className="flex justify-between items-start mb-3 md:mb-4">
-                    <span className="status-tag">OPEN HOUSE</span>
-                    <div className="text-right">
-                      <p className="text-xl md:text-3xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-                        €{openHouse.property.prezzo?.toLocaleString('it-IT')}
-                      </p>
-                      <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
-                        {openHouse.property.tipologia}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Property Title and Location */}
-                  <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-dark)' }}>
-                    {openHouse.property.titolo}
-                  </h3>
-                  <p className="mb-4" style={{ color: 'var(--text-gray)' }}>
-                    📍 {openHouse.property.zona}
-                  </p>
-
-                  {/* Property Description */}
-                  <p className="mb-6 leading-relaxed" style={{ color: 'var(--text-dark)' }}>
-                    {openHouse.property.descrizione}
-                  </p>
-
-                  {/* Property Features */}
-                  <div className="flex flex-wrap gap-3 mb-6">
-                    {openHouse.property.caratteristiche?.mq && (
-                      <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-gray)' }}>
-                        <span>📏</span>
-                        <span>{openHouse.property.caratteristiche.mq} m²</span>
-                      </div>
-                    )}
-                    {openHouse.property.caratteristiche?.locali && (
-                      <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-gray)' }}>
-                        <span>🏠</span>
-                        <span>{openHouse.property.caratteristiche.locali} locali</span>
-                      </div>
-                    )}
-                    {openHouse.property.caratteristiche?.bagni && (
-                      <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-gray)' }}>
-                        <span>🚿</span>
-                        <span>{openHouse.property.caratteristiche.bagni} bagni</span>
-                      </div>
-                    )}
-                    {openHouse.property.caratteristiche?.piano && (
-                      <div className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-gray)' }}>
-                        <span>🏢</span>
-                        <span>Piano {openHouse.property.caratteristiche.piano}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Open House Info */}
-                  <div className="border-t pt-4 mb-6" style={{ borderColor: 'var(--light-gray)' }}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium" style={{ color: 'var(--primary-blue)' }}>Data:</span>
-                        <p style={{ color: 'var(--text-dark)' }}>
-                          {new Date(openHouse.data_evento).toLocaleDateString('it-IT', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="font-medium" style={{ color: 'var(--primary-blue)' }}>Orario:</span>
-                        <p style={{ color: 'var(--text-dark)' }}>{formatTime(openHouse.ora_inizio)} - {formatTime(openHouse.ora_fine)}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium" style={{ color: 'var(--primary-blue)' }}>Agente:</span>
-                        <p style={{ color: 'var(--text-dark)' }}>
-                          {openHouse.agent?.nome || 'N/A'} {openHouse.agent?.cognome || ''}
-                        </p>
-                        <p className="text-sm" style={{ color: 'var(--text-gray)' }}>
-                          {openHouse.agent?.email || ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="flex justify-center">
-                    {isExpired ? (
-                      <button
-                        disabled
-                        className="w-full md:w-auto bg-gray-400 text-white px-8 py-3 text-base md:text-lg font-medium nav-text rounded cursor-not-allowed opacity-60"
-                      >
-                        EVENTO SCADUTO
-                      </button>
-                    ) : (
-                      <a
-                        href={`/open-house/${openHouse.id}`}
-                        className="btn-primary block md:inline-block text-center px-8 py-3 text-base md:text-lg font-medium nav-text"
-                      >
-                        PRENOTA LA TUA VISITA
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-            })}
+        {types.length > 1 && (
+          <div className="flex flex-wrap gap-2 mt-6">
+            <button className={`pub-chip ${selectedType === '' ? 'is-active' : ''}`} onClick={() => setSelectedType('')}>Tutti</button>
+            {types.map(type => (
+              <button key={type} className={`pub-chip ${selectedType === type ? 'is-active' : ''}`} onClick={() => setSelectedType(type)}>
+                {TYPE_LABELS[type] || type}
+              </button>
+            ))}
           </div>
         )}
-      </div>
+      </section>
+
+      {/* Elenco */}
+      <main className="pub-wrap pb-20">
+        {loading ? (
+          <div className="flex justify-center py-20"><div className="pub-spinner" aria-label="Caricamento" /></div>
+        ) : loadError ? (
+          <p className="pub-body py-16">Non riusciamo a caricare gli Open House in questo momento. Ricarica la pagina tra qualche minuto.</p>
+        ) : filtered.length === 0 ? (
+          <div className="py-16">
+            <p className="pub-h3">{openHouses.length === 0 ? 'Nessun Open House in programma al momento' : 'Nessun immobile corrisponde alla ricerca'}</p>
+            <p className="pub-body pub-muted mt-2">
+              {openHouses.length === 0 ? 'Torna a trovarci presto: pubblichiamo nuovi eventi ogni settimana.' : 'Prova a cambiare zona o fascia di prezzo.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="pub-muted text-sm mb-6">
+              {filtered.length === 1 ? '1 Open House in programma' : `${filtered.length} Open House in programma`}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-14">
+              {filtered.map(oh => {
+                const c = oh.property.caratteristiche || {}
+                const details = [c.mq ? `${c.mq} m²` : null, c.locali ? `${c.locali} locali` : null, c.bagni ? `${c.bagni} bagni` : null].filter(Boolean).join('   ')
+                return (
+                  <Link key={oh.id} href={`/open-house/${oh.id}`} className="pub-card group">
+                    <div className="pub-card-img">
+                      {oh.property.immagini?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={oh.property.immagini[0]} alt={oh.property.titolo} loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center pub-muted">Foto in arrivo</div>
+                      )}
+                    </div>
+                    <p className="mt-5 text-sm font-semibold first-letter:uppercase" style={{ color: 'var(--ink)' }}>
+                      {formatDate(oh.data_evento)}, {t(oh.ora_inizio)}–{t(oh.ora_fine)}
+                    </p>
+                    <h2 className="pub-h2 mt-2 text-[1.45rem] md:text-[1.6rem]">{oh.property.titolo.trim()}</h2>
+                    <p className="pub-muted mt-1">{oh.property.zona}</p>
+                    <div className="flex items-baseline justify-between gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+                      <span className="font-medium" style={{ color: 'var(--ink)' }}>
+                        {oh.property.prezzo ? `${c.cantiere ? 'da ' : ''}${oh.property.prezzo.toLocaleString('it-IT')} €` : 'Prezzo su richiesta'}
+                      </span>
+                      {details && <span className="pub-muted text-sm whitespace-pre">{details}</span>}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </main>
+
+      <footer className="pub-footer">
+        <div className="pub-wrap py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-10 w-auto pub-logo-white" />
+          <div className="flex items-center gap-6 text-sm">
+            <span className="opacity-80">Sogna, Realizza, Abita</span>
+            <Link href="/dashboard/login" className="opacity-60 hover:opacity-100">Area agenti</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

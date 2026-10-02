@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
-import Logo from '@/components/Logo'
+import Image from 'next/image'
 
 // Helper function per rimuovere i secondi dagli orari
 const formatTime = (timeString: string): string => {
@@ -33,7 +33,8 @@ interface OpenHouse {
   ora_fine: string
   durata_slot_minuti: number
   max_partecipanti_slot: number
-  descrizione: string
+  descrizione?: string
+  descrizione_evento?: string | null
   is_active: boolean
   property: Property
   agent: {
@@ -80,6 +81,62 @@ interface QuestionnaireData {
   corrispondenza_immobile: string
 }
 
+
+// Domande del questionario (obbligatorio per prenotare). I valori devono coincidere con lib/questionnaire.ts
+const QUESTIONS: { key: keyof QuestionnaireData; label: string; options: { value: string; label: string }[] }[] = [
+  {
+    key: 'vendita_immobile',
+    label: 'Per acquistare devi prima vendere un altro immobile?',
+    options: [
+      { value: 'no', label: 'No, non devo vendere' },
+      { value: 'si_in_vendita', label: 'Sì, ed è già in vendita' },
+      { value: 'si_non_in_vendita', label: 'Sì, ma non è ancora in vendita' },
+      { value: 'si_posso_acquistare_prima', label: 'Sì, ma posso comprare anche prima di vendere' },
+    ],
+  },
+  {
+    key: 'necessita_mutuo',
+    label: 'Ti servirà un mutuo?',
+    options: [
+      { value: 'no', label: 'No, compro senza mutuo' },
+      { value: 'si_parziale', label: 'Sì, fino all\u201980% del prezzo' },
+      { value: 'si_maggior_parte', label: 'Sì, per più dell\u201980% del prezzo' },
+    ],
+  },
+  {
+    key: 'stato_mutuo',
+    label: 'Hai già parlato con una banca?',
+    options: [
+      { value: 'pre_delibera', label: 'Sì, ho già una pre-delibera' },
+      { value: 'simulazione', label: 'Sì, ho fatto una simulazione' },
+      { value: 'appuntamento', label: 'Ho un appuntamento fissato' },
+      { value: 'non_informato', label: 'Non ancora' },
+      { value: 'ricontatto_consulente', label: 'Vorrei essere contattato da un consulente mutui' },
+    ],
+  },
+  {
+    key: 'tempistiche_acquisto',
+    label: 'Quando vorresti acquistare?',
+    options: [
+      { value: 'entro_30_giorni', label: 'Entro 30 giorni' },
+      { value: 'entro_3_mesi', label: 'Entro 3 mesi' },
+      { value: 'entro_6_mesi', label: 'Entro 6 mesi' },
+      { value: 'oltre_6_mesi', label: 'Tra più di 6 mesi' },
+      { value: 'solo_valutando', label: 'Sto solo valutando' },
+    ],
+  },
+  {
+    key: 'corrispondenza_immobile',
+    label: 'Da foto e descrizione, l\u2019immobile corrisponde a quello che cerchi?',
+    options: [
+      { value: '100_percento', label: 'Sì, in pieno' },
+      { value: '80_90_percento', label: 'In gran parte' },
+      { value: 'parzialmente', label: 'In parte, mancano cose importanti' },
+      { value: 'no_altro', label: 'No, sto cercando altro' },
+    ],
+  },
+]
+
 export default function OpenHouseDetail() {
   const params = useParams()
   const router = useRouter()
@@ -115,6 +172,7 @@ export default function OpenHouseDetail() {
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [shareTooltip, setShareTooltip] = useState('')
+  const [showGallery, setShowGallery] = useState(false)
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData>({
     vendita_immobile: '',
     necessita_mutuo: '',
@@ -155,18 +213,6 @@ export default function OpenHouseDetail() {
     }
   }, [openHouseId])
 
-  // Carosello automatico delle immagini
-  useEffect(() => {
-    if (openHouse?.property.immagini && openHouse.property.immagini.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentImageIndex(prevIndex =>
-          prevIndex === openHouse.property.immagini.length - 1 ? 0 : prevIndex + 1
-        )
-      }, 4000) // Cambia immagine ogni 4 secondi
-
-      return () => clearInterval(interval)
-    }
-  }, [openHouse?.property.immagini])
 
   const loadOpenHouseData = async () => {
     try {
@@ -307,819 +353,357 @@ export default function OpenHouseDetail() {
     }
   }
 
+  // ---------- Rendering ----------
+  const property = openHouse?.property
+  const images = property?.immagini || []
+  const isPast = openHouse ? new Date(`${openHouse.data_evento}T${openHouse.ora_fine}`) < new Date() : false
+  const eventDate = openHouse
+    ? new Date(openHouse.data_evento + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
+    : ''
+  const priceLabel = property?.prezzo
+    ? `${property.caratteristiche?.cantiere ? 'da ' : ''}${property.prezzo.toLocaleString('it-IT')} €`
+    : 'Prezzo su richiesta'
+  const facts = property
+    ? ([
+        property.caratteristiche?.mq ? `${property.caratteristiche.mq} m²` : null,
+        property.caratteristiche?.locali ? `${property.caratteristiche.locali} locali` : null,
+        property.caratteristiche?.bagni ? `${property.caratteristiche.bagni} ${property.caratteristiche.bagni === 1 ? 'bagno' : 'bagni'}` : null,
+        property.caratteristiche?.piano ? `Piano ${property.caratteristiche.piano}` : null,
+        property.caratteristiche?.cantiere && property.caratteristiche?.unita_totali ? `${property.caratteristiche.unita_totali} unità in vendita` : null,
+      ].filter(Boolean) as string[])
+    : []
+  const mapsUrl = property?.indirizzo
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.indirizzo} ${property.zona || ''}`)}`
+    : null
+  const freeSlots = timeSlots.filter(s => s.posti_occupati < s.posti_disponibili).length
+  const selectedSlotData = timeSlots.find(s => s.id === selectedSlot)
+
+  const scrollToBooking = () => {
+    document.getElementById('prenota')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--accent-blue)' }}></div>
+      <div className="pub min-h-screen flex items-center justify-center">
+        <div className="pub-spinner" aria-label="Caricamento" />
       </div>
     )
   }
 
-  if (!openHouse) {
+  if (!openHouse || !property) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>Open House non trovato</h1>
-          <button
-            onClick={() => router.push('/')}
-            className="btn-primary"
-          >
-            Torna alla Homepage
-          </button>
+      <div className="pub min-h-screen flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <h1 className="pub-h2 mb-3">Questo Open House non è disponibile</h1>
+          <p className="pub-muted mb-8">Potrebbe essere stato concluso o rimosso. Guarda gli altri immobili in programma.</p>
+          <button onClick={() => router.push('/')} className="pub-btn">Vedi tutti gli Open House</button>
         </div>
       </div>
     )
   }
 
+  const visibleQuestions = QUESTIONS.filter(q => !(q.key === 'stato_mutuo' && questionnaireData.necessita_mutuo === 'no'))
+  const answered = visibleQuestions.filter(q => questionnaireData[q.key] !== '').length
+  const allAnswered = answered === visibleQuestions.length
+
+  const setAnswer = (key: keyof QuestionnaireData, value: string) => {
+    if (key === 'necessita_mutuo') {
+      setQuestionnaireData({
+        ...questionnaireData,
+        necessita_mutuo: value,
+        // senza mutuo la domanda sulla banca non serve
+        stato_mutuo: value === 'no' ? 'non_richiedo' : questionnaireData.stato_mutuo === 'non_richiedo' ? '' : questionnaireData.stato_mutuo,
+      })
+    } else {
+      setQuestionnaireData({ ...questionnaireData, [key]: value })
+    }
+  }
+
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header style={{ backgroundColor: 'var(--primary-blue)' }} className="text-white py-1 md:py-0 md:h-16">
-        <div className="container mx-auto px-4 h-full">
-          <div className="flex justify-between items-center h-full">
-            <Logo height={56} />
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className="relative">
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-1.5 md:gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 md:px-4 rounded-lg transition-all text-sm font-medium"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                  <span className="hidden sm:inline">Condividi</span>
-                </button>
-                {shareTooltip && (
-                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                    {shareTooltip}
-                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')}
-                className="text-white hover:text-gray-200 transition-colors nav-text text-sm"
-              >
-                <span className="hidden sm:inline">← {agent && isAdmin(agent) ? 'DASHBOARD' : 'TORNA AGLI OPEN HOUSE'}</span>
-                <span className="sm:hidden">← INDIETRO</span>
-              </button>
+    <div className="pub min-h-screen">
+      {/* Testata */}
+      <header className="pub-header">
+        <div className="pub-wrap flex items-center justify-between h-16 md:h-20">
+          <button onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')} aria-label="Ghergo Immobiliare, tutti gli Open House">
+            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-11 w-auto" priority />
+          </button>
+          <div className="flex items-center gap-5 md:gap-8">
+            <button onClick={() => router.push('/')} className="pub-link hidden sm:inline">Tutti gli Open House</button>
+            <div className="relative">
+              <button onClick={handleShare} className="pub-link">Condividi</button>
+              {shareTooltip && <div className="pub-toast">{shareTooltip}</div>}
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-4 md:py-8">
-        <div className="max-w-6xl mx-auto">
-
-          {/* Property Header */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-            {/* Property Images Carousel */}
-            <div className="h-56 md:h-96 relative overflow-hidden">
-              {openHouse.property.immagini && openHouse.property.immagini.length > 0 ? (
-                <div className="relative h-full">
-                  {/* Main carousel container */}
-                  <div className="relative h-full">
-                    {openHouse.property.immagini.map((image, index) => (
-                      <div
-                        key={index}
-                        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                          index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-                        }`}
-                      >
-                        <img
-                          src={image}
-                          alt={`${openHouse.property.titolo} - Foto ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Navigation arrows */}
-                  {openHouse.property.immagini.length > 1 && (
-                    <>
-                      <button
-                        onClick={() => setCurrentImageIndex(prev =>
-                          prev === 0 ? openHouse.property.immagini.length - 1 : prev - 1
-                        )}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                      >
-                        ‹
-                      </button>
-                      <button
-                        onClick={() => setCurrentImageIndex(prev =>
-                          prev === openHouse.property.immagini.length - 1 ? 0 : prev + 1
-                        )}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
-                      >
-                        ›
-                      </button>
-                    </>
-                  )}
-
-                  {/* Image navigation indicators */}
-                  {openHouse.property.immagini.length > 1 && (
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                      {openHouse.property.immagini.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentImageIndex(index)}
-                          className={`w-3 h-3 rounded-full transition-all ${
-                            index === currentImageIndex ? 'bg-white' : 'bg-white/50 hover:bg-white/70'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Image count indicator */}
-                  <div className="absolute top-4 right-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1 rounded">
-                    {currentImageIndex + 1} / {openHouse.property.immagini.length}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Fallback placeholder */}
-              <div
-                className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-300 flex items-center justify-center"
-                style={{ display: openHouse.property.immagini?.length > 0 ? 'none' : 'flex' }}
-              >
-                <span style={{ color: 'var(--text-gray)' }}>Immagine non disponibile</span>
-              </div>
-            </div>
-
-            <div className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2" style={{ color: 'var(--text-dark)' }}>
-                    {openHouse.property.titolo}
-                  </h1>
-                  <p className="text-base md:text-lg" style={{ color: 'var(--text-gray)' }}>
-                    {openHouse.property.zona}
-                  </p>
-                </div>
-                <div className="sm:text-right">
-                  <p className="text-2xl md:text-4xl font-bold" style={{ color: 'var(--primary-blue)' }}>
-                    {openHouse.property.caratteristiche?.cantiere && openHouse.property.prezzo
-                      ? <>Prezzo a partire da {openHouse.property.prezzo.toLocaleString('it-IT')} &euro;</>
-                      : <>{openHouse.property.prezzo?.toLocaleString('it-IT')} &euro;</>
-                    }
-                  </p>
-                  <p className="text-sm capitalize" style={{ color: 'var(--text-gray)' }}>
-                    {openHouse.property.tipologia}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-                {openHouse.property.caratteristiche?.mq && (
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
-                      {openHouse.property.caratteristiche.mq} m²
-                    </div>
-                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>Superficie</div>
-                  </div>
-                )}
-                {openHouse.property.caratteristiche?.locali && (
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
-                      {openHouse.property.caratteristiche.locali}
-                    </div>
-                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>Locali</div>
-                  </div>
-                )}
-                {openHouse.property.caratteristiche?.bagni && (
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
-                      {openHouse.property.caratteristiche.bagni}
-                    </div>
-                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>Bagni</div>
-                  </div>
-                )}
-                {openHouse.property.caratteristiche?.piano && (
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
-                      Piano {openHouse.property.caratteristiche.piano}
-                    </div>
-                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>Piano</div>
-                  </div>
-                )}
-                {openHouse.property.caratteristiche?.cantiere && openHouse.property.caratteristiche?.unita_totali && (
-                  <div className="text-center p-3 bg-yellow-50 rounded">
-                    <div className="font-semibold" style={{ color: 'var(--primary-blue)' }}>
-                      {openHouse.property.caratteristiche.unita_totali}
-                    </div>
-                    <div className="text-sm" style={{ color: 'var(--text-gray)' }}>{`Unit\u00E0 in vendita`}</div>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-lg leading-relaxed" style={{ color: 'var(--text-dark)' }}>
-                {openHouse.property.descrizione}
-              </p>
-            </div>
+      {/* Galleria */}
+      <section className="pub-wrap pt-4 md:pt-6">
+        {images.length > 0 ? (
+          <div className="pub-gallery">
+            <button className="pub-gallery-main" onClick={() => { setCurrentImageIndex(0); setShowGallery(true) }} aria-label="Apri le foto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={images[0]} alt={property.titolo} />
+            </button>
+            {images.slice(1, 3).map((img, i) => (
+              <button key={img} className="pub-gallery-side hidden md:block" onClick={() => { setCurrentImageIndex(i + 1); setShowGallery(true) }} aria-label={`Apri la foto ${i + 2}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="" />
+              </button>
+            ))}
+            {images.length > 1 && (
+              <button className="pub-gallery-count" onClick={() => { setCurrentImageIndex(0); setShowGallery(true) }}>
+                Vedi tutte le {images.length} foto
+              </button>
+            )}
           </div>
+        ) : (
+          <div className="pub-gallery-empty">Foto in arrivo</div>
+        )}
+      </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+      {/* Contenuto + prenotazione */}
+      <main className="pub-wrap grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-16 py-10 md:py-14">
+        <article className="min-w-0">
+          <p className="pub-muted text-base md:text-lg">{property.zona}</p>
+          <h1 className="pub-h1 mt-2">{property.titolo.trim()}</h1>
+          <p className="pub-price mt-5">{priceLabel}</p>
 
-            {/* Open House Info */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-                <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-dark)' }}>
-                  Informazioni Open House
-                </h2>
+          {facts.length > 0 && (
+            <ul className="pub-facts mt-8">
+              {facts.map(f => <li key={f}>{f}</li>)}
+            </ul>
+          )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h3 className="font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
-                      Data e Orario
-                    </h3>
-                    <p style={{ color: 'var(--text-dark)' }}>
-                      {new Date(openHouse.data_evento).toLocaleDateString('it-IT', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                    <p className="font-medium" style={{ color: 'var(--text-dark)' }}>
-                      {formatTime(openHouse.ora_inizio)} - {formatTime(openHouse.ora_fine)}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h3 className="font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
-                      Agente di riferimento
-                    </h3>
-                    <p className="font-medium" style={{ color: 'var(--text-dark)' }}>
-                      {openHouse.agent.nome} {openHouse.agent.cognome}
-                    </p>
-                    <p className="text-sm" style={{ color: 'var(--text-gray)' }}>
-                      {openHouse.agent.email}
-                    </p>
-                  </div>
-                </div>
-
-                {openHouse.descrizione && (
-                  <div className="mb-6">
-                    <h3 className="font-semibold mb-2" style={{ color: 'var(--primary-blue)' }}>
-                      Note aggiuntive
-                    </h3>
-                    <p style={{ color: 'var(--text-dark)' }}>{openHouse.descrizione}</p>
-                  </div>
-                )}
-
-                {/* Time Slots */}
-                <div>
-                  <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>
-                    Scegli il tuo slot di visita
-                  </h3>
-
-                  {/* Riprova sociale: numero reale di prenotati, mostrato oltre le 5 prenotazioni */}
-                  {totalBookings > 5 && (
-                    <div className="mb-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: '#fff4e5', color: '#b45309' }}>
-                      🔥 Già {totalBookings} persone prenotate per questo Open House
-                    </div>
-                  )}
-
-                  {timeSlots.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p style={{ color: 'var(--text-gray)' }}>
-                        Nessuno slot disponibile per questo Open House.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {timeSlots.map((slot) => {
-                        const isSlotOccupied = slot.posti_occupati >= slot.posti_disponibili
-
-                        return (
-                        <button
-                          key={slot.id}
-                          onClick={() => handleSlotSelection(slot.id)}
-                          disabled={isSlotOccupied}
-                          className={`p-4 md:p-4 min-h-[56px] rounded-lg border-2 transition-all ${
-                            isSlotOccupied
-                              ? 'bg-red-50 border-red-300 cursor-not-allowed opacity-70'
-                              : selectedSlot === slot.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                          }`}
-                        >
-                          <div className={`font-medium ${
-                            isSlotOccupied
-                              ? 'text-red-600'
-                              : 'text-gray-900'
-                          }`}>
-                            {formatTime(slot.ora_inizio)} - {formatTime(slot.ora_fine)}
-                          </div>
-                          <div className={`text-sm mt-1 ${
-                            isSlotOccupied
-                              ? 'text-red-500'
-                              : 'text-gray-600'
-                          }`}>
-                            {isSlotOccupied
-                              ? 'Non Disponibile'
-                              : 'Disponibile'
-                            }
-                          </div>
-                        </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
+          {property.descrizione && (
+            <div className="mt-10">
+              <h2 className="pub-h3 mb-4">L&apos;immobile</h2>
+              <p className="pub-body whitespace-pre-line">{property.descrizione}</p>
             </div>
+          )}
 
-            {/* Booking Form */}
-            <div ref={bookingFormRef}>
-              {showBookingForm && selectedSlot && (
-                <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:sticky lg:top-6">
-                  <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-dark)' }}>
-                    Completa la prenotazione
-                  </h3>
+          {openHouse.descrizione_evento && (
+            <div className="mt-10">
+              <h2 className="pub-h3 mb-4">Informazioni sulla visita</h2>
+              <p className="pub-body whitespace-pre-line">{openHouse.descrizione_evento}</p>
+            </div>
+          )}
 
-                  <form onSubmit={handleFormSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                          Nome *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.nome}
-                          onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                          Cognome *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.cognome}
-                          onChange={(e) => setFormData({ ...formData, cognome: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                    </div>
+          <div className="pub-info mt-12">
+            <div>
+              <h2 className="pub-h3 mb-2">Dove</h2>
+              <p className="pub-body">{property.indirizzo || property.zona}</p>
+              {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="pub-link mt-2 inline-block">Apri in Google Maps</a>}
+            </div>
+            <div>
+              <h2 className="pub-h3 mb-2">Ti accoglie</h2>
+              <p className="pub-body">{openHouse.agent.nome} {openHouse.agent.cognome}</p>
+              <a href={`mailto:${openHouse.agent.email}`} className="pub-link mt-2 inline-block">{openHouse.agent.email}</a>
+            </div>
+            {property.brochure_url && (
+              <div>
+                <h2 className="pub-h3 mb-2">Brochure</h2>
+                <a href={property.brochure_url} target="_blank" rel="noopener noreferrer" className="pub-link inline-block">Scarica la brochure (PDF)</a>
+              </div>
+            )}
+          </div>
+        </article>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
+        {/* Pannello prenotazione */}
+        <aside id="prenota" className="lg:sticky lg:top-24 self-start scroll-mt-24">
+          <div className="pub-panel">
+            <p className="pub-muted text-sm">Open House</p>
+            <p className="pub-date mt-1 first-letter:uppercase">{eventDate}</p>
+            <p className="pub-body mt-1">dalle {formatTime(openHouse.ora_inizio)} alle {formatTime(openHouse.ora_fine)}</p>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                        Telefono *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={formData.telefono}
-                        onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
+            {totalBookings > 5 && !isPast && (
+              <p className="pub-proof mt-5">{totalBookings} persone hanno già prenotato la visita</p>
+            )}
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                        Messaggio (opzionale)
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={formData.messaggio}
-                        onChange={(e) => setFormData({ ...formData, messaggio: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Domande o richieste speciali..."
-                      />
-                    </div>
+            <div className="pub-divider my-6" />
 
-                    {/* Agente di riferimento */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-dark)' }}>
-                        Agente di riferimento (opzionale)
-                      </label>
-                      <select
-                        value={formData.agente_referente_id}
-                        onChange={(e) => setFormData({ ...formData, agente_referente_id: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        disabled={loadingAgents}
-                      >
-                        <option value="">Nessuno / Non so</option>
-                        {referenceAgents.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.nome} {a.cognome}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
-                        {`Se ha gi\u00E0 un agente di riferimento, lo selezioni qui`}
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={formData.privacy_accepted}
-                          onChange={(e) => setFormData({ ...formData, privacy_accepted: e.target.checked })}
-                          className="mt-1"
-                        />
-                        <span className="text-sm" style={{ color: 'var(--text-dark)' }}>
-                          Accetto l&apos;<a href="#" className="text-blue-600 underline">informativa privacy</a> e
-                          autorizzo il trattamento dei dati personali per la gestione della prenotazione. *
-                        </span>
-                      </label>
-
-                      <label className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={formData.marketing_accepted}
-                          onChange={(e) => setFormData({ ...formData, marketing_accepted: e.target.checked })}
-                          className="mt-1"
-                        />
-                        <span className="text-sm" style={{ color: 'var(--text-dark)' }}>
-                          Accetto di ricevere comunicazioni commerciali e newsletter da Ghergo Immobiliare.
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="w-full btn-primary py-3 font-semibold disabled:opacity-50"
-                    >
-                      {submitting ? 'Prenotazione in corso...' : 'CONTINUA'}
-                    </button>
-
-                    <p className="text-xs text-center" style={{ color: 'var(--text-gray)' }}>
-                      Al passo successivo ti chiederemo alcune domande veloci: senza questionario la prenotazione non viene registrata
-                      e riceverai via email la conferma con la brochure dell&apos;immobile.
-                    </p>
-                  </form>
+            {isPast ? (
+              <p className="pub-body">Questo Open House si è concluso.</p>
+            ) : timeSlots.length === 0 ? (
+              <p className="pub-body">Gli orari di visita non sono ancora disponibili.</p>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between mb-4">
+                  <h2 className="pub-h3">Scegli l&apos;orario</h2>
+                  <span className="pub-muted text-sm">{freeSlots === 0 ? 'Tutto prenotato' : freeSlots === 1 ? 'Ultimo orario libero' : `${freeSlots} orari liberi`}</span>
                 </div>
+                <div className="pub-slots" role="list">
+                  {timeSlots.map(slot => {
+                    const full = slot.posti_occupati >= slot.posti_disponibili
+                    const active = selectedSlot === slot.id
+                    return (
+                      <button
+                        key={slot.id}
+                        role="listitem"
+                        onClick={() => handleSlotSelection(slot.id)}
+                        disabled={full}
+                        aria-pressed={active}
+                        className={`pub-slot ${full ? 'is-full' : ''} ${active ? 'is-active' : ''}`}
+                      >
+                        <span className="pub-slot-time">{formatTime(slot.ora_inizio)}</span>
+                        <span className="pub-slot-state">{full ? 'Completo' : active ? 'Scelto' : 'Libero'}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Modulo dati (dopo la scelta dell'orario) */}
+            <div ref={bookingFormRef} className="scroll-mt-24">
+              {showBookingForm && selectedSlotData && !isPast && (
+                <form onSubmit={handleFormSubmit} className="mt-8 space-y-5">
+                  <div className="pub-divider mb-6" />
+                  <p className="pub-body">
+                    Visita alle <strong className="font-semibold">{formatTime(selectedSlotData.ora_inizio)}</strong>. Inserisci i tuoi dati.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="pub-field">
+                      <span>Nome</span>
+                      <input type="text" required autoComplete="given-name" value={formData.nome} onChange={e => setFormData({ ...formData, nome: e.target.value })} />
+                    </label>
+                    <label className="pub-field">
+                      <span>Cognome</span>
+                      <input type="text" required autoComplete="family-name" value={formData.cognome} onChange={e => setFormData({ ...formData, cognome: e.target.value })} />
+                    </label>
+                  </div>
+                  <label className="pub-field">
+                    <span>Email</span>
+                    <input type="email" required autoComplete="email" inputMode="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  </label>
+                  <label className="pub-field">
+                    <span>Telefono</span>
+                    <input type="tel" required autoComplete="tel" inputMode="tel" value={formData.telefono} onChange={e => setFormData({ ...formData, telefono: e.target.value })} />
+                  </label>
+                  <label className="pub-field">
+                    <span>Agente di riferimento (facoltativo)</span>
+                    <select value={formData.agente_referente_id} onChange={e => setFormData({ ...formData, agente_referente_id: e.target.value })} disabled={loadingAgents}>
+                      <option value="">Nessuno</option>
+                      {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>
+                  </label>
+                  <label className="pub-field">
+                    <span>Messaggio (facoltativo)</span>
+                    <textarea rows={2} value={formData.messaggio} onChange={e => setFormData({ ...formData, messaggio: e.target.value })} placeholder="Domande o richieste per l'agente" />
+                  </label>
+
+                  <div className="space-y-3 pt-1">
+                    <label className="pub-check">
+                      <input type="checkbox" checked={formData.privacy_accepted} onChange={e => setFormData({ ...formData, privacy_accepted: e.target.checked })} />
+                      <span>Ho letto l&apos;informativa privacy e acconsento al trattamento dei dati per gestire la prenotazione (obbligatorio)</span>
+                    </label>
+                    <label className="pub-check">
+                      <input type="checkbox" checked={formData.marketing_accepted} onChange={e => setFormData({ ...formData, marketing_accepted: e.target.checked })} />
+                      <span>Voglio ricevere novità e nuovi immobili da Ghergo Immobiliare</span>
+                    </label>
+                  </div>
+
+                  <button type="submit" disabled={submitting} className="pub-btn w-full">Continua</button>
+                  <p className="pub-muted text-sm text-center">
+                    Al passo successivo ti chiederemo alcune domande: senza questionario la prenotazione non viene registrata.
+                  </p>
+                </form>
               )}
             </div>
           </div>
+        </aside>
+      </main>
+
+      <footer className="pub-footer">
+        <div className="pub-wrap py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-10 w-auto pub-logo-white" />
+          <p className="text-sm opacity-80">Sogna, Realizza, Abita</p>
         </div>
-      </div>
+      </footer>
 
-      {/* Questionnaire Modal */}
-      {showQuestionnaire && (() => {
-        const answeredCount = [
-          questionnaireData.vendita_immobile,
-          questionnaireData.necessita_mutuo,
-          questionnaireData.stato_mutuo,
-          questionnaireData.tempistiche_acquisto,
-          questionnaireData.corrispondenza_immobile
-        ].filter(v => v !== '').length
-        // Chi compra senza mutuo non vede la domanda sulla banca
-        const totalQuestions = questionnaireData.necessita_mutuo === 'no' ? 4 : 5
-        const shownAnswered = questionnaireData.necessita_mutuo === 'no' ? answeredCount - (questionnaireData.stato_mutuo ? 1 : 0) : answeredCount
-        const progressPercent = (shownAnswered / totalQuestions) * 100
+      {/* Barra mobile per arrivare alla prenotazione */}
+      {!isPast && !showBookingForm && !showQuestionnaire && timeSlots.length > 0 && (
+        <div className="pub-mobilebar lg:hidden">
+          <div>
+            <p className="text-sm font-semibold first-letter:uppercase">{eventDate}</p>
+            <p className="text-xs opacity-80">{freeSlots > 0 ? `${freeSlots} orari liberi` : 'Tutto prenotato'}</p>
+          </div>
+          <button onClick={scrollToBooking} className="pub-btn pub-btn-sm">Prenota la visita</button>
+        </div>
+      )}
 
-        return (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes scaleIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
-            .q-radio-option { transition: all 0.15s ease; }
-            .q-radio-option:hover { transform: translateX(4px); }
-            .q-radio-option input[type="radio"]:checked + span { font-weight: 600; }
-          `}</style>
-          <div
-            className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-2xl md:mx-4 max-h-[95vh] md:max-h-[90vh] overflow-y-auto"
-            style={{ animation: 'slideUp 0.4s ease-out' }}
-          >
-            {/* Modal Header */}
-            <div className="sticky top-0 z-10 rounded-t-2xl px-6 pt-6 pb-4" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Per prenotare compila il questionario</h2>
-                  <p className="text-sm text-blue-100 mt-1">
-                    La prenotazione viene registrata solo dopo aver risposto a tutte le domande: ci servono per preparare al meglio la visita.
-                  </p>
-                  <button type="button" onClick={backToForm} className="text-xs text-white/80 hover:text-white underline mt-2">
-                    ← Torna indietro per cambiare orario o dati
-                  </button>
-                </div>
-                <div className="flex-shrink-0 ml-4 bg-white/20 rounded-full px-3 py-1">
-                  <span className="text-sm font-semibold text-white">{shownAnswered}/{totalQuestions}</span>
-                </div>
-              </div>
-              {/* Progress bar */}
-              <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${progressPercent}%`, backgroundColor: '#34d399' }}
-                />
-              </div>
+      {/* Galleria a schermo intero */}
+      {showGallery && images.length > 0 && (
+        <div className="pub-lightbox" role="dialog" aria-modal="true" aria-label="Foto dell'immobile">
+          <button className="pub-lightbox-close" onClick={() => setShowGallery(false)}>Chiudi</button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={images[currentImageIndex]} alt={`${property.titolo}, foto ${currentImageIndex + 1}`} />
+          {images.length > 1 && (
+            <>
+              <button className="pub-lightbox-nav left-2 md:left-6" aria-label="Foto precedente" onClick={() => setCurrentImageIndex(i => (i === 0 ? images.length - 1 : i - 1))}>‹</button>
+              <button className="pub-lightbox-nav right-2 md:right-6" aria-label="Foto successiva" onClick={() => setCurrentImageIndex(i => (i === images.length - 1 ? 0 : i + 1))}>›</button>
+            </>
+          )}
+          <p className="pub-lightbox-count">{currentImageIndex + 1} di {images.length}</p>
+        </div>
+      )}
+
+      {/* Questionario: per prenotare va compilato */}
+      {showQuestionnaire && (
+        <div className="pub-modal-backdrop">
+          <div className="pub-modal" role="dialog" aria-modal="true" aria-labelledby="q-title">
+            <div className="pub-modal-head">
+              <button type="button" onClick={backToForm} className="pub-link text-sm">Indietro</button>
+              <span className="pub-muted text-sm">{answered} di {visibleQuestions.length}</span>
             </div>
+            <div className="pub-progress"><div style={{ width: `${(answered / visibleQuestions.length) * 100}%` }} /></div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleQuestionnaireSubmit} className="p-6 space-y-5">
-              {/* Domanda 1 - Vendita immobile */}
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.vendita_immobile ? '#34d399' : '#94a3b8' }}>
-                      {questionnaireData.vendita_immobile ? '\u2713' : '1'}
-                    </span>
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
-                      Per procedere con l&apos;acquisto, deve prima vendere un altro immobile?
-                    </h3>
+            <form onSubmit={handleQuestionnaireSubmit} className="px-6 md:px-10 pb-8">
+              <h2 id="q-title" className="pub-h2 mt-6">Per prenotare compila il questionario</h2>
+              <p className="pub-body mt-3">
+                La prenotazione delle {selectedSlotData ? formatTime(selectedSlotData.ora_inizio) : ''} viene registrata solo dopo aver risposto a tutte le domande. Ci servono per preparare al meglio la tua visita.
+              </p>
+
+              {visibleQuestions.map((q, qi) => (
+                <fieldset key={q.key} className="mt-9">
+                  <legend className="pub-h3 mb-3">{qi + 1}. {q.label}</legend>
+                  <div className="space-y-2">
+                    {q.options.map(opt => (
+                      <label key={opt.value} className={`pub-option ${questionnaireData[q.key] === opt.value ? 'is-active' : ''}`}>
+                        <input
+                          type="radio"
+                          name={q.key}
+                          value={opt.value}
+                          checked={questionnaireData[q.key] === opt.value}
+                          onChange={() => setAnswer(q.key, opt.value)}
+                          required
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
                   </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  {[
-                    { value: 'no', label: 'No, non devo vendere nulla' },
-                    { value: 'si_in_vendita', label: 'S\u00ec, devo vendere ma l\'immobile \u00e8 gi\u00e0 in vendita' },
-                    { value: 'si_non_in_vendita', label: 'S\u00ec, devo vendere ma non \u00e8 ancora in vendita' },
-                    { value: 'si_posso_acquistare_prima', label: 'S\u00ec, ma posso acquistare anche prima di vendere' }
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
-                        questionnaireData.vendita_immobile === option.value
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="vendita_immobile"
-                        value={option.value}
-                        checked={questionnaireData.vendita_immobile === option.value}
-                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, vendita_immobile: e.target.value })}
-                        required
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+                </fieldset>
+              ))}
 
-              {/* Domanda 2 - Necessità mutuo */}
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.necessita_mutuo ? '#34d399' : '#94a3b8' }}>
-                      {questionnaireData.necessita_mutuo ? '\u2713' : '2'}
-                    </span>
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
-                      Per l&apos;acquisto è necessario accedere ad un mutuo?
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  {[
-                    { value: 'no', label: 'No, acquisto senza mutuo' },
-                    { value: 'si_parziale', label: 'S\u00ec, per una parte dell\'importo (non superiore all\' 80%)' },
-                    { value: 'si_maggior_parte', label: 'S\u00ec, per la maggior parte dell\'importo (superiore all\' 80%)' }
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
-                        questionnaireData.necessita_mutuo === option.value
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="necessita_mutuo"
-                        value={option.value}
-                        checked={questionnaireData.necessita_mutuo === option.value}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setQuestionnaireData({
-                            ...questionnaireData,
-                            necessita_mutuo: v,
-                            // senza mutuo la domanda sulla banca non serve
-                            stato_mutuo: v === 'no' ? 'non_richiedo' : (questionnaireData.stato_mutuo === 'non_richiedo' ? '' : questionnaireData.stato_mutuo)
-                          })
-                        }}
-                        required
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {questionnaireData.necessita_mutuo !== 'no' && (<>
-              {/* Domanda 3 - Stato mutuo */}
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.stato_mutuo ? '#34d399' : '#94a3b8' }}>
-                      {questionnaireData.stato_mutuo ? '\u2713' : '3'}
-                    </span>
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
-                      Se necessita di mutuo, ha già parlato con una banca o un consulente del credito?
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  {[
-                    { value: 'pre_delibera', label: 'S\u00ec, ho gi\u00e0 una pre-delibera' },
-                    { value: 'simulazione', label: 'S\u00ec, ho fatto una simulazione ma non ho ancora una pre-delibera' },
-                    { value: 'appuntamento', label: 'Ho un appuntamento fissato' },
-                    { value: 'non_informato', label: 'No, non mi sono ancora informato' },
-                    { value: 'ricontatto_consulente', label: 'Vorrei essere ricontattato da un consulente mutui' }
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
-                        questionnaireData.stato_mutuo === option.value
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="stato_mutuo"
-                        value={option.value}
-                        checked={questionnaireData.stato_mutuo === option.value}
-                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, stato_mutuo: e.target.value })}
-                        required
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              </>)}
-
-              {/* Domanda 4 - Tempistiche */}
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.tempistiche_acquisto ? '#34d399' : '#94a3b8' }}>
-                      {questionnaireData.tempistiche_acquisto ? '\u2713' : '4'}
-                    </span>
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
-                      In che tempi prevede di acquistare?
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  {[
-                    { value: 'entro_30_giorni', label: 'Entro 30 giorni' },
-                    { value: 'entro_3_mesi', label: 'Entro 3 mesi' },
-                    { value: 'entro_6_mesi', label: 'Entro 6 mesi' },
-                    { value: 'oltre_6_mesi', label: 'Oltre 6 mesi' },
-                    { value: 'solo_valutando', label: 'Sto solo valutando' }
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
-                        questionnaireData.tempistiche_acquisto === option.value
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="tempistiche_acquisto"
-                        value={option.value}
-                        checked={questionnaireData.tempistiche_acquisto === option.value}
-                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, tempistiche_acquisto: e.target.value })}
-                        required
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Domanda 5 - Corrispondenza immobile */}
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: questionnaireData.corrispondenza_immobile ? '#34d399' : '#94a3b8' }}>
-                      {questionnaireData.corrispondenza_immobile ? '\u2713' : '5'}
-                    </span>
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--text-dark)' }}>
-                      L&apos;immobile proposto rispecchia le caratteristiche che sta cercando?
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  {[
-                    { value: '100_percento', label: 'S\u00ec, corrisponde al 100%' },
-                    { value: '80_90_percento', label: 'Corrisponde in gran parte (80\u201390%)' },
-                    { value: 'parzialmente', label: 'Parzialmente (mancano alcuni elementi importanti)' },
-                    { value: 'no_altro', label: 'No, sto ancora cercando altro' }
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className={`q-radio-option flex items-center gap-3 px-3 md:px-4 py-3 md:py-2.5 rounded-lg cursor-pointer border ${
-                        questionnaireData.corrispondenza_immobile === option.value
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="corrispondenza_immobile"
-                        value={option.value}
-                        checked={questionnaireData.corrispondenza_immobile === option.value}
-                        onChange={(e) => setQuestionnaireData({ ...questionnaireData, corrispondenza_immobile: e.target.value })}
-                        required
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-dark)' }}>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={submittingQuestionnaire || answeredCount < 5}
-                  className="w-full py-4 font-bold text-lg text-white rounded-xl disabled:opacity-40 transition-all duration-200 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
-                  style={{ background: answeredCount >= 5 ? 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' : '#94a3b8' }}
-                >
-                  {submittingQuestionnaire ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>
-                      Invio in corso...
-                    </span>
-                  ) : answeredCount < 5 ? (
-                    `COMPLETA TUTTE LE DOMANDE (${answeredCount}/5)`
-                  ) : (
-                    'CONFERMA PRENOTAZIONE'
-                  )}
-                </button>
-                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-gray)' }}>
-                  Dopo l&apos;invio riceverai un&apos;email di conferma con la brochure dell&apos;immobile.
-                </p>
-              </div>
+              <button type="submit" disabled={submittingQuestionnaire || !allAnswered} className="pub-btn w-full mt-10">
+                {submittingQuestionnaire ? 'Prenotazione in corso…' : allAnswered ? 'Conferma la prenotazione' : `Rispondi a tutte le domande (${answered} di ${visibleQuestions.length})`}
+              </button>
+              <p className="pub-muted text-sm text-center mt-3">Riceverai subito un&apos;email di conferma con la brochure dell&apos;immobile.</p>
             </form>
           </div>
         </div>
-        )
-      })()}
+      )}
 
-      {/* Success Message */}
+      {/* Conferma */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-            style={{ animation: 'scaleIn 0.4s ease-out' }}
-          >
-            <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
-              <div className="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-1">
-                Prenotazione Confermata!
-              </h2>
-              <p className="text-blue-100 text-sm">
-                Grazie per aver completato il questionario
-              </p>
+        <div className="pub-modal-backdrop">
+          <div className="pub-modal pub-modal-sm text-center px-8 py-10" role="dialog" aria-modal="true" aria-labelledby="ok-title">
+            <div className="pub-check-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
-            <div className="px-8 py-6 text-center">
-              <p className="mb-1" style={{ color: 'var(--text-dark)' }}>
-                Ti abbiamo inviato un&apos;email di conferma
-              </p>
-              <p className="mb-6 text-sm" style={{ color: 'var(--text-gray)' }}>
-                con tutti i dettagli della prenotazione e la brochure dell&apos;immobile.
-              </p>
-              <button
-                onClick={() => setShowSuccess(false)}
-                className="w-full py-3 font-semibold text-white rounded-xl transition-all duration-200 hover:shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}
-              >
-                CHIUDI
-              </button>
-            </div>
+            <h2 id="ok-title" className="pub-h2 mt-6">Prenotazione confermata</h2>
+            <p className="pub-body mt-3">Ti abbiamo inviato un&apos;email con i dettagli della visita, l&apos;invito per il calendario e la brochure dell&apos;immobile.</p>
+            <button onClick={() => setShowSuccess(false)} className="pub-btn w-full mt-8">Chiudi</button>
           </div>
         </div>
       )}
