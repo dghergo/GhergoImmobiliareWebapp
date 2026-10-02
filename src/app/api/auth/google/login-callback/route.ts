@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createOAuth2Client } from '@/lib/google-auth'
+import { createOAuth2Client, loginBaseUrl } from '@/lib/google-auth'
 import { getSupabaseAdmin } from '@/lib/server-auth'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     // Ottieni i token da Google
     const oauth2Client = createOAuth2Client(
-      `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/auth/google/login-callback`
+      `${loginBaseUrl(request)}/api/auth/google/login-callback`
     )
 
     const { tokens } = await oauth2Client.getToken(code)
@@ -181,7 +181,7 @@ export async function GET(request: Request) {
     const magicLinkUrl = new URL(linkData.properties.action_link)
 
     // Aggiungi il redirect_to come parametro - deve essere un URL assoluto
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+    const baseUrl = loginBaseUrl(request)
     const absoluteRedirectUrl = `${baseUrl}${dashboardUrl}`
     magicLinkUrl.searchParams.set('redirect_to', absoluteRedirectUrl)
 

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createOAuth2Client, getAuthUrl, LOGIN_SCOPES } from '@/lib/google-auth'
+import { createOAuth2Client, getAuthUrl, LOGIN_SCOPES, loginBaseUrl } from '@/lib/google-auth'
 
 export async function GET(request: Request) {
   try {
     console.log('🔐 Initiating Google OAuth login flow')
 
     // Determina il redirect URI basato sull'ambiente
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+    const baseUrl = loginBaseUrl(request)
     const redirectUri = `${baseUrl}/api/auth/google/login-callback`
 
     const oauth2Client = createOAuth2Client(redirectUri)

@@ -44,3 +44,11 @@ export const AUTH_SCOPES = [
 export const BASIC_SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 export const ALL_SCOPES = [...AUTH_SCOPES, ...GMAIL_SCOPES, ...CALENDAR_SCOPES]
 export const LOGIN_SCOPES = [...AUTH_SCOPES, ...GMAIL_SCOPES, ...CALENDAR_SCOPES]
+// Indirizzi da cui si può fare il login: il login torna sullo stesso indirizzo da cui è partito
+const LOGIN_HOSTS = ['openhouse.ghergoimmobiliare.com', 'ghergo-immobiliare-webapp.vercel.app']
+export function loginBaseUrl(request: Request): string {
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') || url.host
+  if (LOGIN_HOSTS.includes(host)) return `https://${host}`
+  return process.env.NEXT_PUBLIC_SITE_URL || url.origin
+}
