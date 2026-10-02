@@ -60,14 +60,15 @@ export async function POST(request: Request) {
   if (answers.prossimo_passo === 'offerta' || answers.prossimo_passo === 'rivedere') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const oh = booking.gre_open_houses as any
-    let agent = oh?.gre_agents
-    // se il cliente ha scelto un agente di riferimento diverso, avvisa lui
-    if (booking.agente_referente_id && booking.agente_referente_id !== agent?.id) {
+    // avvisa chi organizza l'Open House e, se diverso, l'agente di riferimento del cliente
+    const destinatari = [oh?.gre_agents].filter(Boolean) as { id: string; nome: string; cognome: string; email: string }[]
+    if (booking.agente_referente_id && booking.agente_referente_id !== oh?.gre_agents?.id) {
       const { data: ref } = await supabase
-        .from('gre_agents').select('id, nome, cognome, email').eq('id', booking.agente_referente_id).eq('is_active', true).maybeSingle()
-      if (ref) agent = ref
+        .from('gre_agents').select('id, nome, cognome, email').eq('id', booking.agente_referente_id).maybeSingle()
+      if (ref) destinatari.push(ref)
     }
-    if (agent?.email) {
+    for (const agent of destinatari) {
+      if (!agent.email) continue
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mail = agentAlertEmail({ client: booking.gre_clients as any, agent, property: oh.gre_properties, answers, commenti, quando })

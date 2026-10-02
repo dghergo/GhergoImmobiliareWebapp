@@ -148,3 +148,62 @@ export function reminderEmail(p: {
     `),
   }
 }
+
+/**
+ * Avviso di nuova prenotazione.
+ * ruolo 'organizzatore': all'agente che gestisce l'Open House (con indicazione del collega che ha portato il cliente)
+ * ruolo 'referente': all'agente scelto dal cliente / dal cui link è arrivata la prenotazione
+ */
+export function bookingAlertEmail(p: {
+  ruolo: 'organizzatore' | 'referente'
+  stessoAgente: boolean
+  destinatario: Person
+  organizzatore: Person
+  referente: Person | null
+  client: Person
+  property: Property
+  dataEvento: string
+  slot: { ora_inizio?: string; ora_fine?: string } | null
+  note: string | null
+}) {
+  const ora = p.slot?.ora_inizio ? `${String(p.slot.ora_inizio).slice(0, 5)}–${String(p.slot.ora_fine || '').slice(0, 5)}` : ''
+  const data = new Date(p.dataEvento + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
+  const titolo = niceText(p.property.titolo)
+  const tel = p.client.telefono || ''
+  const viaCollega = p.ruolo === 'organizzatore' && p.referente && !p.stessoAgente
+  const banner = p.ruolo === 'referente'
+    ? `<div style="background:#EAF8FE; border-left:4px solid ${SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
+         <div style="font-size:18px; font-weight:800;">🔗 Un tuo cliente ha prenotato</div>
+         <div style="margin-top:4px;">${esc(p.client.nome)} ${esc(p.client.cognome)} ha prenotato l'Open House di <strong>${esc(titolo)}</strong> indicando te come agente di riferimento (dal tuo link o scegliendoti nel modulo).
+         ${p.stessoAgente ? '' : `<br>L'Open House è organizzato da <strong>${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}</strong>: coordinatevi per seguirlo insieme.`}</div>
+       </div>`
+    : viaCollega
+    ? `<div style="background:#FEF3C7; border-left:4px solid #F59E0B; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
+         <div style="font-size:18px; font-weight:800;">🤝 Cliente portato da ${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}</div>
+         <div style="margin-top:4px;">Il cliente ha indicato ${esc(p.referente!.nome)} come agente di riferimento. Anche lui/lei ha ricevuto questo avviso: coordinatevi.</div>
+       </div>`
+    : ''
+  return {
+    subject: p.ruolo === 'referente' && !p.stessoAgente
+      ? `🔗 Un tuo cliente ha prenotato – ${p.client.nome} ${p.client.cognome} per ${titolo}`
+      : `Nuova prenotazione${p.stessoAgente && p.referente ? ' dal tuo link' : viaCollega ? ` (via ${p.referente!.nome})` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.destinatario.nome)}</strong>,</p>
+      ${banner || `<p>hai una nuova prenotazione per l'Open House di <strong>${esc(titolo)}</strong>${p.stessoAgente && p.referente ? ' <strong>dal tuo link</strong> 🔗' : ''}.</p>`}
+      <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
+        ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
+        ${row('Telefono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}
+        ${row('Email', esc(p.client.email))}
+        ${row('Immobile', esc(titolo))}
+        ${row('Quando', `<span style="text-transform:capitalize;">${esc(data)}</span>${ora ? `, ${esc(ora)}` : ''}`)}
+        ${row('Organizza', `${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}`)}
+        ${p.referente ? row('Agente di riferimento', `${esc(p.referente.nome)} ${esc(p.referente.cognome)}`) : ''}
+      </table>
+      ${p.note ? `<p style="background:#fff; padding:12px 14px; border-radius:8px; font-style:italic; white-space:pre-line;">“${esc(p.note)}”</p>` : ''}
+      <div style="margin:18px 0;">
+        ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
+        <a href="${SITE()}/dashboard/bookings" style="background:${BLU}; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700;">Apri le prenotazioni</a>
+      </div>
+    `),
+  }
+}
