@@ -41,7 +41,7 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
       <p>grazie per essere venuto a vedere <strong>${esc(p.property.titolo)}</strong>${luogo ? ` (${esc(luogo)})` : ''}.</p>
       <div style="background:#FEF3C7; border:2px solid #F59E0B; border-radius:14px; padding:20px; margin:22px 0; text-align:center;">
         <div style="font-size:20px; font-weight:800; color:${BLU};">🔑 La casa ti è piaciuta?</div>
-        <div style="font-size:15px; margin:8px 0 16px; color:#374151;">Prenota subito il tuo appuntamento in ufficio per fare un'offerta, prima che lo faccia qualcun altro.</div>
+        <div style="font-size:15px; margin:8px 0 16px; color:#374151;">Prenota subito il tuo appuntamento in ufficio per fare un'offerta.</div>
         <a href="${link}?passo=offerta" style="background:${BLU}; color:#fff; padding:15px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800; font-size:16px;">Voglio fare un'offerta</a>
       </div>
       <p>Altrimenti, mi aiuti con <strong>30 secondi</strong>? Bastano pochi tocchi: le tue impressioni servono a me e ai proprietari.</p>
