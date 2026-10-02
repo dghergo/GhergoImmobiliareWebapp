@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/bodoni-moda";
+import "@fontsource-variable/urbanist";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 

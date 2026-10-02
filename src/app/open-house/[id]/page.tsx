@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAdmin } from '@/lib/auth'
 import Image from 'next/image'
+import Countdown from '@/components/public/Countdown'
 
 // Helper function per rimuovere i secondi dagli orari
 const formatTime = (timeString: string): string => {
@@ -421,71 +422,80 @@ export default function OpenHouseDetail() {
 
   return (
     <div className="pub min-h-screen">
-      {/* Testata */}
-      <header className="pub-header">
-        <div className="pub-wrap flex items-center justify-between h-16 md:h-20">
+      {/* Apertura a tutto schermo con le foto dell'immobile */}
+      <section className="pub-hero pub-hero-oh">
+        <div className="pub-hero-media" aria-hidden="true">
+          {images.length > 0 ? (
+            images.slice(0, 5).map((src, i, arr) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={src} src={src} alt="" className="pub-kenburns" style={{ animationDelay: `${i * 7}s`, animationDuration: `${Math.max(arr.length, 1) * 7}s` }} />
+            ))
+          ) : (
+            <div className="pub-hero-fallback" />
+          )}
+        </div>
+        <div className="pub-hero-shade" aria-hidden="true" />
+
+        <header className="pub-hero-top pub-wrap">
           <button onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')} aria-label="Ghergo Immobiliare, tutti gli Open House">
-            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-11 w-auto" priority />
+            <Image src="/logo-ghergo-blu.png" alt="Ghergo Immobiliare" width={190} height={48} className="h-9 md:h-12 w-auto pub-logo-white" priority />
           </button>
           <div className="flex items-center gap-5 md:gap-8">
-            <button onClick={() => router.push('/')} className="pub-link hidden sm:inline">Tutti gli Open House</button>
+            <button onClick={() => router.push('/')} className="pub-hero-link hidden sm:inline">Tutti gli Open House</button>
             <div className="relative">
-              <button onClick={handleShare} className="pub-link">Condividi</button>
+              <button onClick={handleShare} className="pub-hero-link">Condividi</button>
               {shareTooltip && <div className="pub-toast">{shareTooltip}</div>}
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Galleria */}
-      <section className="pub-wrap pt-4 md:pt-6">
-        {images.length > 0 ? (
-          <div className="pub-gallery">
-            <button className="pub-gallery-main" onClick={() => { setCurrentImageIndex(0); setShowGallery(true) }} aria-label="Apri le foto">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={images[0]} alt={property.titolo} />
-            </button>
-            {images.slice(1, 3).map((img, i) => (
-              <button key={img} className="pub-gallery-side hidden md:block" onClick={() => { setCurrentImageIndex(i + 1); setShowGallery(true) }} aria-label={`Apri la foto ${i + 2}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt="" />
-              </button>
-            ))}
-            {images.length > 1 && (
-              <button className="pub-gallery-count" onClick={() => { setCurrentImageIndex(0); setShowGallery(true) }}>
-                Vedi tutte le {images.length} foto
+        <div className="pub-wrap pub-hero-body">
+          <p className="pub-hero-kicker">{property.zona}</p>
+          <h1 className="pub-display pub-hero-title pub-hero-title-oh">
+            <span className="pub-line"><span>{property.titolo.trim()}</span></span>
+          </h1>
+          <div className="pub-hero-foot">
+            <span className="pub-hero-price">{priceLabel}</span>
+            {images.length > 0 && (
+              <button className="pub-hero-photos" onClick={() => { setCurrentImageIndex(0); setShowGallery(true) }}>
+                Guarda le {images.length} foto
               </button>
             )}
           </div>
-        ) : (
-          <div className="pub-gallery-empty">Foto in arrivo</div>
-        )}
+        </div>
       </section>
 
       {/* Contenuto + prenotazione */}
-      <main className="pub-wrap grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-16 py-10 md:py-14">
+      <main className="pub-wrap grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-10 lg:gap-16 py-10 md:py-16">
         <article className="min-w-0">
-          <p className="pub-muted text-base md:text-lg">{property.zona}</p>
-          <h1 className="pub-h1 mt-2">{property.titolo.trim()}</h1>
-          <p className="pub-price mt-5">{priceLabel}</p>
-
           {facts.length > 0 && (
-            <ul className="pub-facts mt-8">
+            <ul className="pub-facts">
               {facts.map(f => <li key={f}>{f}</li>)}
             </ul>
           )}
 
           {property.descrizione && (
             <div className="mt-10">
-              <h2 className="pub-h3 mb-4">L&apos;immobile</h2>
+              <h2 className="pub-display pub-section-title-sm mb-5">L&apos;immobile</h2>
               <p className="pub-body whitespace-pre-line">{property.descrizione}</p>
             </div>
           )}
 
           {openHouse.descrizione_evento && (
             <div className="mt-10">
-              <h2 className="pub-h3 mb-4">Informazioni sulla visita</h2>
+              <h2 className="pub-display pub-section-title-sm mb-5">Informazioni sulla visita</h2>
               <p className="pub-body whitespace-pre-line">{openHouse.descrizione_evento}</p>
+            </div>
+          )}
+
+          {images.length > 1 && (
+            <div className="pub-thumbs mt-12">
+              {images.slice(0, 8).map((img, i) => (
+                <button key={img} onClick={() => { setCurrentImageIndex(i); setShowGallery(true) }} aria-label={`Apri la foto ${i + 1}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt="" loading="lazy" />
+                </button>
+              ))}
             </div>
           )}
 
@@ -510,11 +520,25 @@ export default function OpenHouseDetail() {
         </article>
 
         {/* Pannello prenotazione */}
-        <aside id="prenota" className="lg:sticky lg:top-24 self-start scroll-mt-24">
+        <aside id="prenota" className="lg:sticky lg:top-8 self-start scroll-mt-6 lg:-mt-40 relative z-10">
           <div className="pub-panel">
-            <p className="pub-muted text-sm">Open House</p>
-            <p className="pub-date mt-1 first-letter:uppercase">{eventDate}</p>
-            <p className="pub-body mt-1">dalle {formatTime(openHouse.ora_inizio)} alle {formatTime(openHouse.ora_fine)}</p>
+            <div className="flex items-center gap-5">
+              <div className="pub-cal pub-cal-lg" aria-hidden="true">
+                <b>{new Date(openHouse.data_evento + 'T00:00:00').getDate()}</b>
+                <small>{new Date(openHouse.data_evento + 'T00:00:00').toLocaleDateString('it-IT', { month: 'short' }).replace('.', '')}</small>
+              </div>
+              <div>
+                <p className="pub-muted text-sm">Open House</p>
+                <p className="pub-date first-letter:uppercase">{eventDate}</p>
+                <p className="pub-body">dalle {formatTime(openHouse.ora_inizio)} alle {formatTime(openHouse.ora_fine)}</p>
+              </div>
+            </div>
+            {!isPast && (
+              <div className="mt-6">
+                <p className="pub-muted text-sm mb-2">Inizia tra</p>
+                <Countdown date={openHouse.data_evento} time={openHouse.ora_inizio} tone="dark" />
+              </div>
+            )}
 
             {totalBookings > 5 && !isPast && (
               <p className="pub-proof mt-5">{totalBookings} persone hanno già prenotato la visita</p>
