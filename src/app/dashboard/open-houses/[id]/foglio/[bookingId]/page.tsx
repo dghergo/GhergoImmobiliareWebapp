@@ -153,7 +153,7 @@ export default function ConfermaVisita() {
             ha visitato <b>{d.immobile.titolo}</b>{luogo ? ` – ${luogo}` : ''}
           </div>
           <div className="text-sm text-gray-600 mt-0.5">
-            il {d.visita.data}{d.visita.ora ? ` alle ${d.visita.ora}` : ''} con {d.agente} di Ghergo Immobiliare
+            il {d.visita.data}{d.visita.ora ? ` alle ${d.visita.ora}` : ''} con Ghergo Immobiliare
           </div>
         </section>
 
@@ -161,7 +161,7 @@ export default function ConfermaVisita() {
           <label className={`flex gap-3 items-start p-3 rounded-lg border-2 cursor-pointer ${conferma ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
             <input type="checkbox" checked={conferma} onChange={e => setConferma(e.target.checked)} className="mt-0.5 w-7 h-7 shrink-0" style={{ accentColor: BLU }} />
             <span className="text-[16px] leading-snug">
-              <b>Confermo di aver visitato l’immobile</b> con Ghergo Immobiliare, di aver ricevuto le informazioni e la documentazione e di <b>accettare le condizioni commerciali</b>: in caso di acquisto, compenso del <b>4% + IVA</b> sul prezzo.
+              <b>Confermo di aver visitato l’immobile</b> con Ghergo Immobiliare, di aver ricevuto le informazioni e la documentazione e di <b>accettare le condizioni commerciali</b>: in caso di acquisto, compenso del <b>4% + IVA</b> sul prezzo (minimo € 5.000 + IVA).
             </span>
           </label>
           <button onClick={() => setCondizioni(c => !c)} className="text-sm font-semibold" style={{ color: BLU }}>

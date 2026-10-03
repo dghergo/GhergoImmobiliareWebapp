@@ -12,14 +12,16 @@ export const AGENZIA = {
   sede: 'Via D\'Ancona 43/A, 60027 Osimo (AN)',
   telefono: '071 9257300',
   email: 'amministrazione@ghergoimmobiliare.com',
-  pec: '', // da completare
+  pec: 'ghergoimmobiliare@pec.it',
+  legaleRappresentante: 'Diego Ghergo',
   piva: '03016310421',
   rea: 'CCIAA di Ancona, Sezione Agenti Immobiliari, REA n. 307054',
-  assicurazione: '', // compagnia, polizza n., scadenza – da completare
+  assicurazione: 'Cattolica Assicurazioni, polizza n. 732827148, scadenza 18/04/2027',
+  certificazioni: 'Agente Immobiliare Professionale UNI 11932',
   fiaip: '', // n. iscrizione FIAIP – da completare
 }
 
-export const COMPENSO = { percentuale: 4, minimo: null as number | null }
+export const COMPENSO = { percentuale: 4, minimo: 5000 as number | null }
 
 export interface Residenza { comune: string; provincia: string; cap: string; indirizzo: string }
 export interface Anagrafica {
@@ -78,11 +80,11 @@ export function descriviCatasto(c: FoglioDati['immobile']['catasto']): string {
 
 /** Le dichiarazioni che il cliente accetta una per una. */
 export function dichiarazioni(d: FoglioDati): { titolo: string; testo: string }[] {
-  const min = COMPENSO.minimo ? `, con un minimo di € ${COMPENSO.minimo.toLocaleString('it-IT')}` : ''
+  const min = COMPENSO.minimo ? `, con un minimo di € ${String(COMPENSO.minimo).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : ''
   return [
     {
       titolo: 'Attestazione di visita',
-      testo: `Dichiaro di aver ricevuto per la prima volta informazioni e di aver visitato per la prima volta, in data ${d.visita.data}${d.visita.ora ? ` alle ore ${d.visita.ora}` : ''}, l'immobile in vendita sopra descritto, tramite ${d.agente} di ${AGENZIA.ragioneSociale}, mediatore incaricato dal venditore.`,
+      testo: `Dichiaro di aver ricevuto per la prima volta informazioni e di aver visitato per la prima volta, in data ${d.visita.data}${d.visita.ora ? ` alle ore ${d.visita.ora}` : ''}, l'immobile in vendita sopra descritto, con ${AGENZIA.ragioneSociale}, mediatore incaricato dal venditore.`,
     },
     {
       titolo: 'Ricevuta di informazioni e documenti',
@@ -197,10 +199,11 @@ export async function creaFoglioPdf(p: {
   if (a.accompagnato_da) field('Accompagnato/a da', a.accompagnato_da)
 
   section('Agenzia')
-  field('Agente', `${p.dati.agente} - ${AGENZIA.ragioneSociale}`)
+  field('Agenzia', `${AGENZIA.ragioneSociale} - legale rappresentante ${AGENZIA.legaleRappresentante}`)
   field('Sede', `${AGENZIA.sede} - tel. ${AGENZIA.telefono} - ${AGENZIA.email}${AGENZIA.pec ? ` - PEC ${AGENZIA.pec}` : ''}`)
   field('Dati societari', `P.IVA e C.F. ${AGENZIA.piva} - ${AGENZIA.rea}${AGENZIA.fiaip ? ` - iscritta FIAIP n. ${AGENZIA.fiaip}` : ''}`)
-  if (AGENZIA.assicurazione) field('Assicurazione', `${AGENZIA.assicurazione} (art. 18 L. 57/2001)`)
+  if (AGENZIA.assicurazione) field('Assicurazione RC', `${AGENZIA.assicurazione} (art. 18 L. 57/2001)`)
+  if (AGENZIA.certificazioni) field('Certificazioni', AGENZIA.certificazioni)
 
   section('Immobile in vendita e visita')
   const im = p.dati.immobile
@@ -242,7 +245,7 @@ export async function creaFoglioPdf(p: {
 
   // piè di pagina su tutte le pagine
   for (const pg of pdf.getPages()) {
-    pg.drawText(safe(`Firmato elettronicamente sul dispositivo dell'agente il ${quando}. Codice di verifica ${p.codice} - testo v. ${FOGLIO_VERSIONE}`), {
+    pg.drawText(safe(`Firmato elettronicamente il ${quando}. Codice di verifica ${p.codice} - testo v. ${FOGLIO_VERSIONE}`), {
       x: M, y: 28, size: 7, font, color: GRIGIO,
     })
   }
