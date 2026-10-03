@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { niceText } from '@/lib/text'
+import ClientBadges from '@/components/ClientBadges'
 
 // Check-in alla porta per i colleghi che hanno ricevuto il link dall'agente.
 // Nessun login: il link vale solo per questo Open House e scade a fine giornata.
@@ -10,6 +11,8 @@ import { niceText } from '@/lib/text'
 type Status = 'confirmed' | 'completed' | 'no_show'
 interface Row {
   portato_da?: string | null
+  senza_mutuo?: boolean
+  deve_vendere?: boolean
   id: string
   status: Status
   client: { nome: string; cognome: string; telefono: string }
@@ -203,7 +206,7 @@ function CheckInCollega() {
                         <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
                           {r.client.nome} {r.client.cognome}
                         </div>
-                        {r.portato_da && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>}
+                        <ClientBadges portatoDa={r.portato_da} agente={oh?.gre_agents ? `${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : null} senzaMutuo={r.senza_mutuo} deveVendere={r.deve_vendere} />
                       </div>
                       {r.client.telefono && <div className="flex gap-1 shrink-0">
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import ClientBadges from '@/components/ClientBadges'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { authFetch } from '@/lib/api'
 import ClientActions from '@/components/dashboard/ClientActions'
@@ -10,6 +11,9 @@ import WalkInForm from '@/components/dashboard/WalkInForm'
 
 interface Row {
   mine: boolean
+  tuo: boolean
+  senza_mutuo: boolean
+  deve_vendere: boolean
   portato_da: string | null
   agente: string
   senza_prenotazione: boolean
@@ -308,22 +312,7 @@ export default function CheckInPage() {
                         <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
                           {r.client.nome} {r.client.cognome}
                         </div>
-                        {r.agente && (
-                          <div className="text-xs mt-0.5" style={{ color: 'var(--text-gray)' }}>
-                            Agente: <b style={{ color: 'var(--primary-blue)' }}>{r.agente}</b>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {r.portato_da && !r.mine && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>
-                          )}
-                          {r.q?.necessita_mutuo === 'no' && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-800">Senza mutuo</span>
-                          )}
-                          {r.q?.vendita_immobile?.startsWith('si') && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">Deve vendere</span>
-                          )}
-                        </div>
+                        <ClientBadges tuo={r.tuo} portatoDa={r.portato_da} agente={r.agente} senzaMutuo={r.senza_mutuo} deveVendere={r.deve_vendere} />
                         {r.note_cliente && (
                           <div className="text-xs mt-1 italic" style={{ color: 'var(--text-gray)' }}>“{r.note_cliente}”</div>
                         )}

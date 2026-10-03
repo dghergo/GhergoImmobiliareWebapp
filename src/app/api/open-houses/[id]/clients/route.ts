@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const mine = followsClient(b, oh.agent_id, auth.agent, role)
     if (role === 'collega' && !mine) return []
     const ref = b.referente && b.referente.id !== oh.agent_id ? b.referente : null
+    const qq = b.gre_prequalification_responses?.[0]?.response_data || null
     return [{
       id: b.id,
       status: b.status,
@@ -44,6 +45,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       foglio_firmato_at: b.foglio_visita_firmato_at,
       questionnaire_completed: mine ? b.questionnaire_completed : null,
       mine,
+      // cliente seguito da chi sta guardando (per distinguere "tuo" / "mandato da un collega")
+      tuo: followerId(b, oh.agent_id) === auth.agent.id,
+      // indicatori minimi visibili a tutti al check-in (nessun recapito né condizioni)
+      senza_mutuo: qq?.necessita_mutuo === 'no',
+      deve_vendere: typeof qq?.vendita_immobile === 'string' && qq.vendita_immobile.startsWith('si'),
       portato_da: ref ? `${ref.nome} ${ref.cognome}` : null,
       // agente con cui il cliente ha prenotato (chi lo segue)
       agente: ref ? `${ref.nome} ${ref.cognome}` : organizerName,
@@ -55,7 +61,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
       note_cliente: mine ? b.note_cliente : null,
       slot: b.gre_time_slots || null,
-      q: mine ? b.gre_prequalification_responses?.[0]?.response_data || null : null,
+      q: mine ? qq : null,
     }]
   })
 
