@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createHash, randomBytes } from 'crypto'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
 import { followerId, followsClient, openHouseAccess } from '@/lib/oh-access'
-import { ANAGRAFICA_VUOTA, controllaAnagrafica, creaFoglioPdf, dichiarazioni, FOGLIO_VERSIONE, type Anagrafica, type FoglioDati } from '@/lib/foglio-visita'
+import { ANAGRAFICA_VUOTA, creaFoglioPdf, dichiarazioni, FOGLIO_VERSIONE, type FoglioDati } from '@/lib/foglio-visita'
 import { foglioEmail, sendAsAgent } from '@/lib/feedback-emails'
 import { niceText } from '@/lib/text'
 
@@ -92,22 +92,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (r.error) return r.error
   const { b, agent, dati, auth, access } = r
 
-  // dati anagrafici compilati dal cliente sul telefono
-  const s = (v: unknown, max = 120) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
-  const ab = body.anagrafica || {}
-  const anagrafica: Anagrafica = {
-    luogo_nascita: s(ab.luogo_nascita), provincia_nascita: s(ab.provincia_nascita, 4).toUpperCase(), data_nascita: s(ab.data_nascita, 20),
-    codice_fiscale: s(ab.codice_fiscale, 20).replace(/\s/g, '').toUpperCase(),
-    residenza: { comune: s(ab.residenza?.comune), provincia: s(ab.residenza?.provincia, 4).toUpperCase(), cap: s(ab.residenza?.cap, 10), indirizzo: s(ab.residenza?.indirizzo, 160) },
-    per_conto_di: s(ab.per_conto_di, 160), accompagnato_da: s(ab.accompagnato_da, 160),
-  }
-  const errA = controllaAnagrafica(anagrafica)
-  if (errA) return NextResponse.json({ error: errA }, { status: 400 })
-  dati.anagrafica = anagrafica
-
-  const n = dichiarazioni(dati).length
-  if (!Array.isArray(body.accettate) || body.accettate.length !== n || body.accettate.some((v: unknown) => v !== true)) {
-    return NextResponse.json({ error: 'Il cliente deve accettare tutte le dichiarazioni' }, { status: 400 })
+  // conferma unica: il cliente accetta in blocco le condizioni mostrate e firma
+  if (body.accettata !== true) {
+    return NextResponse.json({ error: 'Il cliente deve confermare la visita e accettare le condizioni' }, { status: 400 })
   }
   const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.firma || ''))
   if (!m || m[1].length < 2000 || m[1].length > 3_000_000) return NextResponse.json({ error: 'Firma mancante' }, { status: 400 })
@@ -127,9 +114,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const path = `${id}/${b.id}-${firmatoIl.getTime()}.pdf`
 
   const supabase = getSupabaseAdmin()
-  // l'anagrafica resta sul cliente per i prossimi fogli visita
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await supabase.from('gre_clients').update({ anagrafica }).eq('id', (b as any).client_id)
   const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, pdf, { contentType: 'application/pdf', upsert: false })
   if (upErr) {
     console.error('Upload foglio visita:', upErr)
@@ -148,7 +132,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }).eq('id', b.id)
 
   // copia al cliente e all'agente che lo segue
-  const filename = `Foglio visita - ${dati.cliente.nome} ${dati.cliente.cognome}.pdf`
+  const filename = `Conferma di visita - ${dati.cliente.nome} ${dati.cliente.cognome}.pdf`
   let emailOk = false
   if (agent) {
     try {

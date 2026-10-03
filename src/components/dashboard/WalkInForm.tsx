@@ -69,7 +69,7 @@ export default function WalkInForm({ openHouseId, onClose, onAdded }: {
         >
           {busy ? 'Salvo…' : 'Aggiungi e invia la brochure'}
         </button>
-        <p className="text-xs" style={{ color: 'var(--text-gray)' }}>Il cliente entra nell’elenco come “Arrivato”. Subito dopo puoi fargli firmare il foglio visita.</p>
+        <p className="text-xs" style={{ color: 'var(--text-gray)' }}>Il cliente entra nell’elenco come “Arrivato”. Subito dopo puoi fargli firmare la conferma di visita.</p>
       </div>
     </div>
   )

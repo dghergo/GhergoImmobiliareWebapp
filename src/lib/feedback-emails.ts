@@ -241,14 +241,14 @@ export function foglioEmail(p: {
   const titolo = p.dati.immobile.titolo
   return p.perAgente
     ? {
-        subject: `✍️ Foglio visita firmato – ${p.dati.cliente.nome} ${p.dati.cliente.cognome} – ${titolo}`,
-        html: shell(`<p>Il foglio visita di <strong>${esc(p.dati.cliente.nome)} ${esc(p.dati.cliente.cognome)}</strong> per <strong>${esc(titolo)}</strong> (${esc(p.dati.visita.data)}) è stato firmato. Lo trovi in allegato ed è archiviato nella prenotazione.</p>`),
+        subject: `✍️ Conferma di visita firmata – ${p.dati.cliente.nome} ${p.dati.cliente.cognome} – ${titolo}`,
+        html: shell(`<p>La conferma di visita di <strong>${esc(p.dati.cliente.nome)} ${esc(p.dati.cliente.cognome)}</strong> per <strong>${esc(titolo)}</strong> (${esc(p.dati.visita.data)}) è stata firmata. La trovi in allegato ed è archiviata nella prenotazione.</p>`),
       }
     : {
-        subject: `Il tuo foglio visita – ${titolo}`,
+        subject: `La tua conferma di visita – ${titolo}`,
         html: shell(`
           <p>Ciao <strong>${esc(p.dati.cliente.nome)}</strong>,</p>
-          <p>grazie per aver visitato <strong>${esc(titolo)}</strong>. In allegato trovi la copia del foglio visita che hai firmato oggi.</p>
+          <p>grazie per aver visitato <strong>${esc(titolo)}</strong>. In allegato trovi la copia della conferma di visita che hai firmato oggi.</p>
           <p>Per qualsiasi domanda rispondi pure a questa email.</p>
           <p>A presto,<br><strong>${esc(p.dati.agente)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
         `),

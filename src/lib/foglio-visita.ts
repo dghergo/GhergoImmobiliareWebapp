@@ -136,7 +136,7 @@ export async function creaFoglioPdf(p: {
   logoPng?: Uint8Array | null
 }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
-  pdf.setTitle(`Foglio visita - ${p.dati.cliente.nome} ${p.dati.cliente.cognome}`)
+  pdf.setTitle(`Conferma di visita - ${p.dati.cliente.nome} ${p.dati.cliente.cognome}`)
   pdf.setAuthor(AGENZIA.ragioneSociale)
   const font = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
@@ -176,10 +176,10 @@ export async function creaFoglioPdf(p: {
       page.drawImage(logo, { x: M, y: y - h + 4, width: (logo.width / logo.height) * h, height: h })
     } catch { /* senza logo */ }
   }
-  const titolo = 'FOGLIO VISITA'
+  const titolo = 'CONFERMA DI VISITA'
   t(titolo, PW - M - bold.widthOfTextAtSize(titolo, 14), 14, bold, BLU)
   y -= 13
-  const sub = 'Attestazione di visita - Ricevuta di informazioni e documenti - Accordo di compenso - Privacy'
+  const sub = 'Attestazione di visita - Ricevuta di informazioni - Condizioni commerciali - Privacy'
   t(sub, PW - M - font.widthOfTextAtSize(sub, 7.5), 7.5, font, GRIGIO)
   y -= 22
 
@@ -187,10 +187,11 @@ export async function creaFoglioPdf(p: {
   const r = a.residenza
   section('Cliente')
   field('Nome e cognome', `${p.dati.cliente.nome} ${p.dati.cliente.cognome}`)
+  // dati anagrafici: solo se già presenti (non vengono chiesti al check-in)
   const dn = /^\d{4}-\d{2}-\d{2}$/.test(a.data_nascita) ? a.data_nascita.split('-').reverse().join('/') : a.data_nascita
-  field('Nato/a a', `${a.luogo_nascita}${a.provincia_nascita ? ` (${a.provincia_nascita})` : ''}, il ${dn}`)
-  field('Codice fiscale', a.codice_fiscale.toUpperCase())
-  field('Residente a', `${r.comune}${r.provincia ? ` (${r.provincia})` : ''}${r.cap ? `, ${r.cap}` : ''} - ${r.indirizzo}`)
+  if (a.luogo_nascita || dn) field('Nato/a a', `${a.luogo_nascita}${a.provincia_nascita ? ` (${a.provincia_nascita})` : ''}${dn ? `, il ${dn}` : ''}`)
+  if (a.codice_fiscale) field('Codice fiscale', a.codice_fiscale.toUpperCase())
+  if (r.comune || r.indirizzo) field('Residente a', `${r.comune}${r.provincia ? ` (${r.provincia})` : ''}${r.cap ? `, ${r.cap}` : ''} - ${r.indirizzo}`)
   field('Telefono / email', `${p.dati.cliente.telefono} - ${p.dati.cliente.email}`)
   if (a.per_conto_di) field('Per conto di', a.per_conto_di)
   if (a.accompagnato_da) field('Accompagnato/a da', a.accompagnato_da)
@@ -209,7 +210,7 @@ export async function creaFoglioPdf(p: {
   if (im.prezzo) field('Prezzo richiesto', `€ ${im.prezzo.toLocaleString('it-IT')}`)
   field('Data e ora visita', `${p.dati.visita.data}${p.dati.visita.ora ? `, ore ${p.dati.visita.ora}` : ''}`)
 
-  section('Il cliente dichiara e accetta')
+  section('Il cliente conferma e accetta')
   dichiarazioni(p.dati).forEach((d, i) => {
     const lines = wrap(d.testo, font, 8.8, W - 16)
     ensure(lines.length * 11.5 + 18)
@@ -221,7 +222,7 @@ export async function creaFoglioPdf(p: {
   })
   y -= 2
   ensure(14)
-  t('Ogni dichiarazione è stata letta e accettata singolarmente dal cliente prima della firma.', M, 8, font, GRIGIO)
+  t('Il cliente ha confermato la visita e accettato le condizioni sopra riportate apponendo la propria firma.', M, 8, font, GRIGIO)
   y -= 18
 
   // firma

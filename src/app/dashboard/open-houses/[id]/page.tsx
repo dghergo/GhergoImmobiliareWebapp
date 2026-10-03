@@ -206,7 +206,7 @@ export default function OpenHouseCruscotto() {
   const tags = (b: BookingRow) => {
     const extra = [
       ...(b.senza_prenotazione ? [{ text: 'Senza prenotazione', cls: 'bg-gray-200 text-gray-700' }] : []),
-      ...(b.foglio_firmato_at ? [{ text: '✍️ Foglio visita firmato', cls: 'bg-green-100 text-green-800' }] : []),
+      ...(b.foglio_firmato_at ? [{ text: '✍️ Visita confermata', cls: 'bg-green-100 text-green-800' }] : []),
     ]
     if (!b.mine) return [...extra, { text: `Cliente di ${b.portato_da || 'un collega'} · lo segue lui/lei`, cls: 'bg-amber-100 text-amber-800' }]
     const via = [...extra, ...(b.portato_da && role !== 'collega' ? [{ text: `Portato da ${b.portato_da}`, cls: 'bg-amber-100 text-amber-800' }] : [])]

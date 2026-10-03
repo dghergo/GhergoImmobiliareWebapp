@@ -337,7 +337,7 @@ export default function CheckInPage() {
                     <div className="mt-2">
                       {r.foglio_firmato_at ? (
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="font-semibold text-green-700">✍️ Foglio visita firmato</span>
+                          <span className="font-semibold text-green-700">✍️ Visita confermata</span>
                           {r.mine && <button onClick={() => scaricaFoglio(r.id)} className="underline" style={{ color: 'var(--primary-blue)' }}>PDF</button>}
                         </div>
                       ) : (
@@ -346,7 +346,7 @@ export default function CheckInPage() {
                           className="w-full py-2.5 rounded-lg font-semibold border-2"
                           style={{ borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' }}
                         >
-                          ✍️ Firma foglio visita
+                          ✍️ Conferma di visita
                         </button>
                       )}
                     </div>
