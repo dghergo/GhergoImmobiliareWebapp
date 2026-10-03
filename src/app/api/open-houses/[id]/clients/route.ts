@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: bookings } = await getSupabaseAdmin()
     .from('gre_bookings')
     .select(`
-      id, status, cancellation_reason, questionnaire_completed, note_cliente, agente_referente_id, client_id,
+      id, status, cancellation_reason, questionnaire_completed, note_cliente, agente_referente_id, client_id, senza_prenotazione, foglio_visita_firmato_at,
       gre_clients (nome, cognome, email, telefono),
       gre_time_slots (ora_inizio, ora_fine),
       gre_prequalification_responses (response_data),
@@ -40,6 +40,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       id: b.id,
       status: b.status,
       cancellation_reason: b.cancellation_reason,
+      senza_prenotazione: !!b.senza_prenotazione,
+      foglio_firmato_at: b.foglio_visita_firmato_at,
       questionnaire_completed: mine ? b.questionnaire_completed : null,
       mine,
       portato_da: ref ? `${ref.nome} ${ref.cognome}` : null,
@@ -71,6 +73,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}))
   const action = body.action || 'status'
   const supabase = getSupabaseAdmin()
+
+  // Cliente arrivato senza prenotazione: lo inserisce l'agente al check-in
+  if (action === 'walk_in') return walkIn(body, access, auth.agent)
+
   const { data: b } = await supabase
     .from('gre_bookings').select('id, status, cancellation_reason, agente_referente_id, client_id, gre_clients (nome, cognome, email, telefono)')
     .eq('id', String(body.bookingId || '')).eq('open_house_id', id).maybeSingle()
@@ -122,4 +128,78 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { error } = await supabase.from('gre_bookings').update({ status: body.status }).eq('id', b.id)
   if (error) return NextResponse.json({ error: 'Salvataggio non riuscito' }, { status: 500 })
   return NextResponse.json({ ok: true })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof openHouseAccess>>>, me: { id: string }) {
+  const supabase = getSupabaseAdmin()
+  const clean = (v: unknown, max = 120) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, max) : '')
+  const nome = clean(body.nome, 80)
+  const cognome = clean(body.cognome, 80)
+  const email = clean(body.email, 160).toLowerCase()
+  const telefono = clean(body.telefono, 30)
+  if (!nome || !cognome) return NextResponse.json({ error: 'Inserisci nome e cognome' }, { status: 400 })
+  if (!EMAIL_RE.test(email)) return NextResponse.json({ error: 'Email non valida' }, { status: 400 })
+  if (telefono.replace(/\D/g, '').length < 6) return NextResponse.json({ error: 'Telefono non valido' }, { status: 400 })
+  if (body.privacy !== true) return NextResponse.json({ error: 'Il cliente deve accettare l\'informativa privacy' }, { status: 400 })
+
+  const { oh } = access
+  const now = new Date().toISOString()
+
+  // cliente: se esiste già (stessa email) lo riuso, altrimenti lo creo
+  let { data: client } = await supabase.from('gre_clients').select('id, nome, cognome, email, telefono').eq('email', email).maybeSingle()
+  if (!client) {
+    const { data: created, error } = await supabase
+      .from('gre_clients')
+      .insert({ nome, cognome, email, telefono, gdpr_consent: true, gdpr_consent_at: now, marketing_consent: false })
+      .select('id, nome, cognome, email, telefono')
+      .single()
+    if (error || !created) return NextResponse.json({ error: 'Salvataggio non riuscito' }, { status: 500 })
+    client = created
+  } else if (!client.telefono) {
+    await supabase.from('gre_clients').update({ telefono }).eq('id', client.id)
+  }
+
+  const { data: existing } = await supabase
+    .from('gre_bookings').select('id').eq('open_house_id', oh.id).eq('client_id', client.id).neq('status', 'no_show').maybeSingle()
+  if (existing) return NextResponse.json({ error: `${client.nome} ${client.cognome} è già nell'elenco: cercalo e segnalo come arrivato` }, { status: 409 })
+
+  // il cliente è di chi lo inserisce (se è un collega), altrimenti di chi organizza
+  const referente = me.id !== oh.agent_id ? me.id : null
+  const { data: booking, error: bErr } = await supabase
+    .from('gre_bookings')
+    .insert({
+      open_house_id: oh.id,
+      client_id: client.id,
+      agent_id: oh.agent_id,
+      agente_referente_id: referente,
+      status: 'completed',
+      senza_prenotazione: true,
+      inserito_da: me.id,
+      questionnaire_completed: false,
+    })
+    .select('id')
+    .single()
+  if (bErr || !booking) {
+    console.error('walk-in booking error:', bErr)
+    return NextResponse.json({ error: 'Salvataggio non riuscito' }, { status: 500 })
+  }
+
+  // email di benvenuto con la brochure, dalla casella di chi segue il cliente
+  let brochureInviata = false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const property = oh.gre_properties as any
+  if (property?.brochure_url) {
+    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', referente || oh.agent_id).maybeSingle()
+    if (agent) {
+      try {
+        await sendAsAgent(client.email, brochureEmail({ client, agent, property, benvenuto: true }), agent.id)
+        brochureInviata = true
+      } catch (e) {
+        console.error('Brochure walk-in non inviata:', e)
+      }
+    }
+  }
+
+  return NextResponse.json({ ok: true, bookingId: booking.id, brochureInviata })
 }

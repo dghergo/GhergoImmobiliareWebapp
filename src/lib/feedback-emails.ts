@@ -100,13 +100,14 @@ export function agentAlertEmail(p: {
 }
 
 /** Invia dalla casella dell'agente; se non disponibile, dalla casella dell'agenzia. */
-export async function sendAsAgent(to: string, mail: { subject: string; html: string }, agentId?: string | null) {
+type Attachment = { filename: string; content: Buffer; contentType: string }
+export async function sendAsAgent(to: string, mail: { subject: string; html: string; attachments?: Attachment[] }, agentId?: string | null) {
   try {
-    return await sendEmail({ to, subject: mail.subject, html: mail.html, agentId: agentId || undefined })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments, agentId: agentId || undefined })
   } catch (e) {
     if (!agentId) throw e
     console.error('Invio dalla casella dell\'agente non riuscito, uso quella dell\'agenzia:', e)
-    return await sendEmail({ to, subject: mail.subject, html: mail.html })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments })
   }
 }
 
@@ -214,13 +215,13 @@ export function bookingAlertEmail(p: {
 }
 
 /** Invio (o reinvio) della brochure completa al cliente, a nome dell'agente che lo segue. */
-export function brochureEmail(p: { client: Person; agent: Person; property: Property & { brochure_url: string } }) {
+export function brochureEmail(p: { client: Person; agent: Person; property: Property & { brochure_url: string }; benvenuto?: boolean }) {
   const titolo = niceText(p.property.titolo)
   return {
-    subject: `La brochure di ${titolo} – Ghergo Immobiliare`,
+    subject: p.benvenuto ? `Grazie per la visita a ${titolo} – la brochure completa` : `La brochure di ${titolo} – Ghergo Immobiliare`,
     html: shell(`
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
-      <p>come promesso ti invio la documentazione completa di <strong>${esc(titolo)}</strong>.</p>
+      <p>${p.benvenuto ? `grazie per essere passato all'Open House di <strong>${esc(titolo)}</strong>! Come promesso ti invio la documentazione completa.` : `come promesso ti invio la documentazione completa di <strong>${esc(titolo)}</strong>.`}</p>
       <div style="background:${BLU}; color:#fff; border-radius:14px; padding:20px; margin:18px 0; text-align:center;">
         <div style="font-size:18px; font-weight:800;">📄 Brochure completa dell'immobile</div>
         <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Planimetrie, foto e tutti i dettagli.</div>
@@ -230,4 +231,26 @@ export function brochureEmail(p: { client: Person; agent: Person; property: Prop
       <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
     `),
   }
+}
+
+/** Copia del foglio visita firmato (al cliente, o all'agente che lo segue). */
+export function foglioEmail(p: {
+  dati: { cliente: { nome: string; cognome: string }; immobile: { titolo: string }; visita: { data: string }; agente: string }
+  perAgente: boolean
+}) {
+  const titolo = p.dati.immobile.titolo
+  return p.perAgente
+    ? {
+        subject: `✍️ Foglio visita firmato – ${p.dati.cliente.nome} ${p.dati.cliente.cognome} – ${titolo}`,
+        html: shell(`<p>Il foglio visita di <strong>${esc(p.dati.cliente.nome)} ${esc(p.dati.cliente.cognome)}</strong> per <strong>${esc(titolo)}</strong> (${esc(p.dati.visita.data)}) è stato firmato. Lo trovi in allegato ed è archiviato nella prenotazione.</p>`),
+      }
+    : {
+        subject: `Il tuo foglio visita – ${titolo}`,
+        html: shell(`
+          <p>Ciao <strong>${esc(p.dati.cliente.nome)}</strong>,</p>
+          <p>grazie per aver visitato <strong>${esc(titolo)}</strong>. In allegato trovi la copia del foglio visita che hai firmato oggi.</p>
+          <p>Per qualsiasi domanda rispondi pure a questa email.</p>
+          <p>A presto,<br><strong>${esc(p.dati.agente)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+        `),
+      }
 }

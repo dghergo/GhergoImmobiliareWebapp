@@ -17,6 +17,56 @@ interface EmailOptions {
   }>
 }
 
+/** Messaggio RFC 2822 (oggetto codificato: accenti ed emoji arrivano corretti; allegati opzionali). */
+export function buildRawEmail(options: EmailOptions): string {
+  // Crea il messaggio email in formato RFC 2822 (oggetto codificato: accenti ed emoji arrivano corretti)
+  const subject = `=?UTF-8?B?${Buffer.from(options.subject, 'utf-8').toString('base64')}?=`
+  const html64 = Buffer.from(options.html, 'utf-8').toString('base64').replace(/(.{76})/g, '$1\r\n')
+  let email: string
+  if (options.attachments?.length) {
+    const boundary = `ghergo_${Date.now().toString(36)}`
+    const parts = [
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      html64,
+    ]
+    for (const a of options.attachments) {
+      const content = Buffer.isBuffer(a.content) ? a.content : Buffer.from(String(a.content ?? ''), 'utf-8')
+      const name = `=?UTF-8?B?${Buffer.from(a.filename, 'utf-8').toString('base64')}?=`
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${a.contentType || 'application/octet-stream'}; name="${name}"`,
+        `Content-Disposition: attachment; filename="${name}"`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        content.toString('base64').replace(/(.{76})/g, '$1\r\n'),
+      )
+    }
+    parts.push(`--${boundary}--`)
+    email = [
+      `To: ${options.to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      ...parts,
+    ].join('\r\n')
+  } else {
+    email = [
+      `To: ${options.to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      html64,
+    ].join('\r\n')
+  }
+  return email
+}
+
 export async function sendEmail(options: EmailOptions) {
   try {
     console.log(`📧 Sending email to: ${options.to}`)
@@ -45,16 +95,8 @@ export async function sendEmail(options: EmailOptions) {
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
-    // Crea il messaggio email in formato RFC 2822
-    const emailLines = [
-      `To: ${options.to}`,
-      `Subject: ${options.subject}`,
-      `Content-Type: text/html; charset=utf-8`,
-      ``,
-      options.html
-    ]
+    const email = buildRawEmail(options)
 
-    const email = emailLines.join('\n')
     const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 
     // Invia l'email

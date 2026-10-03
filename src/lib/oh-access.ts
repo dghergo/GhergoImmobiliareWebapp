@@ -13,7 +13,7 @@ export async function openHouseAccess(openHouseId: string, agent: StaffAgent) {
   const supabase = getSupabaseAdmin()
   const { data: oh } = await supabase
     .from('gre_open_houses')
-    .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona, indirizzo, prezzo, immagini, brochure_url), gre_agents (id, nome, cognome, email)')
+    .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona, indirizzo, prezzo, immagini, brochure_url, caratteristiche, dati_foglio), gre_agents (id, nome, cognome, email)')
     .eq('id', openHouseId)
     .maybeSingle()
   if (!oh) return null

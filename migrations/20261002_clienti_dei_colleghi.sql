@@ -33,3 +33,7 @@ returns boolean language sql stable security definer set search_path = public as
      where b.client_id = p_client_id and public.gre_follows_booking(b.agent_id, b.agente_referente_id)
   );
 $$;
+
+-- (3/10/2026) già applicate: walk-in e foglio visita
+-- alter table gre_bookings add senza_prenotazione, inserito_da, foglio_visita_firmato_at, foglio_visita_path, foglio_visita_dati;
+-- bucket privato gre_fogli_visita; alter table gre_properties add dati_foglio jsonb;

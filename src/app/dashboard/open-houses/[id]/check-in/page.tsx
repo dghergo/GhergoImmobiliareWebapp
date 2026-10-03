@@ -6,11 +6,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { authFetch } from '@/lib/api'
 import ClientActions from '@/components/dashboard/ClientActions'
+import WalkInForm from '@/components/dashboard/WalkInForm'
 
 interface Row {
   mine: boolean
   portato_da: string | null
   agente: string
+  senza_prenotazione: boolean
+  foglio_firmato_at: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
@@ -51,6 +54,15 @@ export default function CheckInPage() {
   const [shareLink, setShareLink] = useState<string | null>(null)
   const [shareBusy, setShareBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [walkIn, setWalkIn] = useState(false)
+  const [toast, setToast] = useState('')
+
+  const scaricaFoglio = async (bookingId: string) => {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/foglio?bookingId=${bookingId}&download=1`)
+    const data = await res.json().catch(() => ({}))
+    if (data.url) window.open(data.url, '_blank')
+    else alert(data.error || 'Documento non disponibile')
+  }
 
   // Link per un collega alla porta: niente login, solo questo Open House, scade a fine giornata
   const createShareLink = async () => {
@@ -139,7 +151,7 @@ export default function CheckInPage() {
   const groups = useMemo(() => {
     const map = new Map<string, Row[]>()
     for (const r of active) {
-      const key = r.slot ? `${t(r.slot.ora_inizio)}–${t(r.slot.ora_fine)}` : 'Orario non indicato'
+      const key = r.senza_prenotazione ? 'Senza prenotazione' : r.slot ? `${t(r.slot.ora_inizio)}–${t(r.slot.ora_fine)}` : 'Orario non indicato'
       map.set(key, [...(map.get(key) || []), r])
     }
     return Array.from(map.entries())
@@ -166,6 +178,13 @@ export default function CheckInPage() {
               className="text-sm opacity-90 hover:opacity-100"
             >
               ← Cruscotto
+            </button>
+            <button
+              onClick={() => setWalkIn(true)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white"
+              style={{ color: 'var(--primary-blue)' }}
+            >
+              + Aggiungi cliente
             </button>
             <button
               onClick={createShareLink}
@@ -200,6 +219,17 @@ export default function CheckInPage() {
           </div>
         </div>
       </div>
+
+      {walkIn && openHouseId && (
+        <WalkInForm
+          openHouseId={openHouseId}
+          onClose={() => setWalkIn(false)}
+          onAdded={msg => { setWalkIn(false); setToast(msg); setTimeout(() => setToast(''), 5000); load() }}
+        />
+      )}
+      {toast && (
+        <div className="fixed bottom-4 inset-x-4 z-40 max-w-xl mx-auto rounded-xl px-4 py-3 text-white font-semibold shadow-lg" style={{ background: '#16a34a' }}>{toast}</div>
+      )}
 
       <main className="max-w-xl mx-auto px-3 py-4 pb-16">
         {error && <div className="bg-white rounded-lg p-4 text-center text-red-600 mb-4">{error}</div>}
@@ -302,6 +332,23 @@ export default function CheckInPage() {
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
                       </div>}
+                    </div>
+
+                    <div className="mt-2">
+                      {r.foglio_firmato_at ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-semibold text-green-700">✍️ Foglio visita firmato</span>
+                          {r.mine && <button onClick={() => scaricaFoglio(r.id)} className="underline" style={{ color: 'var(--primary-blue)' }}>PDF</button>}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/dashboard/open-houses/${openHouseId}/foglio/${r.id}`)}
+                          className="w-full py-2.5 rounded-lg font-semibold border-2"
+                          style={{ borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' }}
+                        >
+                          ✍️ Firma foglio visita
+                        </button>
+                      )}
                     </div>
 
                     {r.mine && (

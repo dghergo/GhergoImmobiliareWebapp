@@ -38,6 +38,8 @@ interface OpenHouseDetail {
 interface BookingRow {
   mine: boolean
   portato_da: string | null
+  senza_prenotazione?: boolean
+  foglio_firmato_at?: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
@@ -202,8 +204,12 @@ export default function OpenHouseCruscotto() {
   }
 
   const tags = (b: BookingRow) => {
-    if (!b.mine) return [{ text: `Cliente di ${b.portato_da || 'un collega'} · lo segue lui/lei`, cls: 'bg-amber-100 text-amber-800' }]
-    const via = b.portato_da && role !== 'collega' ? [{ text: `Portato da ${b.portato_da}`, cls: 'bg-amber-100 text-amber-800' }] : []
+    const extra = [
+      ...(b.senza_prenotazione ? [{ text: 'Senza prenotazione', cls: 'bg-gray-200 text-gray-700' }] : []),
+      ...(b.foglio_firmato_at ? [{ text: '✍️ Foglio visita firmato', cls: 'bg-green-100 text-green-800' }] : []),
+    ]
+    if (!b.mine) return [...extra, { text: `Cliente di ${b.portato_da || 'un collega'} · lo segue lui/lei`, cls: 'bg-amber-100 text-amber-800' }]
+    const via = [...extra, ...(b.portato_da && role !== 'collega' ? [{ text: `Portato da ${b.portato_da}`, cls: 'bg-amber-100 text-amber-800' }] : [])]
     if (!b.q) return [...via, { text: 'Questionario non compilato', cls: 'bg-gray-100 text-gray-600' }]
     const out: { text: string; cls: string }[] = []
     if (isSenzaMutuo(b)) out.push({ text: 'Senza mutuo', cls: 'bg-green-100 text-green-800' })

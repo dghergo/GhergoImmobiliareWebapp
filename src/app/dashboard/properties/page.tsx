@@ -10,6 +10,19 @@ import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import AgentSelector from '@/components/AgentSelector'
 
+interface DatiFoglio {
+  riferimento: string
+  comune: string
+  provincia: string
+  cap: string
+  scala: string
+  interno: string
+  catasto_foglio: string
+  catasto_particella: string
+  catasto_sub: string
+  catasto_categoria: string
+}
+
 interface Property {
   id: string
   agent_id: string
@@ -19,6 +32,7 @@ interface Property {
   tipologia: 'appartamento' | 'villa' | 'ufficio' | 'locale_commerciale' | 'terreno'
   zona: string
   indirizzo: string | null
+  dati_foglio?: DatiFoglio | null
   caratteristiche: any
   immagini: string[]
   brochure_url: string | null
@@ -46,6 +60,10 @@ export default function PropertiesManagement() {
   const [brochureFile, setBrochureFile] = useState<File | null>(null)
   const [brochureUrl, setBrochureUrl] = useState('')
   const [selectedAgentId, setSelectedAgentId] = useState('')
+
+  // Dati per il foglio visita (indirizzo completo e catasto)
+  const FOGLIO_VUOTO: DatiFoglio = { riferimento: '', comune: '', provincia: '', cap: '', scala: '', interno: '', catasto_foglio: '', catasto_particella: '', catasto_sub: '', catasto_categoria: '' }
+  const [datiFoglio, setDatiFoglio] = useState<DatiFoglio>(FOGLIO_VUOTO)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -235,6 +253,7 @@ export default function PropertiesManagement() {
             tipologia: formData.tipologia,
             zona: formData.zona,
             indirizzo: formData.indirizzo || null,
+            dati_foglio: datiFoglio,
             caratteristiche,
             immagini,
             brochure_url,
@@ -262,6 +281,7 @@ export default function PropertiesManagement() {
             tipologia: formData.tipologia,
             zona: formData.zona,
             indirizzo: formData.indirizzo || null,
+            dati_foglio: datiFoglio,
             caratteristiche,
             is_active: true,
             immagini: []
@@ -323,6 +343,7 @@ export default function PropertiesManagement() {
       cantiere: false,
       unita_totali: ''
     })
+    setDatiFoglio(FOGLIO_VUOTO)
     setShowAddForm(false)
     setEditingProperty(null)
     setImageFiles([])
@@ -395,6 +416,7 @@ export default function PropertiesManagement() {
       cantiere: property.caratteristiche?.cantiere || false,
       unita_totali: property.caratteristiche?.unita_totali?.toString() || ''
     })
+    setDatiFoglio({ ...FOGLIO_VUOTO, ...(property.dati_foglio || {}) })
     setBrochureUrl(property.brochure_url || '')
     setShowAddForm(true)
   }
@@ -590,6 +612,37 @@ export default function PropertiesManagement() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="es. Via Roma 123"
                   />
+                </div>
+
+                <div className="col-span-full rounded-lg p-4 border border-blue-100" style={{ background: '#F5F7FC' }}>
+                  <div className="font-semibold text-sm mb-1" style={{ color: 'var(--primary-blue)' }}>✍️ Dati per il foglio visita</div>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-gray)' }}>Compilali una volta: finiscono in automatico nel foglio visita che il cliente firma all’Open House.</p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {([
+                      ['riferimento', 'Rif. immobile'],
+                      ['comune', 'Comune'],
+                      ['provincia', 'Prov.'],
+                      ['cap', 'CAP'],
+                      ['scala', 'Scala'],
+                      ['interno', 'Interno'],
+                      ['catasto_foglio', 'Foglio catastale'],
+                      ['catasto_particella', 'Particella'],
+                      ['catasto_sub', 'Subalterno'],
+                      ['catasto_categoria', 'Categoria (es. A/2)'],
+                    ] as [keyof DatiFoglio, string][]).map(([k, label]) => (
+                      <label key={k} className="block text-xs" style={{ color: 'var(--text-gray)' }}>
+                        {label}
+                        <input
+                          type="text"
+                          value={datiFoglio[k]}
+                          onChange={e => setDatiFoglio({ ...datiFoglio, [k]: e.target.value })}
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                          style={{ color: 'var(--text-dark)' }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs mt-2" style={{ color: 'var(--text-gray)' }}>Per più subalterni (es. appartamento + garage) scrivili separati da virgola.</p>
                 </div>
               </div>
 
