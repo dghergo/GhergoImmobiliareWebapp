@@ -212,3 +212,22 @@ export function bookingAlertEmail(p: {
     `),
   }
 }
+
+/** Invio (o reinvio) della brochure completa al cliente, a nome dell'agente che lo segue. */
+export function brochureEmail(p: { client: Person; agent: Person; property: Property & { brochure_url: string } }) {
+  const titolo = niceText(p.property.titolo)
+  return {
+    subject: `La brochure di ${titolo} – Ghergo Immobiliare`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>come promesso ti invio la documentazione completa di <strong>${esc(titolo)}</strong>.</p>
+      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:20px; margin:18px 0; text-align:center;">
+        <div style="font-size:18px; font-weight:800;">📄 Brochure completa dell'immobile</div>
+        <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Planimetrie, foto e tutti i dettagli.</div>
+        <a href="${esc(p.property.brochure_url)}" style="background:#fff; color:${BLU}; padding:13px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">Scarica la brochure</a>
+      </div>
+      <p>Per qualsiasi domanda rispondi pure a questa email o scrivimi.</p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+    `),
+  }
+}

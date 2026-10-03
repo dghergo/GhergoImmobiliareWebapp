@@ -5,15 +5,17 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { authFetch } from '@/lib/api'
+import ClientActions from '@/components/dashboard/ClientActions'
 
 interface Row {
   mine: boolean
   portato_da: string | null
+  agente: string
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
   note_cliente: string | null
-  client: { nome: string; cognome: string; telefono: string }
+  client: { nome: string; cognome: string; telefono: string; email: string }
   slot: { ora_inizio: string; ora_fine: string } | null
   q: { necessita_mutuo?: string; vendita_immobile?: string } | null
 }
@@ -276,8 +278,13 @@ export default function CheckInPage() {
                         <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
                           {r.client.nome} {r.client.cognome}
                         </div>
+                        {r.agente && (
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--text-gray)' }}>
+                            Agente: <b style={{ color: 'var(--primary-blue)' }}>{r.agente}</b>
+                          </div>
+                        )}
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {r.portato_da && (
+                          {r.portato_da && !r.mine && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>
                           )}
                           {r.q?.necessita_mutuo === 'no' && (
@@ -296,6 +303,16 @@ export default function CheckInPage() {
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
                       </div>}
                     </div>
+
+                    {r.mine && (
+                      <ClientActions
+                        openHouseId={openHouseId}
+                        bookingId={r.id}
+                        email={r.client.email}
+                        telefono={r.client.telefono}
+                        onSaved={c => setRows(rs => rs.map(x => (x.id === r.id ? { ...x, client: { ...x.client, ...c } } : x)))}
+                      />
+                    )}
 
                     {r.status === 'confirmed' ? (
                       <div className="grid grid-cols-2 gap-2 mt-3">
