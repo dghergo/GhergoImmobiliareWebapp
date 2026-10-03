@@ -1,4 +1,4 @@
-import { feedbackRequestEmail, sendAsAgent } from './feedback-emails'
+import { bookingAlertEmail, feedbackRequestEmail, sendAsAgent } from './feedback-emails'
 import { sendEmail, createEmailTemplate } from './gmail'
 import { createOpenHouseEvent } from './calendar'
 import { getSupabaseAdmin } from './server-auth'
@@ -48,7 +48,16 @@ export async function sendBookingEmail(
     const timeSlot = bookingData.gre_time_slots
     const openHouse = bookingData.gre_open_houses
     const property = openHouse.gre_properties
-    const agent = openHouse.gre_agents
+    const organizer = openHouse.gre_agents
+    // Il cliente è di chi lo porta: tutto ciò che riguarda il cliente parte dall'agente che lo segue
+    let referente: { id: string; nome: string; cognome: string; email: string } | null = null
+    if (bookingData.agente_referente_id) {
+      const { data: ref } = await supabase
+        .from('gre_agents').select('id, nome, cognome, email').eq('id', bookingData.agente_referente_id).maybeSingle()
+      referente = ref
+    }
+    const stessoAgente = !!referente && referente.id === organizer.id
+    const agent = referente && !stessoAgente ? referente : organizer
 
     // Template email di conferma per il cliente
     if (type === 'client_confirmation') {
@@ -190,57 +199,22 @@ export async function sendBookingEmail(
 
     // Template email di notifica per l'agente
     if (type === 'agent_notification') {
-      await sendEmail({
-        to: agent.email,
-        subject: `Nuova prenotazione Open House - ${property.titolo}`,
-        agentId: agent.id,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #1e40af; color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0;">GHERGO IMMOBILIARE</h1>
-              <h2 style="margin: 10px 0 0 0;">Nuova Prenotazione Ricevuta</h2>
-            </div>
-
-            <div style="padding: 20px; background-color: #f8fafc;">
-              <p>Gentile <strong>${agent.nome}</strong>,</p>
-
-              <p>Ha ricevuto una nuova prenotazione per il suo Open House!</p>
-
-              <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #1e40af; margin-top: 0;">Dettagli della prenotazione</h3>
-
-                <p><strong>Cliente:</strong> ${escapeHtml(client.nome)} ${escapeHtml(client.cognome)}</p>
-                <p><strong>Email:</strong> <a href="mailto:${client.email}">${client.email}</a></p>
-                <p><strong>Telefono:</strong> <a href="tel:${client.telefono}">${client.telefono}</a></p>
-
-                <hr style="margin: 20px 0;">
-
-                <p><strong>Immobile:</strong> ${property.titolo}</p>
-                <p><strong>Data Open House:</strong> ${new Date(openHouse.data_evento + 'T12:00:00').toLocaleDateString('it-IT')}</p>
-                <p><strong>Slot prenotato:</strong> ${String(timeSlot?.ora_inizio || '').slice(0, 5)} - ${String(timeSlot?.ora_fine || '').slice(0, 5)}</p>
-
-                ${bookingData.note_cliente ? `
-                  <hr style="margin: 20px 0;">
-                  <h4 style="color: #1e40af;">Note del cliente</h4>
-                  <p style="font-style: italic; white-space: pre-line;">${escapeHtml(bookingData.note_cliente)}</p>
-                ` : ''}
-              </div>
-
-              <div style="text-align: center; margin: 20px 0;">
-                <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/bookings"
-                   style="background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Visualizza nella Dashboard
-                </a>
-              </div>
-
-              <p>Cordiali saluti,<br>
-              <strong>Sistema Ghergo Immobiliare</strong></p>
-            </div>
-          </div>
-        `
-      })
-
-      console.log(`✅ Email notifica inviata all'agente ${agent.email}`)
+      // Avvisa l'agente che organizza (senza dati se il cliente è di un collega) e il collega che lo segue
+      const base = {
+        stessoAgente,
+        organizzatore: organizer,
+        referente,
+        client,
+        property,
+        dataEvento: openHouse.data_evento,
+        slot: timeSlot,
+        note: bookingData.note_cliente,
+      }
+      await sendAsAgent(organizer.email, bookingAlertEmail({ ...base, ruolo: 'organizzatore', destinatario: organizer }), organizer.id)
+      if (referente?.email && !stessoAgente) {
+        await sendAsAgent(referente.email, bookingAlertEmail({ ...base, ruolo: 'referente', destinatario: referente }), referente.id)
+      }
+      console.log(`✅ Avviso prenotazione inviato (${organizer.email}${referente && !stessoAgente ? ` + ${referente.email}` : ''})`)
     }
 
     // Template email per richiesta feedback

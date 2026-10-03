@@ -9,6 +9,7 @@ import { niceText } from '@/lib/text'
 
 type Status = 'confirmed' | 'completed' | 'no_show'
 interface Row {
+  portato_da?: string | null
   id: string
   status: Status
   client: { nome: string; cognome: string; telefono: string }
@@ -198,13 +199,16 @@ function CheckInCollega() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="font-semibold text-base truncate min-w-0" style={{ color: 'var(--text-dark)' }}>
-                        {r.client.nome} {r.client.cognome}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
+                          {r.client.nome} {r.client.cognome}
+                        </div>
+                        {r.portato_da && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      {r.client.telefono && <div className="flex gap-1 shrink-0">
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
-                      </div>
+                      </div>}
                     </div>
 
                     {r.status === 'confirmed' ? (

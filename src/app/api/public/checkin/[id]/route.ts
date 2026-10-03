@@ -22,12 +22,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [{ data: oh }, { data: bookings, error }] = await Promise.all([
     supabase
       .from('gre_open_houses')
-      .select('id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona), gre_agents (nome, cognome)')
+      .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona), gre_agents (nome, cognome)')
       .eq('id', id)
       .maybeSingle(),
     supabase
       .from('gre_bookings')
-      .select('id, status, cancellation_reason, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine)')
+      .select('id, status, cancellation_reason, agente_referente_id, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine), referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)')
       .eq('open_house_id', id)
   ])
   if (!oh || error) return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
@@ -36,7 +36,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const rows = (bookings || []).filter((b: any) => !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent')).map((b: any) => ({
     id: b.id,
     status: b.status,
-    client: b.gre_clients,
+    // i telefoni dei clienti portati dai colleghi restano ai colleghi
+    client: {
+      nome: b.gre_clients.nome,
+      cognome: b.gre_clients.cognome,
+      telefono: !b.agente_referente_id || b.agente_referente_id === oh?.agent_id ? b.gre_clients.telefono : '',
+    },
+    portato_da: b.agente_referente_id && b.agente_referente_id !== oh?.agent_id && b.referente ? `${b.referente.nome} ${b.referente.cognome}` : null,
     slot: b.gre_time_slots
   }))
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireStaff } from '@/lib/server-auth'
+import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
+import { followerId } from '@/lib/oh-access'
 import { sendBookingEmail, BookingEmailType } from '@/lib/booking-emails'
 
 const ALLOWED: BookingEmailType[] = [
@@ -19,6 +20,16 @@ export async function POST(request: Request) {
   const { bookingId, type, commenti } = await request.json()
   if (!bookingId || !ALLOWED.includes(type)) {
     return NextResponse.json({ error: 'Richiesta non valida' }, { status: 400 })
+  }
+
+  // Solo chi segue il cliente (o l'admin) può inviargli email
+  if (auth.agent.role !== 'admin') {
+    const { data: b } = await getSupabaseAdmin()
+      .from('gre_bookings').select('agente_referente_id, gre_open_houses (agent_id)').eq('id', String(bookingId)).maybeSingle()
+    const organizer = (b?.gre_open_houses as { agent_id?: string } | null)?.agent_id || null
+    if (!b || followerId(b, organizer) !== auth.agent.id) {
+      return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
+    }
   }
 
   const result = await sendBookingEmail(bookingId, type, { commenti })

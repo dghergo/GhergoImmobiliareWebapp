@@ -48,7 +48,7 @@ export default function ReportVenditore() {
   useEffect(() => {
     if (!agent) return
     ;(async () => {
-      const res = await authFetch(`/api/open-houses/${id}/feedback`, { cache: 'no-store' })
+      const res = await authFetch(`/api/open-houses/${id}/report`, { cache: 'no-store' })
       if (!res.ok) return setError('Open House non trovato o non accessibile.')
       const data = await res.json()
       setOh(data.openHouse)

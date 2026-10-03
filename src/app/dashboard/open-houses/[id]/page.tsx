@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { authFetch } from '@/lib/api'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
@@ -36,6 +36,10 @@ interface OpenHouseDetail {
 }
 
 interface BookingRow {
+  mine: boolean
+  portato_da: string | null
+  senza_prenotazione?: boolean
+  foglio_firmato_at?: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
@@ -65,7 +69,7 @@ const isMutuoBanca = (b: BookingRow) =>
 const isMutuoDaSentire = (b: BookingRow) =>
   !!b.q?.necessita_mutuo && b.q.necessita_mutuo !== 'no' && !isMutuoBanca(b)
 const isDeveVendere = (b: BookingRow) => !!b.q?.vendita_immobile?.startsWith('si')
-const hasNoQuestionario = (b: BookingRow) => !b.q
+const hasNoQuestionario = (b: BookingRow) => b.mine && !b.q
 
 const LABELS: Record<string, Record<string, string>> = {
   vendita_immobile: {
@@ -113,6 +117,7 @@ export default function OpenHouseCruscotto() {
   const [loadingData, setLoadingData] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [category, setCategory] = useState<Category>('tutte')
+  const [role, setRole] = useState<'admin' | 'organizzatore' | 'collega'>('organizzatore')
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -131,48 +136,16 @@ export default function OpenHouseCruscotto() {
     if (!agent || !openHouseId) return
     setLoadingData(true)
     try {
-      let ohQuery = supabase
-        .from('gre_open_houses')
-        .select(`
-          id, agent_id, data_evento, ora_inizio, ora_fine, is_active,
-          gre_properties (id, titolo, zona, indirizzo, prezzo),
-          gre_agents (nome, cognome)
-        `)
-        .eq('id', openHouseId)
-
-      if (!admin) ohQuery = ohQuery.eq('agent_id', agent.id)
-
-      const { data: ohData, error: ohError } = await ohQuery.maybeSingle()
-      if (ohError) throw ohError
-      if (!ohData) {
+      // I dati arrivano dal server: i clienti portati dai colleghi si vedono solo con nome e orario
+      const res = await authFetch(`/api/open-houses/${openHouseId}/clients`, { cache: 'no-store' })
+      if (!res.ok) {
         setNotFound(true)
         return
       }
-      setOpenHouse(ohData as unknown as OpenHouseDetail)
-
-      const { data: bData, error: bError } = await supabase
-        .from('gre_bookings')
-        .select(`
-          id, status, cancellation_reason, questionnaire_completed,
-          gre_clients!inner (nome, cognome, email, telefono),
-          gre_time_slots (ora_inizio, ora_fine),
-          gre_prequalification_responses (response_data)
-        `)
-        .eq('open_house_id', openHouseId)
-
-      if (bError) throw bError
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows: BookingRow[] = (bData || []).map((b: any) => ({
-        id: b.id,
-        status: b.status,
-        cancellation_reason: b.cancellation_reason,
-        questionnaire_completed: b.questionnaire_completed,
-        client: b.gre_clients,
-        slot: b.gre_time_slots || null,
-        q: b.gre_prequalification_responses?.[0]?.response_data || null,
-      }))
-
+      const data = await res.json()
+      setOpenHouse(data.openHouse as OpenHouseDetail)
+      setRole(data.role)
+      const rows: BookingRow[] = data.rows
       rows.sort((a, b) => (a.slot?.ora_inizio || '').localeCompare(b.slot?.ora_inizio || ''))
       setBookings(rows)
     } catch (error) {
@@ -195,6 +168,7 @@ export default function OpenHouseCruscotto() {
     presentati: attive.filter(b => b.status === 'completed').length,
     non_presentati: attive.filter(b => b.status === 'no_show').length,
     cancellate: bookings.filter(isCancelled).length,
+    colleghi: attive.filter(b => !!b.portato_da).length,
     pre_delibera: attive.filter(b => isMutuoBanca(b) && b.q?.stato_mutuo === 'pre_delibera').length,
     simulazione: attive.filter(b => isMutuoBanca(b) && b.q?.stato_mutuo === 'simulazione').length,
     vende_in_vendita: attive.filter(b => b.q?.vendita_immobile === 'si_in_vendita').length,
@@ -230,7 +204,13 @@ export default function OpenHouseCruscotto() {
   }
 
   const tags = (b: BookingRow) => {
-    if (!b.q) return [{ text: 'Questionario non compilato', cls: 'bg-gray-100 text-gray-600' }]
+    const extra = [
+      ...(b.senza_prenotazione ? [{ text: 'Senza prenotazione', cls: 'bg-gray-200 text-gray-700' }] : []),
+      ...(b.foglio_firmato_at ? [{ text: '✍️ Visita confermata', cls: 'bg-green-100 text-green-800' }] : []),
+    ]
+    if (!b.mine) return [...extra, { text: `Cliente di ${b.portato_da || 'un collega'} · lo segue lui/lei`, cls: 'bg-amber-100 text-amber-800' }]
+    const via = [...extra, ...(b.portato_da && role !== 'collega' ? [{ text: `Portato da ${b.portato_da}`, cls: 'bg-amber-100 text-amber-800' }] : [])]
+    if (!b.q) return [...via, { text: 'Questionario non compilato', cls: 'bg-gray-100 text-gray-600' }]
     const out: { text: string; cls: string }[] = []
     if (isSenzaMutuo(b)) out.push({ text: 'Senza mutuo', cls: 'bg-green-100 text-green-800' })
     else {
@@ -242,7 +222,7 @@ export default function OpenHouseCruscotto() {
     if (isDeveVendere(b)) out.push({ text: LABELS.vendita_immobile[b.q.vendita_immobile || ''] || 'Deve vendere', cls: 'bg-orange-100 text-orange-800' })
     const tm = LABELS.tempistiche_acquisto[b.q.tempistiche_acquisto || '']
     if (tm) out.push({ text: tm, cls: 'bg-purple-100 text-purple-800' })
-    return out
+    return [...via, ...out]
   }
 
   if (loading) {
@@ -380,10 +360,17 @@ export default function OpenHouseCruscotto() {
               </div>
             </div>
 
+            {role === 'collega' && (
+              <div className="rounded-lg p-4 mb-4 bg-amber-50 border border-amber-200 text-sm" style={{ color: 'var(--text-dark)' }}>
+                🤝 Open House organizzato da <b>{openHouse.gre_agents?.nome} {openHouse.gre_agents?.cognome}</b>. Qui vedi e segui <b>solo i tuoi clienti</b>, dalla visita all’offerta.
+              </div>
+            )}
+
             {/* Card principali */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <MainCard cat="tutte" title="Prenotazioni" value={stats.tutte} color="#203162">
                 <div>{stats.presentati} presentati · {stats.non_presentati} non presentati</div>
+                {stats.colleghi > 0 && role !== 'collega' && <div>{stats.colleghi === 1 ? '1 cliente portato da un collega' : `${stats.colleghi} clienti portati da colleghi`}</div>}
                 {stats.cancellate > 0 && <div>{stats.cancellate} cancellate (escluse)</div>}
               </MainCard>
               <MainCard cat="senza_mutuo" title="Comprano senza mutuo" value={stats.senza_mutuo} color="#16a34a" />
@@ -408,7 +395,7 @@ export default function OpenHouseCruscotto() {
 
             <ReminderPanel
               openHouseId={openHouse.id}
-              agentName={openHouse.gre_agents ? `${openHouse.gre_agents.nome} ${openHouse.gre_agents.cognome}` : `${agent.nome} ${agent.cognome}`}
+              agentName={`${agent.nome} ${agent.cognome}`}
               eventDate={openHouse.data_evento}
               eventEnd={openHouse.ora_fine}
             />
@@ -416,9 +403,10 @@ export default function OpenHouseCruscotto() {
             <FeedbackPanel
               openHouseId={openHouse.id}
               titolo={openHouse.gre_properties.titolo}
-              agentName={openHouse.gre_agents ? `${openHouse.gre_agents.nome} ${openHouse.gre_agents.cognome}` : `${agent.nome} ${agent.cognome}`}
+              agentName={`${agent.nome} ${agent.cognome}`}
               eventDate={openHouse.data_evento}
               eventEnd={openHouse.ora_fine}
+              showReport={role !== 'collega'}
             />
 
             {/* Elenco clienti */}
@@ -458,7 +446,7 @@ export default function OpenHouseCruscotto() {
                           ))}
                         </div>
                       </div>
-                      <div className="flex gap-2 text-sm">
+                      {b.mine && <div className="flex gap-2 text-sm">
                         <a href={`tel:${b.client.telefono}`} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">📞</a>
                         <a
                           href={`https://wa.me/${formatWhatsAppNumber(b.client.telefono)}`}
@@ -469,7 +457,7 @@ export default function OpenHouseCruscotto() {
                           💬
                         </a>
                         <a href={`mailto:${b.client.email}`} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">📧</a>
-                      </div>
+                      </div>}
                     </li>
                   ))}
                 </ul>

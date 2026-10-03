@@ -13,6 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ boo
     .select(`
       id, feedback_completed,
       gre_clients (nome),
+      referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome),
       gre_open_houses (data_evento, gre_properties (titolo, zona, immagini), gre_agents (nome, cognome))
     `)
     .eq('id', bookingId)
@@ -29,7 +30,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ boo
       cliente: (data.gre_clients as { nome?: string } | null)?.nome || '',
       data_evento: oh?.data_evento,
       immobile: { titolo: oh?.gre_properties?.titolo || '', zona: oh?.gre_properties?.zona || '', foto: oh?.gre_properties?.immagini?.[0] || null },
-      agente: oh?.gre_agents ? `${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : '',
+      // l'agente che segue il cliente: chi l'ha portato, altrimenti chi organizza
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      agente: (data as any).referente ? `${(data as any).referente.nome} ${(data as any).referente.cognome}` : oh?.gre_agents ? `${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : '',
     },
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

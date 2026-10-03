@@ -4,15 +4,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
 import { authFetch } from '@/lib/api'
+import ClientActions from '@/components/dashboard/ClientActions'
+import WalkInForm from '@/components/dashboard/WalkInForm'
 
 interface Row {
+  mine: boolean
+  portato_da: string | null
+  agente: string
+  senza_prenotazione: boolean
+  foglio_firmato_at: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
   note_cliente: string | null
-  client: { nome: string; cognome: string; telefono: string }
+  client: { nome: string; cognome: string; telefono: string; email: string }
   slot: { ora_inizio: string; ora_fine: string } | null
   q: { necessita_mutuo?: string; vendita_immobile?: string } | null
 }
@@ -48,6 +54,15 @@ export default function CheckInPage() {
   const [shareLink, setShareLink] = useState<string | null>(null)
   const [shareBusy, setShareBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [walkIn, setWalkIn] = useState(false)
+  const [toast, setToast] = useState('')
+
+  const scaricaFoglio = async (bookingId: string) => {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/foglio?bookingId=${bookingId}&download=1`)
+    const data = await res.json().catch(() => ({}))
+    if (data.url) window.open(data.url, '_blank')
+    else alert(data.error || 'Documento non disponibile')
+  }
 
   // Link per un collega alla porta: niente login, solo questo Open House, scade a fine giornata
   const createShareLink = async () => {
@@ -63,7 +78,6 @@ export default function CheckInPage() {
     setShareBusy(false)
   }
 
-  const admin = agent ? isAdmin(agent) : false
 
   useEffect(() => {
     if (!loading && (!agent || (!isAgent(agent) && !isAdmin(agent)))) router.push('/dashboard/login')
@@ -71,51 +85,24 @@ export default function CheckInPage() {
 
   const load = useCallback(async () => {
     if (!agent || !openHouseId) return
-    let ohQuery = supabase
-      .from('gre_open_houses')
-      .select('id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona)')
-      .eq('id', openHouseId)
-    if (!admin) ohQuery = ohQuery.eq('agent_id', agent.id)
-    const { data: ohData } = await ohQuery.maybeSingle()
-    if (!ohData) {
+    // Dal server: i clienti dei colleghi arrivano con nome e orario, senza contatti né questionario
+    const res = await authFetch(`/api/open-houses/${openHouseId}/clients`, { cache: 'no-store' })
+    if (!res.ok) {
       setError('Open House non trovato o non accessibile.')
       setLoadingData(false)
       return
     }
-    setOh(ohData as unknown as OH)
-
-    const { data, error: bErr } = await supabase
-      .from('gre_bookings')
-      .select(`
-        id, status, cancellation_reason, note_cliente,
-        gre_clients!inner (nome, cognome, telefono),
-        gre_time_slots (ora_inizio, ora_fine),
-        gre_prequalification_responses (response_data)
-      `)
-      .eq('open_house_id', openHouseId)
-    if (bErr) {
-      console.error(bErr)
-      setError('Errore nel caricamento delle prenotazioni.')
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped: Row[] = (data || []).map((b: any) => ({
-        id: b.id,
-        status: b.status,
-        cancellation_reason: b.cancellation_reason,
-        note_cliente: b.note_cliente,
-        client: b.gre_clients,
-        slot: b.gre_time_slots,
-        q: b.gre_prequalification_responses?.[0]?.response_data || null,
-      }))
-      mapped.sort((a, b) =>
-        (a.slot?.ora_inizio || '99').localeCompare(b.slot?.ora_inizio || '99') ||
-        a.client.cognome.localeCompare(b.client.cognome)
-      )
-      setRows(mapped)
-      setError('')
-    }
+    const data = await res.json()
+    setOh(data.openHouse as OH)
+    const mapped: Row[] = data.rows
+    mapped.sort((a, b) =>
+      (a.slot?.ora_inizio || '99').localeCompare(b.slot?.ora_inizio || '99') ||
+      a.client.cognome.localeCompare(b.client.cognome)
+    )
+    setRows(mapped)
+    setError('')
     setLoadingData(false)
-  }, [agent, openHouseId, admin])
+  }, [agent, openHouseId])
 
   useEffect(() => {
     load()
@@ -132,8 +119,8 @@ export default function CheckInPage() {
     setSavingId(row.id)
     const prev = rows
     setRows(rs => rs.map(r => (r.id === row.id ? { ...r, status } : r)))
-    const { error: upErr } = await supabase.from('gre_bookings').update({ status }).eq('id', row.id)
-    if (upErr) {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/clients`, { method: 'POST', body: JSON.stringify({ bookingId: row.id, status }) })
+    if (!res.ok) {
       setRows(prev)
       alert('Non sono riuscito a salvare. Controlla la connessione e riprova.')
     }
@@ -164,7 +151,7 @@ export default function CheckInPage() {
   const groups = useMemo(() => {
     const map = new Map<string, Row[]>()
     for (const r of active) {
-      const key = r.slot ? `${t(r.slot.ora_inizio)}–${t(r.slot.ora_fine)}` : 'Orario non indicato'
+      const key = r.senza_prenotazione ? 'Senza prenotazione' : r.slot ? `${t(r.slot.ora_inizio)}–${t(r.slot.ora_fine)}` : 'Orario non indicato'
       map.set(key, [...(map.get(key) || []), r])
     }
     return Array.from(map.entries())
@@ -191,6 +178,13 @@ export default function CheckInPage() {
               className="text-sm opacity-90 hover:opacity-100"
             >
               ← Cruscotto
+            </button>
+            <button
+              onClick={() => setWalkIn(true)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white"
+              style={{ color: 'var(--primary-blue)' }}
+            >
+              + Aggiungi cliente
             </button>
             <button
               onClick={createShareLink}
@@ -225,6 +219,17 @@ export default function CheckInPage() {
           </div>
         </div>
       </div>
+
+      {walkIn && openHouseId && (
+        <WalkInForm
+          openHouseId={openHouseId}
+          onClose={() => setWalkIn(false)}
+          onAdded={msg => { setWalkIn(false); setToast(msg); setTimeout(() => setToast(''), 5000); load() }}
+        />
+      )}
+      {toast && (
+        <div className="fixed bottom-4 inset-x-4 z-40 max-w-xl mx-auto rounded-xl px-4 py-3 text-white font-semibold shadow-lg" style={{ background: '#16a34a' }}>{toast}</div>
+      )}
 
       <main className="max-w-xl mx-auto px-3 py-4 pb-16">
         {error && <div className="bg-white rounded-lg p-4 text-center text-red-600 mb-4">{error}</div>}
@@ -303,7 +308,15 @@ export default function CheckInPage() {
                         <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
                           {r.client.nome} {r.client.cognome}
                         </div>
+                        {r.agente && (
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--text-gray)' }}>
+                            Agente: <b style={{ color: 'var(--primary-blue)' }}>{r.agente}</b>
+                          </div>
+                        )}
                         <div className="flex flex-wrap gap-1 mt-1">
+                          {r.portato_da && !r.mine && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Cliente di {r.portato_da}</span>
+                          )}
                           {r.q?.necessita_mutuo === 'no' && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-800">Senza mutuo</span>
                           )}
@@ -315,11 +328,38 @@ export default function CheckInPage() {
                           <div className="text-xs mt-1 italic" style={{ color: 'var(--text-gray)' }}>“{r.note_cliente}”</div>
                         )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      {r.mine && <div className="flex gap-1 shrink-0">
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
-                      </div>
+                      </div>}
                     </div>
+
+                    <div className="mt-2">
+                      {r.foglio_firmato_at ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-semibold text-green-700">✍️ Visita confermata</span>
+                          {r.mine && <button onClick={() => scaricaFoglio(r.id)} className="underline" style={{ color: 'var(--primary-blue)' }}>PDF</button>}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/dashboard/open-houses/${openHouseId}/foglio/${r.id}`)}
+                          className="w-full py-2.5 rounded-lg font-semibold border-2"
+                          style={{ borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' }}
+                        >
+                          ✍️ Conferma di visita
+                        </button>
+                      )}
+                    </div>
+
+                    {r.mine && (
+                      <ClientActions
+                        openHouseId={openHouseId}
+                        bookingId={r.id}
+                        email={r.client.email}
+                        telefono={r.client.telefono}
+                        onSaved={c => setRows(rs => rs.map(x => (x.id === r.id ? { ...x, client: { ...x.client, ...c } } : x)))}
+                      />
+                    )}
 
                     {r.status === 'confirmed' ? (
                       <div className="grid grid-cols-2 gap-2 mt-3">

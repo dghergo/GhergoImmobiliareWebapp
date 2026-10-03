@@ -33,12 +33,13 @@ const wa = (phone: string) => {
 const stars = (n?: number | null) => (n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '')
 const ddmm = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
 
-export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDate, eventEnd }: {
+export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDate, eventEnd, showReport = true }: {
   openHouseId: string
   titolo: string
   agentName: string
   eventDate: string
   eventEnd: string
+  showReport?: boolean
 }) {
   const [rows, setRows] = useState<FeedbackRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,9 +98,9 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
               : 'L’email con la richiesta parte da sola un’ora dopo la fine dell’Open House.'}
           </p>
         </div>
-        <a href={`/dashboard/open-houses/${openHouseId}/report`} target="_blank" rel="noopener noreferrer" className="btn-primary px-4 py-2 text-sm whitespace-nowrap text-center">
+        {showReport && <a href={`/dashboard/open-houses/${openHouseId}/report`} target="_blank" rel="noopener noreferrer" className="btn-primary px-4 py-2 text-sm whitespace-nowrap text-center">
           📄 Report venditore (PDF)
-        </a>
+        </a>}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 md:px-6">

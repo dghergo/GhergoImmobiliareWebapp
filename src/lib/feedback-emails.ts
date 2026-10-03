@@ -100,13 +100,14 @@ export function agentAlertEmail(p: {
 }
 
 /** Invia dalla casella dell'agente; se non disponibile, dalla casella dell'agenzia. */
-export async function sendAsAgent(to: string, mail: { subject: string; html: string }, agentId?: string | null) {
+type Attachment = { filename: string; content: Buffer; contentType: string }
+export async function sendAsAgent(to: string, mail: { subject: string; html: string; attachments?: Attachment[] }, agentId?: string | null) {
   try {
-    return await sendEmail({ to, subject: mail.subject, html: mail.html, agentId: agentId || undefined })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments, agentId: agentId || undefined })
   } catch (e) {
     if (!agentId) throw e
     console.error('Invio dalla casella dell\'agente non riuscito, uso quella dell\'agenzia:', e)
-    return await sendEmail({ to, subject: mail.subject, html: mail.html })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments })
   }
 }
 
@@ -147,4 +148,109 @@ export function reminderEmail(p: {
       <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
     `),
   }
+}
+
+/**
+ * Avviso di nuova prenotazione.
+ * ruolo 'organizzatore': all'agente che gestisce l'Open House (con indicazione del collega che ha portato il cliente)
+ * ruolo 'referente': all'agente scelto dal cliente / dal cui link è arrivata la prenotazione
+ */
+export function bookingAlertEmail(p: {
+  ruolo: 'organizzatore' | 'referente'
+  stessoAgente: boolean
+  destinatario: Person
+  organizzatore: Person
+  referente: Person | null
+  client: Person
+  property: Property
+  dataEvento: string
+  slot: { ora_inizio?: string; ora_fine?: string } | null
+  note: string | null
+}) {
+  const ora = p.slot?.ora_inizio ? `${String(p.slot.ora_inizio).slice(0, 5)}–${String(p.slot.ora_fine || '').slice(0, 5)}` : ''
+  const data = new Date(p.dataEvento + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
+  const titolo = niceText(p.property.titolo)
+  const tel = p.client.telefono || ''
+  const viaCollega = p.ruolo === 'organizzatore' && p.referente && !p.stessoAgente
+  const banner = p.ruolo === 'referente'
+    ? `<div style="background:#EAF8FE; border-left:4px solid ${SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
+         <div style="font-size:18px; font-weight:800;">🔗 Un tuo cliente ha prenotato</div>
+         <div style="margin-top:4px;">${esc(p.client.nome)} ${esc(p.client.cognome)} ha prenotato l'Open House di <strong>${esc(titolo)}</strong> indicando te come agente di riferimento (dal tuo link o scegliendoti nel modulo).
+         ${p.stessoAgente ? '' : `<br>L'Open House è organizzato da <strong>${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}</strong>, ma il cliente lo segui tu dalla visita all'offerta: i suoi dati e i feedback li vedi solo tu.`}</div>
+       </div>`
+    : viaCollega
+    ? `<div style="background:#FEF3C7; border-left:4px solid #F59E0B; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
+         <div style="font-size:18px; font-weight:800;">🤝 Cliente di ${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}</div>
+         <div style="margin-top:4px;">Un orario del tuo Open House è stato prenotato da un cliente di ${esc(p.referente!.nome)}. Il cliente lo segue ${esc(p.referente!.nome)}, dalla visita all'offerta: contatti, questionario e feedback li vede solo lui/lei.</div>
+       </div>`
+    : ''
+  return {
+    subject: p.ruolo === 'referente' && !p.stessoAgente
+      ? `🔗 Un tuo cliente ha prenotato – ${p.client.nome} ${p.client.cognome} per ${titolo}`
+      : `Nuova prenotazione${p.stessoAgente && p.referente ? ' dal tuo link' : viaCollega ? ` – cliente di ${p.referente!.nome}` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.destinatario.nome)}</strong>,</p>
+      ${banner || `<p>hai una nuova prenotazione per l'Open House di <strong>${esc(titolo)}</strong>${p.stessoAgente && p.referente ? ' <strong>dal tuo link</strong> 🔗' : ''}.</p>`}
+      ${viaCollega ? `<table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
+        ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
+        ${row('Quando', `<span style="text-transform:capitalize;">${esc(data)}</span>${ora ? `, ${esc(ora)}` : ''}`)}
+        ${row('Lo segue', `${esc(p.referente!.nome)} ${esc(p.referente!.cognome)}`)}
+      </table>` : `
+      <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
+        ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
+        ${row('Telefono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}
+        ${row('Email', esc(p.client.email))}
+        ${row('Immobile', esc(titolo))}
+        ${row('Quando', `<span style="text-transform:capitalize;">${esc(data)}</span>${ora ? `, ${esc(ora)}` : ''}`)}
+        ${row('Organizza', `${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}`)}
+        ${p.referente ? row('Agente di riferimento', `${esc(p.referente.nome)} ${esc(p.referente.cognome)}`) : ''}
+      </table>
+      ${p.note ? `<p style="background:#fff; padding:12px 14px; border-radius:8px; font-style:italic; white-space:pre-line;">“${esc(p.note)}”</p>` : ''}
+      <div style="margin:18px 0;">
+        ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
+        <a href="${SITE()}/dashboard/bookings" style="background:${BLU}; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700;">Apri le prenotazioni</a>
+      </div>`}
+    `),
+  }
+}
+
+/** Invio (o reinvio) della brochure completa al cliente, a nome dell'agente che lo segue. */
+export function brochureEmail(p: { client: Person; agent: Person; property: Property & { brochure_url: string }; benvenuto?: boolean }) {
+  const titolo = niceText(p.property.titolo)
+  return {
+    subject: p.benvenuto ? `Grazie per la visita a ${titolo} – la brochure completa` : `La brochure di ${titolo} – Ghergo Immobiliare`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>${p.benvenuto ? `grazie per essere passato all'Open House di <strong>${esc(titolo)}</strong>! Come promesso ti invio la documentazione completa.` : `come promesso ti invio la documentazione completa di <strong>${esc(titolo)}</strong>.`}</p>
+      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:20px; margin:18px 0; text-align:center;">
+        <div style="font-size:18px; font-weight:800;">📄 Brochure completa dell'immobile</div>
+        <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Planimetrie, foto e tutti i dettagli.</div>
+        <a href="${esc(p.property.brochure_url)}" style="background:#fff; color:${BLU}; padding:13px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">Scarica la brochure</a>
+      </div>
+      <p>Per qualsiasi domanda rispondi pure a questa email o scrivimi.</p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+    `),
+  }
+}
+
+/** Copia del foglio visita firmato (al cliente, o all'agente che lo segue). */
+export function foglioEmail(p: {
+  dati: { cliente: { nome: string; cognome: string }; immobile: { titolo: string }; visita: { data: string }; agente: string }
+  perAgente: boolean
+}) {
+  const titolo = p.dati.immobile.titolo
+  return p.perAgente
+    ? {
+        subject: `✍️ Conferma di visita firmata – ${p.dati.cliente.nome} ${p.dati.cliente.cognome} – ${titolo}`,
+        html: shell(`<p>La conferma di visita di <strong>${esc(p.dati.cliente.nome)} ${esc(p.dati.cliente.cognome)}</strong> per <strong>${esc(titolo)}</strong> (${esc(p.dati.visita.data)}) è stata firmata. La trovi in allegato ed è archiviata nella prenotazione.</p>`),
+      }
+    : {
+        subject: `La tua conferma di visita – ${titolo}`,
+        html: shell(`
+          <p>Ciao <strong>${esc(p.dati.cliente.nome)}</strong>,</p>
+          <p>grazie per aver visitato <strong>${esc(titolo)}</strong>. In allegato trovi la copia della conferma di visita che hai firmato oggi.</p>
+          <p>Per qualsiasi domanda rispondi pure a questa email.</p>
+          <p>A presto,<br><strong>${esc(p.dati.agente)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+        `),
+      }
 }
