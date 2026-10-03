@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
 import { verifyCheckinToken } from '@/lib/checkin-link'
 
-// Check-in alla porta per i colleghi che hanno il link: solo nome, orario e telefono.
-// Niente questionario, niente note, nessun altro Open House.
+// Check-in alla porta per i colleghi che hanno il link: solo nome, orario, telefono e due indicatori (senza mutuo / deve vendere).
+// Niente questionario completo, niente note, nessun altro Open House.
 
 function denied(check: string) {
   return NextResponse.json(
@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .maybeSingle(),
     supabase
       .from('gre_bookings')
-      .select('id, status, cancellation_reason, agente_referente_id, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine), referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)')
+      .select('id, status, cancellation_reason, agente_referente_id, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine), gre_prequalification_responses (response_data), referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)')
       .eq('open_house_id', id)
   ])
   if (!oh || error) return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
@@ -43,6 +43,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       telefono: !b.agente_referente_id || b.agente_referente_id === oh?.agent_id ? b.gre_clients.telefono : '',
     },
     portato_da: b.agente_referente_id && b.agente_referente_id !== oh?.agent_id && b.referente ? `${b.referente.nome} ${b.referente.cognome}` : null,
+    senza_mutuo: b.gre_prequalification_responses?.[0]?.response_data?.necessita_mutuo === 'no',
+    deve_vendere: String(b.gre_prequalification_responses?.[0]?.response_data?.vendita_immobile || '').startsWith('si'),
     slot: b.gre_time_slots
   }))
 
