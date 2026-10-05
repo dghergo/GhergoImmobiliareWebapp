@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     .select('id, property_id, data_evento')
     .gte('data_evento', da)
     .lte('data_evento', a)
-    .eq('is_active', true)
+    // contano tutti gli Open House fatti, anche quelli disattivati dopo l'evento
   const ids = (ohs || []).map(o => o.id)
   if (!ids.length) {
     return NextResponse.json({ da, a, openHouse: 0, immobili: 0, visitatori: 0, senzaMutuo: 0, offerte: 0, prenotati: 0 })
