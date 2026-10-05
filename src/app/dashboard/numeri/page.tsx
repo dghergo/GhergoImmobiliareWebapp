@@ -69,7 +69,6 @@ function Schermata({ n, run }: { n: Numeri; run: number }) {
   const visitatori = useCountUp(n.visitatori, run, 700)
   const oh = useCountUp(n.openHouse, run, 2300, 900)
   const mutuo = useCountUp(n.senzaMutuo, run, 2600, 900)
-  const offerte = useCountUp(n.offerte, run, 2900, 900)
   const cercano = Math.max(0, n.visitatori - n.immobili)
   const cercanoV = useCountUp(cercano, run, 4600, 1100)
   const periodo = isWeekend(n) ? 'Questo fine settimana' : `Dal ${fmt(n.da)} al ${fmt(n.a)}`
@@ -92,11 +91,10 @@ function Schermata({ n, run }: { n: Numeri; run: number }) {
         <div className="font-bold text-[3.1cqh] leading-tight mt-[0.6cqh]">persone hanno visitato<br />i nostri immobili</div>
       </Reveal>
 
-      <div className="relative grid grid-cols-3 gap-[1.4cqh] mt-[3.5cqh]">
+      <div className="relative grid grid-cols-2 gap-[1.4cqh] mt-[3cqh]">
         {[
           { v: oh, l: n.openHouse === 1 ? 'Open House' : 'Open House', at: 2100, dot: null },
           { v: mutuo, l: 'comprano senza mutuo', at: 2400, dot: VERDE },
-          { v: offerte, l: n.offerte === 1 ? 'vuole fare un’offerta' : 'vogliono fare un’offerta', at: 2700, dot: AMBRA },
         ].map((s, i) => (
           <Reveal key={i} at={s.at} run={run}>
             <div className="rounded-[2cqh] h-full" style={{ background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.16)', padding: '1.6cqh 1.4cqh' }}>
@@ -111,11 +109,12 @@ function Schermata({ n, run }: { n: Numeri; run: number }) {
       </div>
 
       <Reveal at={4200} run={run} className="relative mt-[3.5cqh]">
-        <div className="font-bold text-[2.7cqh] leading-snug">
+        <div className="font-bold text-[2.6cqh] leading-snug">
           Gli immobili erano solo <span className="font-black">{n.immobili}</span>.
         </div>
-        <div className="font-bold text-[2.7cqh] leading-snug">
-          <span className="font-black tabular-nums" style={{ color: AMBRA }}>{cercanoV}</span> persone stanno ancora cercando casa.
+        <div className="flex items-end gap-[1cqh] mt-[0.5cqh]">
+          <span className="font-black tabular-nums leading-none" style={{ color: AMBRA, fontSize: '11cqh', letterSpacing: '-0.04em' }}>{cercanoV}</span>
+          <span className="font-extrabold text-[2.9cqh] leading-tight pb-[0.8cqh]">persone devono ancora<br />comprare casa</span>
         </div>
       </Reveal>
 
