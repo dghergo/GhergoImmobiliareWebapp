@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const access = await openHouseAccess(id, auth.agent)
   if (!access || access.role === 'collega') return NextResponse.json({ error: 'Report riservato a chi organizza l\'Open House' }, { status: 403 })
-  const { oh, role } = access
+  const { oh, role, team } = access
 
   const { data: bookings } = await getSupabaseAdmin()
     .from('gre_bookings')
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (bookings || []).filter((b: any) => !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent')).map((b: any) => {
     const f = b.gre_feedback_responses?.[0] || null
-    const mine = followsClient(b, oh.agent_id, auth.agent, role)
+    const mine = followsClient(b, team, auth.agent, role)
     return {
       status: b.status,
       q: b.gre_prequalification_responses?.[0]?.response_data || null,
@@ -32,5 +32,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // ordine casuale: nessun collegamento con la lista delle prenotazioni
   rows.sort(() => Math.random() - 0.5)
 
-  return NextResponse.json({ openHouse: oh, rows }, { headers: { 'Cache-Control': 'no-store' } })
+  // per il venditore: l'agente immobiliare abilitato di riferimento (mai un assistente)
+  return NextResponse.json({ openHouse: { ...oh, gre_agents: team.lead || oh.gre_agents }, rows }, { headers: { 'Cache-Control': 'no-store' } })
 }

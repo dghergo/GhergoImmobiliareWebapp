@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { haCivico, indirizzoPulito, titoloImmobile } from '@/lib/titolo'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -208,6 +209,17 @@ export default function PropertiesManagement() {
 
     const agentId = admin ? (selectedAgentId || editingProperty?.agent_id || agent!.id) : agent!.id
 
+    // Titolo automatico: Comune, via e civico (+ interno)
+    if (!haCivico(formData.indirizzo)) {
+      alert('Scrivi anche il numero civico nell\'indirizzo (es. Via Roma 12).')
+      return
+    }
+    const titolo = titoloImmobile({ comune: datiFoglio.comune, indirizzo: formData.indirizzo, interno: datiFoglio.interno })
+    if (!titolo) {
+      alert('Inserisci Comune e indirizzo: il titolo dell\'immobile si crea da questi dati.')
+      return
+    }
+
     try {
       const caratteristiche = {
         mq: formData.mq ? parseInt(formData.mq) : null,
@@ -247,12 +259,12 @@ export default function PropertiesManagement() {
         let updateQuery = supabase
           .from('gre_properties')
           .update({
-            titolo: formData.titolo,
+            titolo,
             descrizione: formData.descrizione || null,
             prezzo: formData.prezzo ? parseFloat(formData.prezzo) : null,
             tipologia: formData.tipologia,
             zona: formData.zona,
-            indirizzo: formData.indirizzo || null,
+            indirizzo: indirizzoPulito(formData.indirizzo) || null,
             dati_foglio: datiFoglio,
             caratteristiche,
             immagini,
@@ -275,12 +287,12 @@ export default function PropertiesManagement() {
           .from('gre_properties')
           .insert({
             agent_id: agentId,
-            titolo: formData.titolo,
+            titolo,
             descrizione: formData.descrizione || null,
             prezzo: formData.prezzo ? parseFloat(formData.prezzo) : null,
             tipologia: formData.tipologia,
             zona: formData.zona,
-            indirizzo: formData.indirizzo || null,
+            indirizzo: indirizzoPulito(formData.indirizzo) || null,
             dati_foglio: datiFoglio,
             caratteristiche,
             is_active: true,
@@ -319,7 +331,11 @@ export default function PropertiesManagement() {
       loadProperties()
       alert(editingProperty ? 'Immobile aggiornato con successo!' : 'Immobile creato con successo!')
     } catch (error: any) {
-      alert('Errore: ' + error.message)
+      if (error?.code === '23505') {
+        alert('Esiste già un immobile attivo con questo indirizzo. Se nello stesso civico ci sono più immobili, indica l\'interno.')
+      } else {
+        alert('Errore: ' + error.message)
+      }
       setUploadingImages(false)
     }
   }
@@ -542,18 +558,53 @@ export default function PropertiesManagement() {
 
               {/* Informazioni Base */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
+                {/* Il titolo si crea da solo: Comune, via e civico */}
+                <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
-                    Titolo *
+                    Comune *
                   </label>
                   <input
                     type="text"
-                    value={formData.titolo}
-                    onChange={(e) => setFormData({ ...formData, titolo: e.target.value })}
+                    value={datiFoglio.comune}
+                    onChange={(e) => setDatiFoglio({ ...datiFoglio, comune: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="es. Appartamento luminoso in centro"
+                    placeholder="es. Osimo"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
+                    Indirizzo e numero civico *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.indirizzo}
+                    onChange={(e) => setFormData({ ...formData, indirizzo: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="es. Via Michelangelo 120D"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
+                    Interno <span className="font-normal" style={{ color: 'var(--text-gray)' }}>(se nello stesso civico ci sono più immobili)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={datiFoglio.interno}
+                    onChange={(e) => setDatiFoglio({ ...datiFoglio, interno: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="es. 5"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <div className="w-full rounded-lg px-4 py-2.5 text-sm" style={{ background: '#E8ECF6', color: '#203162' }}>
+                    <span className="opacity-70">Titolo:</span>{' '}
+                    <b>{titoloImmobile({ comune: datiFoglio.comune, indirizzo: formData.indirizzo, interno: datiFoglio.interno }) || 'Comune, Via e civico'}</b>
+                  </div>
                 </div>
 
                 <div>
@@ -589,7 +640,7 @@ export default function PropertiesManagement() {
 
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
-                    Zona *
+                    Zona / frazione *
                   </label>
                   <input
                     type="text"
@@ -601,30 +652,15 @@ export default function PropertiesManagement() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
-                    Indirizzo
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.indirizzo}
-                    onChange={(e) => setFormData({ ...formData, indirizzo: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="es. Via Roma 123"
-                  />
-                </div>
-
                 <div className="col-span-full rounded-lg p-4 border border-blue-100" style={{ background: '#F5F7FC' }}>
                   <div className="font-semibold text-sm mb-1" style={{ color: 'var(--primary-blue)' }}>✍️ Dati per il foglio visita</div>
                   <p className="text-xs mb-3" style={{ color: 'var(--text-gray)' }}>Compilali una volta: finiscono in automatico nel foglio visita che il cliente firma all’Open House.</p>
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {([
                       ['riferimento', 'Rif. immobile'],
-                      ['comune', 'Comune'],
                       ['provincia', 'Prov.'],
                       ['cap', 'CAP'],
                       ['scala', 'Scala'],
-                      ['interno', 'Interno'],
                       ['catasto_foglio', 'Foglio catastale'],
                       ['catasto_particella', 'Particella'],
                       ['catasto_sub', 'Subalterno'],

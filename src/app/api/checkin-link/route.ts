@@ -12,11 +12,11 @@ export async function POST(request: Request) {
 
   const { data: oh } = await getSupabaseAdmin()
     .from('gre_open_houses')
-    .select('id, agent_id, data_evento')
+    .select('id, agent_id, co_agent_id, data_evento')
     .eq('id', openHouseId)
     .maybeSingle()
 
-  if (!oh || (auth.agent.role !== 'admin' && oh.agent_id !== auth.agent.id)) {
+  if (!oh || (auth.agent.role !== 'admin' && oh.agent_id !== auth.agent.id && oh.co_agent_id !== auth.agent.id)) {
     return NextResponse.json({ error: 'Open House non trovato o non accessibile' }, { status: 404 })
   }
 

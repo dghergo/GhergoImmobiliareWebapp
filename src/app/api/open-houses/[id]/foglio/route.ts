@@ -22,11 +22,11 @@ async function load(request: Request, id: string, bookingId: string) {
     .select('id, status, agente_referente_id, foglio_visita_firmato_at, foglio_visita_path, client_id, gre_clients (nome, cognome, email, telefono, anagrafica), gre_time_slots (ora_inizio)')
     .eq('id', bookingId).eq('open_house_id', id).maybeSingle()
   if (!b) return { error: NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 }) }
-  const mine = followsClient(b, access.oh.agent_id, auth.agent, access.role)
+  const mine = followsClient(b, access.team, auth.agent, access.role)
   // il collega lavora solo sui suoi clienti; l'organizzatore può far firmare tutti alla porta
   if (access.role === 'collega' && !mine) return { error: NextResponse.json({ error: 'Non autorizzato' }, { status: 403 }) }
   const supabase = getSupabaseAdmin()
-  const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', followerId(b, access.oh.agent_id)).maybeSingle()
+  const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', followerId(b, access.team)).maybeSingle()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const p = access.oh.gre_properties as any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

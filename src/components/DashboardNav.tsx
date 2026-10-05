@@ -14,6 +14,7 @@ interface DashboardNavProps {
 }
 
 const UPCOMING_HREF = '/dashboard/prossimi-open-house'
+const NUMERI_HREF = '/dashboard/numeri'
 
 export default function DashboardNav({ items: baseItems }: DashboardNavProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -26,6 +27,10 @@ export default function DashboardNav({ items: baseItems }: DashboardNavProps) {
       const idx = list.findIndex(i => i.href === '/dashboard/open-houses')
       const entry = { label: 'PROSSIMI OPEN HOUSE', href: UPCOMING_HREF, active: pathname === UPCOMING_HREF }
       list.splice(idx >= 0 ? idx + 1 : list.length, 0, entry)
+    }
+    // Numeri del weekend per il video del lunedì
+    if (!list.some(i => i.href === NUMERI_HREF)) {
+      list.push({ label: 'NUMERI DEL WEEKEND', href: NUMERI_HREF, active: pathname === NUMERI_HREF })
     }
     return list
   })()

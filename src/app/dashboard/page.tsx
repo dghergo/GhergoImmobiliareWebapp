@@ -46,20 +46,20 @@ export default function AgentDashboard() {
       const { count: openHousesCount } = await supabase
         .from('gre_open_houses')
         .select('*', { count: 'exact', head: true })
-        .eq('agent_id', agent.id)
+        .or(`agent_id.eq.${agent.id},co_agent_id.eq.${agent.id}`)
         .eq('is_active', true)
 
       // Conta le prenotazioni per i propri Open House
       const { count: bookingsCount } = await supabase
         .from('gre_bookings')
         .select('*', { count: 'exact', head: true })
-        .eq('agent_id', agent.id)
+        // l'RLS conta i clienti che segui (anche negli Open House gestiti insieme)
 
       // Conta le prenotazioni in attesa
       const { count: pendingCount } = await supabase
         .from('gre_bookings')
         .select('*', { count: 'exact', head: true })
-        .eq('agent_id', agent.id)
+        // l'RLS conta i clienti che segui (anche negli Open House gestiti insieme)
         .eq('status', 'confirmed')
 
       setStats({

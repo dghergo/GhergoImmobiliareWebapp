@@ -47,6 +47,7 @@ interface OpenHouse {
     cognome: string
     email: string
   }
+  accoglienza?: { nome: string; cognome: string; qualifica: 'agente' | 'assistente' }[]
 }
 
 interface TimeSlot {
@@ -57,6 +58,8 @@ interface TimeSlot {
   ora_fine: string
   posti_disponibili: number
   posti_occupati: number
+  aperto?: boolean
+  completo?: boolean
   is_available: boolean
   max_partecipanti?: number
   gre_bookings?: Array<{
@@ -381,7 +384,8 @@ export default function OpenHouseDetail() {
   const mapsUrl = property?.indirizzo
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.indirizzo} ${property.zona || ''}`)}`
     : null
-  const freeSlots = timeSlots.filter(s => s.posti_occupati < s.posti_disponibili).length
+  const isOpen = (s: TimeSlot) => s.aperto ?? s.posti_occupati < s.posti_disponibili
+  const freeSlots = timeSlots.filter(isOpen).length
   const selectedSlotData = timeSlots.find(s => s.id === selectedSlot)
 
   const scrollToBooking = () => {
@@ -510,7 +514,14 @@ export default function OpenHouseDetail() {
             </div>
             <div>
               <h2 className="pub-h3 mb-2">Ti accoglie</h2>
-              <p className="pub-body">{openHouse.agent.nome} {openHouse.agent.cognome}</p>
+              {(openHouse.accoglienza?.length ? openHouse.accoglienza : [{ ...openHouse.agent, qualifica: 'agente' as const }]).map(m => (
+                <p key={`${m.nome}${m.cognome}`} className="pub-body">
+                  {m.nome} {m.cognome}{m.qualifica === 'assistente' ? ', assistente immobiliare' : ''}
+                </p>
+              ))}
+              {openHouse.accoglienza?.some(m => m.qualifica === 'assistente') && (
+                <p className="pub-muted text-sm mt-2">Agente di riferimento: {openHouse.agent.nome} {openHouse.agent.cognome}</p>
+              )}
               <a href={`mailto:${openHouse.agent.email}`} className="pub-link mt-2 inline-block">{openHouse.agent.email}</a>
             </div>
             {property.has_brochure && (
@@ -562,7 +573,7 @@ export default function OpenHouseDetail() {
                 </div>
                 <div className="pub-slots" role="list">
                   {timeSlots.map(slot => {
-                    const full = slot.posti_occupati >= slot.posti_disponibili
+                    const full = !isOpen(slot)
                     const active = selectedSlot === slot.id
                     return (
                       <button

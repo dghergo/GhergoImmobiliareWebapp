@@ -288,7 +288,7 @@ export default function StoryMaker({ oh, link, onClose }: { oh: StoryOpenHouse; 
               <li>Metti lo sticker sotto “Prenota la tua visita”, a sinistra del QR.</li>
             </ol>
             <p className="text-xs" style={{ color: 'var(--text-gray)' }}>
-              Il link è il tuo: chi prenota ti trova già come agente di riferimento. Anche il QR porta allo stesso link.
+              {link.includes('ref=') ? 'Il link è il tuo: chi prenota ti trova già come agente di riferimento. ' : ''}Anche il QR porta allo stesso link.
             </p>
           </div>
         </div>

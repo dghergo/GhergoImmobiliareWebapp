@@ -1,3 +1,4 @@
+import { followerId, isTeamClient, loadTeam } from '@/lib/oh-access'
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, hasCronSecret, requireStaff } from '@/lib/server-auth'
 import { feedbackRequestEmail, sendAsAgent } from '@/lib/feedback-emails'
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data: openHouses, error } = await supabase
     .from('gre_open_houses')
-    .select('id, data_evento, ora_fine, gre_properties (titolo, zona, indirizzo), gre_agents (id, nome, cognome, email)')
+    .select('id, agent_id, co_agent_id, data_evento, ora_fine, gre_properties (titolo, zona, indirizzo), gre_agents (id, nome, cognome, email)')
     .gte('data_evento', since)
     .lte('data_evento', today)
   if (error) return NextResponse.json({ error: 'Errore caricamento' }, { status: 500 })
@@ -58,8 +59,7 @@ export async function GET(request: Request) {
       .eq('feedback_completed', false)
       .in('status', ['confirmed', 'completed'])
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const agent = oh.gre_agents as any
+    const team = await loadTeam(oh)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const property = oh.gre_properties as any
 
@@ -67,9 +67,10 @@ export async function GET(request: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = b.gre_clients as any
       if (!client?.email) continue
-      // la richiesta parte da chi segue il cliente (il collega che l'ha portato, altrimenti chi organizza)
+      // la richiesta parte da chi segue il cliente (il collega che l'ha portato, altrimenti l'agente abilitato dell'Open House)
+      const fid = followerId(b, team)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const follower = (b as any).referente?.id ? (b as any).referente : agent
+      const follower = isTeamClient(b, team) ? team.members.find(m => m.id === fid) : (b as any).referente
       try {
         const mail = feedbackRequestEmail({ client, agent: follower, property, bookingId: b.id })
         await sendAsAgent(client.email, mail, follower?.id)

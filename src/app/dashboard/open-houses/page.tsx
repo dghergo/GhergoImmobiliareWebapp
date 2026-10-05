@@ -26,6 +26,7 @@ interface OpenHouse {
   id: string
   property_id: string
   agent_id: string
+  co_agent_id?: string | null
   data_evento: string
   ora_inizio: string
   ora_fine: string
@@ -51,6 +52,9 @@ function OpenHousesManagementContent() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingOpenHouse, setEditingOpenHouse] = useState<OpenHouse | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState('')
+  // secondo agente che gestisce l'Open House insieme all'organizzatore
+  const [coAgentId, setCoAgentId] = useState('')
+  const [staff, setStaff] = useState<{ id: string; nome: string; cognome: string; qualifica?: string }[]>([])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -59,7 +63,7 @@ function OpenHousesManagementContent() {
     ora_inizio: '',
     ora_fine: '',
     durata_slot: 20,
-    max_partecipanti_slot: 1,
+    max_partecipanti_slot: 3,
     descrizione_evento: ''
   })
 
@@ -77,6 +81,8 @@ function OpenHousesManagementContent() {
     if (agent) {
       loadOpenHouses()
       loadProperties()
+      supabase.from('gre_agents').select('id, nome, cognome, qualifica').eq('is_active', true).order('nome')
+        .then(({ data }) => setStaff(data || []))
     }
   }, [agent])
 
@@ -92,16 +98,13 @@ function OpenHousesManagementContent() {
     if (!agent) return
 
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_properties')
         .select('id, titolo, zona, indirizzo, agent_id, gre_agents(nome, cognome)')
         .eq('is_active', true)
         .order('titolo')
 
-      if (!admin) {
-        query = query.eq('agent_id', agent.id)
-      }
-
+      // l'RLS mostra gli immobili propri e quelli degli Open House che si gestiscono insieme
       const { data, error } = await query
 
       if (error) throw error
@@ -115,7 +118,7 @@ function OpenHousesManagementContent() {
     if (!agent) return
 
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_open_houses')
         .select(`
           *,
@@ -132,10 +135,7 @@ function OpenHousesManagementContent() {
         `)
         .order('data_evento', { ascending: false })
 
-      if (!admin) {
-        query = query.eq('agent_id', agent.id)
-      }
-
+      // l'RLS mostra gli Open House che si organizzano o si gestiscono insieme a un collega
       const { data, error } = await query
 
       if (error) throw error
@@ -151,7 +151,8 @@ function OpenHousesManagementContent() {
     e.preventDefault()
 
     // Determine agent_id: for admin, derive from selected property or manual selection
-    let agentId = agent!.id
+    // (in modifica resta l'organizzatore originale, anche se modifica il co-organizzatore)
+    let agentId = editingOpenHouse && !admin ? editingOpenHouse.agent_id : agent!.id
     if (admin) {
       if (selectedAgentId) {
         agentId = selectedAgentId
@@ -164,9 +165,18 @@ function OpenHousesManagementContent() {
       }
     }
 
+    // Chi gestisce: organizzatore + eventuale secondo agente. Serve almeno un agente immobiliare abilitato.
+    const coId = coAgentId && coAgentId !== agentId ? coAgentId : null
+    const qualificaDi = (id: string) => staff.find(a => a.id === id)?.qualifica || 'agente'
+    if (![agentId, coId].some(id => id && qualificaDi(id) !== 'assistente')) {
+      alert('Un assistente immobiliare non può gestire da solo un Open House: in “Gestito insieme a” scegli l’agente immobiliare abilitato di riferimento.')
+      return
+    }
+
     try {
       const openHouseData = {
         agent_id: agentId,
+        co_agent_id: coId,
         property_id: formData.property_id,
         data_evento: formData.data_evento,
         ora_inizio: formData.ora_inizio,
@@ -181,14 +191,11 @@ function OpenHousesManagementContent() {
 
       if (editingOpenHouse) {
         // Update existing open house
-        let updateQuery = supabase
+        const updateQuery = supabase
           .from('gre_open_houses')
           .update(openHouseData)
           .eq('id', editingOpenHouse.id)
 
-        if (!admin) {
-          updateQuery = updateQuery.eq('agent_id', agent!.id)
-        }
 
         const { error } = await updateQuery
 
@@ -248,13 +255,14 @@ function OpenHousesManagementContent() {
   }
 
   const resetForm = () => {
+    setCoAgentId('')
     setFormData({
       property_id: '',
       data_evento: '',
       ora_inizio: '',
       ora_fine: '',
       durata_slot: 20,
-      max_partecipanti_slot: 1,
+      max_partecipanti_slot: 3,
       descrizione_evento: ''
     })
     setShowAddForm(false)
@@ -264,14 +272,11 @@ function OpenHousesManagementContent() {
 
   const toggleActive = async (openHouseId: string, currentStatus: boolean) => {
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_open_houses')
         .update({ is_active: !currentStatus })
         .eq('id', openHouseId)
 
-      if (!admin) {
-        query = query.eq('agent_id', agent!.id)
-      }
 
       const { error } = await query
 
@@ -286,14 +291,11 @@ function OpenHousesManagementContent() {
     if (!confirm('Sei sicuro di voler eliminare questo Open House?\nQuesta azione eliminerà anche tutte le prenotazioni collegate.')) return
 
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_open_houses')
         .delete()
         .eq('id', openHouseId)
 
-      if (!admin) {
-        query = query.eq('agent_id', agent!.id)
-      }
 
       const { error } = await query
 
@@ -308,6 +310,7 @@ function OpenHousesManagementContent() {
   const startEdit = (openHouse: OpenHouse) => {
     setEditingOpenHouse(openHouse)
     setSelectedAgentId(openHouse.agent_id)
+    setCoAgentId(openHouse.co_agent_id || '')
     setFormData({
       property_id: openHouse.property_id,
       data_evento: openHouse.data_evento,
@@ -323,6 +326,7 @@ function OpenHousesManagementContent() {
   const duplicateOpenHouse = (openHouse: OpenHouse) => {
     setEditingOpenHouse(null) // È una creazione, non una modifica
     setSelectedAgentId(openHouse.agent_id)
+    setCoAgentId(openHouse.co_agent_id || '')
     setFormData({
       property_id: openHouse.property_id,
       data_evento: '', // Data vuota — l'agente la imposta
@@ -427,7 +431,7 @@ function OpenHousesManagementContent() {
                 ora_inizio: '',
                 ora_fine: '',
                 durata_slot: 20,
-                max_partecipanti_slot: 1,
+                max_partecipanti_slot: 3,
                 descrizione_evento: ''
               })
               setSelectedAgentId('')
@@ -456,6 +460,31 @@ function OpenHousesManagementContent() {
                   label="Agente (opzionale - derivato dall'immobile se non selezionato)"
                 />
               )}
+
+              {/* Secondo agente che gestisce l'Open House */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
+                  Gestito insieme a
+                </label>
+                <select
+                  value={coAgentId}
+                  onChange={(e) => setCoAgentId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Nessuno (lo gestisco da solo)</option>
+                  {staff
+                    .filter(a => a.id !== (editingOpenHouse && !admin ? editingOpenHouse.agent_id : admin ? selectedAgentId : agent?.id))
+                    .map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.nome} {a.cognome}{a.qualifica === 'assistente' ? ' (assistente)' : ''}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                  Entrambi vedono clienti, check-in e feedback e ricevono gli avvisi delle prenotazioni.
+                  {agent?.qualifica === 'assistente' && !admin ? ' Da assistente, scegli qui l’agente abilitato di riferimento.' : ''}
+                </p>
+              </div>
 
               {/* Property Selection */}
               <div>
@@ -565,6 +594,9 @@ function OpenHousesManagementContent() {
                       <option value={3}>3 gruppi alla volta</option>
                       <option value={4}>4 gruppi alla volta</option>
                     </select>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                      I posti si aprono a giri (prima uno per orario, poi il secondo…). Dal cruscotto, in “Orari e posti”, puoi cambiare ogni singolo orario.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -657,12 +689,18 @@ function OpenHousesManagementContent() {
                         )}
                       </div>
 
-                      {/* Agent Badge (admin only) */}
-                      {admin && openHouse.gre_agents && (
-                        <div className="mb-2">
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                            👤 {openHouse.gre_agents.nome} {openHouse.gre_agents.cognome}
-                          </span>
+                      {/* Chi lo gestisce */}
+                      {(admin || openHouse.co_agent_id) && (
+                        <div className="mb-2 flex flex-wrap gap-1">
+                          {[openHouse.agent_id, openHouse.co_agent_id].filter(Boolean).map(id => {
+                            const a = staff.find(x => x.id === id)
+                            if (!a) return null
+                            return (
+                              <span key={id} className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ background: '#E8ECF6', color: '#203162' }}>
+                                👤 {a.nome} {a.cognome}{a.qualifica === 'assistente' ? ' · assistente' : ''}
+                              </span>
+                            )
+                          })}
                         </div>
                       )}
 

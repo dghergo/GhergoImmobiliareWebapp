@@ -9,6 +9,7 @@ import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
 import ReminderPanel from '@/components/dashboard/ReminderPanel'
+import SlotManager from '@/components/dashboard/SlotManager'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -118,6 +119,7 @@ export default function OpenHouseCruscotto() {
   const [notFound, setNotFound] = useState(false)
   const [category, setCategory] = useState<Category>('tutte')
   const [role, setRole] = useState<'admin' | 'organizzatore' | 'collega'>('organizzatore')
+  const [gestori, setGestori] = useState('')
 
   const admin = agent ? isAdmin(agent) : false
 
@@ -145,6 +147,7 @@ export default function OpenHouseCruscotto() {
       const data = await res.json()
       setOpenHouse(data.openHouse as OpenHouseDetail)
       setRole(data.role)
+      setGestori(data.team?.nomi || '')
       const rows: BookingRow[] = data.rows
       rows.sort((a, b) => (a.slot?.ora_inizio || '').localeCompare(b.slot?.ora_inizio || ''))
       setBookings(rows)
@@ -337,9 +340,9 @@ export default function OpenHouseCruscotto() {
                   <p className="text-sm mt-1 capitalize" style={{ color: 'var(--text-dark)' }}>
                     📅 {formatDate(openHouse.data_evento)} · {t(openHouse.ora_inizio)}–{t(openHouse.ora_fine)}
                   </p>
-                  {admin && openHouse.gre_agents && (
-                    <span className="inline-flex mt-2 items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                      👤 {openHouse.gre_agents.nome} {openHouse.gre_agents.cognome}
+                  {gestori && (
+                    <span className="inline-flex mt-2 items-center px-2 py-1 text-xs font-medium rounded-full" style={{ background: '#E8ECF6', color: '#203162' }}>
+                      👤 {gestori}
                     </span>
                   )}
                 </div>
@@ -362,7 +365,7 @@ export default function OpenHouseCruscotto() {
 
             {role === 'collega' && (
               <div className="rounded-lg p-4 mb-4 bg-amber-50 border border-amber-200 text-sm" style={{ color: 'var(--text-dark)' }}>
-                🤝 Open House organizzato da <b>{openHouse.gre_agents?.nome} {openHouse.gre_agents?.cognome}</b>. Qui vedi e segui <b>solo i tuoi clienti</b>, dalla visita all’offerta.
+                🤝 Open House organizzato da <b>{gestori}</b>. Qui vedi e segui <b>solo i tuoi clienti</b>, dalla visita all’offerta.
               </div>
             )}
 
@@ -392,6 +395,8 @@ export default function OpenHouseCruscotto() {
               <SmallStat cat="non_presentati" label="Non presentati" value={stats.non_presentati} />
               <SmallStat cat="cancellate" label="Cancellate" value={stats.cancellate} />
             </div>
+
+            {role !== 'collega' && <SlotManager openHouseId={openHouse.id} />}
 
             <ReminderPanel
               openHouseId={openHouse.id}

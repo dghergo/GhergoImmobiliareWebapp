@@ -124,8 +124,13 @@ export { quandoGiorno }
 export function reminderEmail(p: {
   client: Person; agent: Person & { email?: string }; property: Property & { brochure_url?: string | null }
   dataEvento: string; ora: string | null
+  /** assistenti immobiliari che accolgono all'Open House (mai presentati come agenti) */
+  assistenti?: Person[]
 }) {
   const giorno = quandoGiorno(p.dataEvento)
+  const acc = p.assistenti?.length
+    ? `<p>All'Open House ti accoglierà <strong>${p.assistenti.map(a => `${esc(a.nome)} ${esc(a.cognome)}`).join(' e ')}</strong>, ${p.assistenti.length > 1 ? 'assistenti immobiliari' : 'assistente immobiliare'} di Ghergo Immobiliare.</p>`
+    : ''
   const ora = p.ora ? p.ora.slice(0, 5) : ''
   const luogo = [p.property.indirizzo, p.property.zona].filter(Boolean).join(', ')
   const maps = luogo ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}` : ''
@@ -144,6 +149,7 @@ export function reminderEmail(p: {
         <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Planimetrie, foto e tutti i dettagli: dacci un'occhiata prima della visita.</div>
         <a href="${esc(p.property.brochure_url)}" style="background:${SKY}; color:#fff; padding:13px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">Scarica la brochure</a>
       </div>` : ''}
+      ${acc}
       <p>Se hai un imprevisto o vuoi cambiare orario, rispondi a questa email o scrivimi.</p>
       <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
     `),
@@ -172,6 +178,7 @@ export function bookingAlertEmail(p: {
   const titolo = niceText(p.property.titolo)
   const tel = p.client.telefono || ''
   const viaCollega = p.ruolo === 'organizzatore' && p.referente && !p.stessoAgente
+  const dalTuoLink = p.stessoAgente && !!p.referente && (p.referente.email || '').toLowerCase() === (p.destinatario.email || '').toLowerCase()
   const banner = p.ruolo === 'referente'
     ? `<div style="background:#EAF8FE; border-left:4px solid ${SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
          <div style="font-size:18px; font-weight:800;">🔗 Un tuo cliente ha prenotato</div>
@@ -187,10 +194,10 @@ export function bookingAlertEmail(p: {
   return {
     subject: p.ruolo === 'referente' && !p.stessoAgente
       ? `🔗 Un tuo cliente ha prenotato – ${p.client.nome} ${p.client.cognome} per ${titolo}`
-      : `Nuova prenotazione${p.stessoAgente && p.referente ? ' dal tuo link' : viaCollega ? ` – cliente di ${p.referente!.nome}` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
+      : `Nuova prenotazione${dalTuoLink ? ' dal tuo link' : viaCollega ? ` – cliente di ${p.referente!.nome}` : ''} – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
     html: shell(`
       <p>Ciao <strong>${esc(p.destinatario.nome)}</strong>,</p>
-      ${banner || `<p>hai una nuova prenotazione per l'Open House di <strong>${esc(titolo)}</strong>${p.stessoAgente && p.referente ? ' <strong>dal tuo link</strong> 🔗' : ''}.</p>`}
+      ${banner || `<p>hai una nuova prenotazione per l'Open House di <strong>${esc(titolo)}</strong>${dalTuoLink ? ' <strong>dal tuo link</strong> 🔗' : ''}.</p>`}
       ${viaCollega ? `<table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
         ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
         ${row('Quando', `<span style="text-transform:capitalize;">${esc(data)}</span>${ora ? `, ${esc(ora)}` : ''}`)}
