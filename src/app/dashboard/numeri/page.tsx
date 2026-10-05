@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { isAgent, isAdmin } from '@/lib/auth'
 import { authFetch } from '@/lib/api'
+import { DURATA_MS, H, W, disegnaNumeri, preparaRisorse } from '@/lib/numeri-canvas'
 
 // Schermata per il video del lunedì: i numeri del fine settimana, grandi e animati, in formato storia (9:16).
 
@@ -167,6 +168,88 @@ export default function NumeriWeekend() {
     carica(`?da=${prima.toLocaleDateString('sv-SE')}&a=${oggi.toLocaleDateString('sv-SE')}`)
   }
 
+  // ---- download: video (registrato dal canvas) e PDF (schermata finale) ----
+  const [scarico, setScarico] = useState<'' | 'video' | 'pdf'>('')
+  const [avanzamento, setAvanzamento] = useState(0)
+  const nomeFile = (ext: string) => `numeri-weekend-${n?.da || ''}_${n?.a || ''}.${ext}`
+  const salva = (blob: Blob, nome: string) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nome
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  const scaricaVideo = async () => {
+    if (!n || scarico) return
+    setScarico('video')
+    setAvanzamento(0)
+    try {
+      const logo = await preparaRisorse()
+      const canvas = document.createElement('canvas')
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')!
+      disegnaNumeri(ctx, n, 0, logo)
+      const tipi = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+      const mime = tipi.find(t => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t))
+      if (!mime) throw new Error('Questo browser non può registrare video: prova con Chrome o Safari aggiornati.')
+      const stream = canvas.captureStream(30)
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10_000_000 })
+      const parti: Blob[] = []
+      rec.ondataavailable = ev => { if (ev.data.size) parti.push(ev.data) }
+      const fine = new Promise<void>(res => { rec.onstop = () => res() })
+      rec.start(250)
+      const t0 = performance.now()
+      await new Promise<void>(res => {
+        const frame = () => {
+          const t = performance.now() - t0
+          disegnaNumeri(ctx, n, t, logo)
+          setAvanzamento(Math.min(100, Math.round((t / DURATA_MS) * 100)))
+          if (t < DURATA_MS) requestAnimationFrame(frame)
+          else res()
+        }
+        requestAnimationFrame(frame)
+      })
+      rec.stop()
+      await fine
+      const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm'
+      salva(new Blob(parti, { type: mime.split(';')[0] }), nomeFile(ext))
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Video non creato, riprova')
+    } finally {
+      setScarico('')
+    }
+  }
+
+  const scaricaPdf = async () => {
+    if (!n || scarico) return
+    setScarico('pdf')
+    try {
+      const logo = await preparaRisorse()
+      const canvas = document.createElement('canvas')
+      canvas.width = W
+      canvas.height = H
+      disegnaNumeri(canvas.getContext('2d')!, n, 1e9, logo)
+      const png = await new Promise<Blob>((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('Immagine non creata'))), 'image/png'))
+      const { PDFDocument } = await import('pdf-lib')
+      const pdf = await PDFDocument.create()
+      pdf.setTitle('Numeri del weekend – Ghergo Immobiliare')
+      const img = await pdf.embedPng(await png.arrayBuffer())
+      const page = pdf.addPage([W / 2, H / 2])
+      page.drawImage(img, { x: 0, y: 0, width: W / 2, height: H / 2 })
+      const bytes = await pdf.save()
+      salva(new Blob([bytes as BlobPart], { type: 'application/pdf' }), nomeFile('pdf'))
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'PDF non creato, riprova')
+    } finally {
+      setScarico('')
+    }
+  }
+
   const schermoIntero = () => {
     const el = frameRef.current
     if (!el) return
@@ -191,6 +274,12 @@ export default function NumeriWeekend() {
         <button onClick={() => carica(`?da=${da}&a=${a}`)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white/10">Aggiorna</button>
         <button onClick={() => setRun(r => r + 1)} className="px-3 py-2 rounded-lg text-sm font-bold bg-white" style={{ color: BLU }}>▶ Riproduci</button>
         <button onClick={schermoIntero} className="px-3 py-2 rounded-lg text-sm font-bold bg-white" style={{ color: BLU }}>⛶ Schermo intero</button>
+        <button onClick={scaricaVideo} disabled={!n || !!scarico} className="px-3 py-2 rounded-lg text-sm font-bold bg-white disabled:opacity-60" style={{ color: BLU }}>
+          {scarico === 'video' ? `🎬 Creo il video… ${avanzamento}%` : '⬇ Scarica video'}
+        </button>
+        <button onClick={scaricaPdf} disabled={!n || !!scarico} className="px-3 py-2 rounded-lg text-sm font-bold bg-white disabled:opacity-60" style={{ color: BLU }}>
+          {scarico === 'pdf' ? 'Creo il PDF…' : '⬇ Scarica PDF'}
+        </button>
       </div>
 
       {errore && <p className="text-center text-red-300 text-sm">{errore}</p>}
