@@ -1,5 +1,5 @@
 // Disegno su canvas (1080x1920) della schermata "Numeri del weekend": serve per scaricare il video e il PDF.
-// Stessa sequenza dell'animazione a schermo: logo, periodo, numero grande, tre riquadri, frase finale, invito a vendere.
+// Stessa sequenza dell'animazione a schermo: logo, periodo, numero grande, due riquadri, chi deve ancora comprare casa, invito a vendere.
 
 export interface NumeriCanvas {
   da: string
@@ -127,15 +127,14 @@ export function disegnaNumeri(ctx: CanvasRenderingContext2D, n: NumeriCanvas, t:
   ctx.fillText('persone hanno visitato', PAD, 690 + e.dy)
   ctx.fillText('i nostri immobili', PAD, 762 + e.dy)
 
-  // tre riquadri
+  // due riquadri
   const gap = 26
-  const tw = (W - PAD * 2 - gap * 2) / 3
+  const tw = (W - PAD * 2 - gap) / 2
   const ty = 840
-  const th = 250
+  const th = 210
   const tiles = [
     { v: conta(n.openHouse, t, 2300, 900), l: 'Open House', at: 2100, dot: null as string | null },
     { v: conta(n.senzaMutuo, t, 2600, 900), l: 'comprano senza mutuo', at: 2400, dot: VERDE },
-    { v: conta(n.offerte, t, 2900, 900), l: n.offerte === 1 ? 'vuole fare un’offerta' : 'vogliono fare un’offerta', at: 2700, dot: AMBRA },
   ]
   tiles.forEach((s, i) => {
     const en = entra(t, s.at)
@@ -168,26 +167,26 @@ export function disegnaNumeri(ctx: CanvasRenderingContext2D, n: NumeriCanvas, t:
     wrap(ctx, s.l, tw - 56).slice(0, 3).forEach((ln, k) => ctx.fillText(ln, x + 28, y + 170 + k * 40))
   })
 
-  // frase finale
+  // in evidenza: quante persone devono ancora comprare casa
   e = entra(t, 4200)
   ctx.globalAlpha = e.alpha
   ctx.fillStyle = '#fff'
-  ctx.font = '700 54px Gotham, Montserrat, sans-serif'
-  let y = 1190 + e.dy
-  ctx.fillText(`Gli immobili erano solo ${n.immobili}.`, PAD, y)
+  ctx.font = '700 50px Gotham, Montserrat, sans-serif'
+  ctx.fillText(`Gli immobili erano solo ${n.immobili}.`, PAD, 1185 + e.dy)
   const cercano = conta(Math.max(0, n.visitatori - n.immobili), t, 4600, 1100)
-  y += 70
-  ctx.font = '900 54px Gotham, Montserrat, sans-serif'
+  ctx.font = '900 230px Gotham, Montserrat, sans-serif'
+  if ('letterSpacing' in c) c.letterSpacing = '-8px'
   ctx.fillStyle = AMBRA
   const num = String(cercano)
-  ctx.fillText(num, PAD, y)
-  const off = ctx.measureText(num + ' ').width
-  ctx.font = '700 54px Gotham, Montserrat, sans-serif'
+  const numW = ctx.measureText(String(Math.max(0, n.visitatori - n.immobili))).width
+  ctx.fillText(num, PAD - 6, 1420 + e.dy)
+  if ('letterSpacing' in c) c.letterSpacing = '0px'
   ctx.fillStyle = '#fff'
-  const resto = wrap(ctx, 'persone stanno ancora cercando casa.', W - PAD * 2 - off)
-  ctx.fillText(resto[0], PAD + off, y)
-  const rest2 = wrap(ctx, resto.slice(1).join(' '), W - PAD * 2)
-  rest2.forEach(ln => { y += 70; ctx.fillText(ln, PAD, y) })
+  ctx.font = '800 56px Gotham, Montserrat, sans-serif'
+  const tx = PAD + numW + 20
+  const righe = wrap(ctx, 'persone devono ancora comprare casa', W - PAD - tx)
+  const y0 = 1420 - (righe.length - 1) * 64
+  righe.forEach((ln, k) => ctx.fillText(ln, tx, y0 + k * 64 + e.dy))
 
   // invito a vendere
   e = entra(t, 6000)
