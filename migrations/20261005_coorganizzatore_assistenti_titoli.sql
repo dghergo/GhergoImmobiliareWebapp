@@ -103,3 +103,8 @@ $$;
 DROP TRIGGER IF EXISTS gre_agents_protect_fields ON gre_agents;
 CREATE TRIGGER gre_agents_protect_fields BEFORE UPDATE ON gre_agents
   FOR EACH ROW EXECUTE FUNCTION public.gre_agents_protect_fields();
+
+-- I permessi su gre_agents sono per colonna: la nuova colonna va concessa esplicitamente
+GRANT SELECT (qualifica) ON gre_agents TO authenticated;
+GRANT UPDATE (qualifica) ON gre_agents TO authenticated;
+GRANT INSERT (qualifica) ON gre_agents TO authenticated;
