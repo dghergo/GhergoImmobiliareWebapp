@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
   }
 
-  const [{ data: slots }, { data: bookings }, { data: agents }] = await Promise.all([
+  const [{ data: slots }, { data: bookings }, { data: agents }, aperti] = await Promise.all([
     supabase
       .from('gre_time_slots')
       .select('id, open_house_id, ora_inizio, ora_fine, max_partecipanti, is_available')
@@ -41,8 +41,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .from('gre_agents')
       .select('id, nome, cognome')
       .eq('is_active', true)
-      .order('cognome')
+      .order('cognome'),
+    // Orari prenotabili adesso (riempimento graduale): stessa regola usata alla prenotazione
+    supabase.rpc('gre_slot_aperti', { p_open_house_id: id })
   ])
+  const apertiIds = aperti.error ? null : new Set(((aperti.data || []) as unknown[]).map(r => String(typeof r === 'object' && r ? Object.values(r)[0] : r)))
 
   const occupiedBySlot = new Map<string, number>()
   for (const b of bookings || []) {
@@ -51,11 +54,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const timeSlots = (slots || [])
     .filter(s => s.is_available !== false)
-    .map(s => ({
-      ...s,
-      posti_occupati: occupiedBySlot.get(s.id) || 0,
-      posti_disponibili: s.max_partecipanti || 1
-    }))
+    .map(s => {
+      const occ = occupiedBySlot.get(s.id) || 0
+      const cap = s.max_partecipanti || 1
+      return {
+        ...s,
+        posti_occupati: occ,
+        posti_disponibili: cap,
+        // completo = tutti i posti presi; aperto = prenotabile adesso
+        completo: occ >= cap,
+        aperto: occ < cap && (apertiIds ? apertiIds.has(s.id) : true),
+      }
+    })
+    // gli orari non ancora aperti (giro successivo) non si mostrano
+    .filter(s => s.aperto || s.completo)
 
   const { gre_properties, gre_agents, ...rest } = oh
   // La brochure si scarica solo dopo la prenotazione: qui si dice soltanto se esiste

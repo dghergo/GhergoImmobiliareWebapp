@@ -59,7 +59,7 @@ function OpenHousesManagementContent() {
     ora_inizio: '',
     ora_fine: '',
     durata_slot: 20,
-    max_partecipanti_slot: 1,
+    max_partecipanti_slot: 3,
     descrizione_evento: ''
   })
 
@@ -254,7 +254,7 @@ function OpenHousesManagementContent() {
       ora_inizio: '',
       ora_fine: '',
       durata_slot: 20,
-      max_partecipanti_slot: 1,
+      max_partecipanti_slot: 3,
       descrizione_evento: ''
     })
     setShowAddForm(false)
@@ -427,7 +427,7 @@ function OpenHousesManagementContent() {
                 ora_inizio: '',
                 ora_fine: '',
                 durata_slot: 20,
-                max_partecipanti_slot: 1,
+                max_partecipanti_slot: 3,
                 descrizione_evento: ''
               })
               setSelectedAgentId('')
@@ -565,6 +565,9 @@ function OpenHousesManagementContent() {
                       <option value={3}>3 gruppi alla volta</option>
                       <option value={4}>4 gruppi alla volta</option>
                     </select>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                      I posti si aprono a giri (prima uno per orario, poi il secondo…). Dal cruscotto, in “Orari e posti”, puoi cambiare ogni singolo orario.
+                    </p>
                   </div>
                 </div>
               </div>

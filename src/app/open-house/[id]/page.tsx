@@ -57,6 +57,8 @@ interface TimeSlot {
   ora_fine: string
   posti_disponibili: number
   posti_occupati: number
+  aperto?: boolean
+  completo?: boolean
   is_available: boolean
   max_partecipanti?: number
   gre_bookings?: Array<{
@@ -381,7 +383,8 @@ export default function OpenHouseDetail() {
   const mapsUrl = property?.indirizzo
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.indirizzo} ${property.zona || ''}`)}`
     : null
-  const freeSlots = timeSlots.filter(s => s.posti_occupati < s.posti_disponibili).length
+  const isOpen = (s: TimeSlot) => s.aperto ?? s.posti_occupati < s.posti_disponibili
+  const freeSlots = timeSlots.filter(isOpen).length
   const selectedSlotData = timeSlots.find(s => s.id === selectedSlot)
 
   const scrollToBooking = () => {
@@ -562,7 +565,7 @@ export default function OpenHouseDetail() {
                 </div>
                 <div className="pub-slots" role="list">
                   {timeSlots.map(slot => {
-                    const full = slot.posti_occupati >= slot.posti_disponibili
+                    const full = !isOpen(slot)
                     const active = selectedSlot === slot.id
                     return (
                       <button

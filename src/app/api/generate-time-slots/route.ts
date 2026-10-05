@@ -65,8 +65,9 @@ export async function POST(request: NextRequest) {
     const newKeys = new Set(newSlots.map(key))
     const existingByKey = new Map(existingSlots.map(s => [key(s), s]))
 
-    const slotsToKeep = existingSlots.filter(s => newKeys.has(key(s)))
-    const slotsOutside = existingSlots.filter(s => !newKeys.has(key(s)))
+    // Gli slot modificati a mano dall'agente non si toccano più
+    const slotsToKeep = existingSlots.filter(s => !s.manuale && newKeys.has(key(s)))
+    const slotsOutside = existingSlots.filter(s => !s.manuale && !newKeys.has(key(s)))
     const slotsToCreate = newSlots.filter(s => !existingByKey.has(key(s)))
 
     // Quali slot fuori orario hanno prenotazioni (di qualsiasi stato, per non perdere lo storico)

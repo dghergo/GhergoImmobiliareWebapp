@@ -9,6 +9,7 @@ import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
 import ReminderPanel from '@/components/dashboard/ReminderPanel'
+import SlotManager from '@/components/dashboard/SlotManager'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -392,6 +393,8 @@ export default function OpenHouseCruscotto() {
               <SmallStat cat="non_presentati" label="Non presentati" value={stats.non_presentati} />
               <SmallStat cat="cancellate" label="Cancellate" value={stats.cancellate} />
             </div>
+
+            {role !== 'collega' && <SlotManager openHouseId={openHouse.id} />}
 
             <ReminderPanel
               openHouseId={openHouse.id}
