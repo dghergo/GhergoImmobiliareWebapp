@@ -25,6 +25,7 @@ interface OH {
   ora_fine: string
   gre_properties: { titolo: string; zona: string } | null
   gre_agents: { nome: string; cognome: string } | null
+  gestori?: string
 }
 
 const t = (s?: string | null) => (s ? s.slice(0, 5) : '--:--')
@@ -155,7 +156,7 @@ function CheckInCollega() {
               <div className="font-semibold text-lg leading-tight mt-1 truncate">{niceText(oh.gre_properties?.titolo || '')}</div>
               <div className="text-xs opacity-80">
                 {new Date(oh.data_evento + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })} · {t(oh.ora_inizio)}–{t(oh.ora_fine)}
-                {oh.gre_agents ? ` · Agente: ${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : ''}
+                {oh.gestori ? ` · ${oh.gestori}` : ''}
               </div>
             </>
           )}
@@ -206,7 +207,7 @@ function CheckInCollega() {
                         <div className="font-semibold text-base truncate" style={{ color: 'var(--text-dark)' }}>
                           {r.client.nome} {r.client.cognome}
                         </div>
-                        <ClientBadges portatoDa={r.portato_da} agente={oh?.gre_agents ? `${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : null} senzaMutuo={r.senza_mutuo} deveVendere={r.deve_vendere} />
+                        <ClientBadges portatoDa={r.portato_da} agente={oh?.gestori || (oh?.gre_agents ? `${oh.gre_agents.nome} ${oh.gre_agents.cognome}` : null)} senzaMutuo={r.senza_mutuo} deveVendere={r.deve_vendere} />
                       </div>
                       {r.client.telefono && <div className="flex gap-1 shrink-0">
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>

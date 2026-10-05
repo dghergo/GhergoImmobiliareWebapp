@@ -150,6 +150,15 @@ export async function sendEmail(options: EmailOptions) {
 
 // Helper per creare template email
 // Uses switch/case for lazy evaluation - only the requested template is evaluated
+// Assistenti immobiliari che accolgono i visitatori: mai presentati come agenti
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function accoglienza(data: any): string {
+  const a = (data?.assistenti || []) as { nome: string; cognome: string }[]
+  if (!a.length) return ''
+  const nomi = a.map(x => `${x.nome} ${x.cognome}`).join(' e ')
+  return `<p>All'Open House la accoglierà <strong>${nomi}</strong>, ${a.length > 1 ? 'assistenti immobiliari' : 'assistente immobiliare'} di Ghergo Immobiliare.</p>`
+}
+
 export function createEmailTemplate(
   type: 'confirmation' | 'confirmation_with_brochure' | 'brochure' | 'feedback_request' | 'agent_offer_notification',
   data: any
@@ -188,6 +197,7 @@ export function createEmailTemplate(
               <h4 style="color: #1e40af;">Agente di riferimento</h4>
               <p><strong>${data.agent.nome} ${data.agent.cognome}</strong></p>
               <p>Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
+              ${accoglienza(data)}
             </div>
 
             <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -261,6 +271,7 @@ export function createEmailTemplate(
               <h4 style="color: #1e40af;">Agente di riferimento</h4>
               <p><strong>${data.agent.nome} ${data.agent.cognome}</strong></p>
               <p>Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
+              ${accoglienza(data)}
             </div>
 
             <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -310,6 +321,7 @@ export function createEmailTemplate(
             <p>Per qualsiasi domanda, non esiti a contattare il suo agente di riferimento:</p>
             <p><strong>${data.agent.nome} ${data.agent.cognome}</strong><br>
             Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
+            ${accoglienza(data)}
 
             <p>Cordiali saluti,<br>
             <strong>Team Ghergo Immobiliare</strong></p>

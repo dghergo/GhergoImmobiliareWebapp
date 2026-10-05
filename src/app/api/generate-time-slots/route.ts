@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Un agente può gestire solo i propri Open House
-    if (auth.agent.role !== 'admin' && openHouse.agent_id !== auth.agent.id) {
+    if (auth.agent.role !== 'admin' && openHouse.agent_id !== auth.agent.id && openHouse.co_agent_id !== auth.agent.id) {
       return NextResponse.json({ error: 'Open House di un altro agente' }, { status: 403 })
     }
 

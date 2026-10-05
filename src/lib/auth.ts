@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 // Colonne leggibili dal browser (i token Google restano solo sul server)
-export const AGENT_COLUMNS = 'id, email, nome, cognome, role, is_active, password_changed, google_oauth_enabled, created_at'
+export const AGENT_COLUMNS = 'id, email, nome, cognome, role, qualifica, is_active, password_changed, google_oauth_enabled, created_at'
 
 export interface AuthUser {
   id: string
@@ -9,6 +9,7 @@ export interface AuthUser {
   role: 'admin' | 'agent' | 'collaborator'
   nome: string
   cognome: string
+  qualifica?: 'agente' | 'assistente'
   password_changed?: boolean
   is_active?: boolean
   google_oauth_enabled?: boolean

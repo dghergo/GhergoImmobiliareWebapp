@@ -47,6 +47,7 @@ interface OpenHouse {
     cognome: string
     email: string
   }
+  accoglienza?: { nome: string; cognome: string; qualifica: 'agente' | 'assistente' }[]
 }
 
 interface TimeSlot {
@@ -513,7 +514,14 @@ export default function OpenHouseDetail() {
             </div>
             <div>
               <h2 className="pub-h3 mb-2">Ti accoglie</h2>
-              <p className="pub-body">{openHouse.agent.nome} {openHouse.agent.cognome}</p>
+              {(openHouse.accoglienza?.length ? openHouse.accoglienza : [{ ...openHouse.agent, qualifica: 'agente' as const }]).map(m => (
+                <p key={`${m.nome}${m.cognome}`} className="pub-body">
+                  {m.nome} {m.cognome}{m.qualifica === 'assistente' ? ', assistente immobiliare' : ''}
+                </p>
+              ))}
+              {openHouse.accoglienza?.some(m => m.qualifica === 'assistente') && (
+                <p className="pub-muted text-sm mt-2">Agente di riferimento: {openHouse.agent.nome} {openHouse.agent.cognome}</p>
+              )}
               <a href={`mailto:${openHouse.agent.email}`} className="pub-link mt-2 inline-block">{openHouse.agent.email}</a>
             </div>
             {property.has_brochure && (

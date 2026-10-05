@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
 import { verifyCheckinToken } from '@/lib/checkin-link'
+import { isTeamClient, loadTeam, teamNames } from '@/lib/oh-access'
 
 // Check-in alla porta per i colleghi che hanno il link: solo nome, orario, telefono e due indicatori (senza mutuo / deve vendere).
 // Niente questionario completo, niente note, nessun altro Open House.
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [{ data: oh }, { data: bookings, error }] = await Promise.all([
     supabase
       .from('gre_open_houses')
-      .select('id, agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona), gre_agents (nome, cognome)')
+      .select('id, agent_id, co_agent_id, data_evento, ora_inizio, ora_fine, gre_properties (titolo, zona), gre_agents (nome, cognome)')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -31,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .eq('open_house_id', id)
   ])
   if (!oh || error) return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
+  const team = await loadTeam(oh)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (bookings || []).filter((b: any) => !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent')).map((b: any) => ({
@@ -40,15 +42,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     client: {
       nome: b.gre_clients.nome,
       cognome: b.gre_clients.cognome,
-      telefono: !b.agente_referente_id || b.agente_referente_id === oh?.agent_id ? b.gre_clients.telefono : '',
+      telefono: isTeamClient(b, team) ? b.gre_clients.telefono : '',
     },
-    portato_da: b.agente_referente_id && b.agente_referente_id !== oh?.agent_id && b.referente ? `${b.referente.nome} ${b.referente.cognome}` : null,
+    portato_da: !isTeamClient(b, team) && b.referente ? `${b.referente.nome} ${b.referente.cognome}` : null,
     senza_mutuo: b.gre_prequalification_responses?.[0]?.response_data?.necessita_mutuo === 'no',
     deve_vendere: String(b.gre_prequalification_responses?.[0]?.response_data?.vendita_immobile || '').startsWith('si'),
     slot: b.gre_time_slots
   }))
 
-  return NextResponse.json({ openHouse: oh, rows }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ openHouse: { ...oh, gestori: teamNames(team) }, rows }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 const ALLOWED = ['confirmed', 'completed', 'no_show'] as const

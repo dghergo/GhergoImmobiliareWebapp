@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
-import { followerId, followsClient, openHouseAccess } from '@/lib/oh-access'
+import { followerId, followsClient, isTeamClient, openHouseAccess, teamNames } from '@/lib/oh-access'
 import { brochureEmail, sendAsAgent } from '@/lib/feedback-emails'
 
 export const maxDuration = 60
@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const access = await openHouseAccess(id, auth.agent)
   if (!access) return NextResponse.json({ error: 'Open House non trovato o non accessibile' }, { status: 404 })
-  const { oh, role } = access
+  const { oh, role, team } = access
 
   const { data: bookings } = await getSupabaseAdmin()
     .from('gre_bookings')
@@ -29,13 +29,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     `)
     .eq('open_house_id', id)
 
-  const org = oh.gre_agents as unknown as { nome: string; cognome: string } | null
-  const organizerName = org ? `${org.nome} ${org.cognome}` : ''
+  const organizerName = team.lead ? `${team.lead.nome} ${team.lead.cognome}` : teamNames(team)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (bookings || []).flatMap((b: any) => {
-    const mine = followsClient(b, oh.agent_id, auth.agent, role)
+    const mine = followsClient(b, team, auth.agent, role)
     if (role === 'collega' && !mine) return []
-    const ref = b.referente && b.referente.id !== oh.agent_id ? b.referente : null
+    const ref = b.referente && !isTeamClient(b, team) ? b.referente : null
     const qq = b.gre_prequalification_responses?.[0]?.response_data || null
     return [{
       id: b.id,
@@ -46,7 +45,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       questionnaire_completed: mine ? b.questionnaire_completed : null,
       mine,
       // cliente seguito da chi sta guardando (per distinguere "tuo" / "mandato da un collega")
-      tuo: followerId(b, oh.agent_id) === auth.agent.id,
+      tuo: isTeamClient(b, team) ? team.ids.includes(auth.agent.id) : b.agente_referente_id === auth.agent.id,
       // indicatori minimi visibili a tutti al check-in (nessun recapito né condizioni)
       senza_mutuo: qq?.necessita_mutuo === 'no',
       deve_vendere: typeof qq?.vendita_immobile === 'string' && qq.vendita_immobile.startsWith('si'),
@@ -65,7 +64,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }]
   })
 
-  return NextResponse.json({ openHouse: oh, role, rows }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ openHouse: oh, role, team: { nomi: teamNames(team), lead: organizerName }, rows }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 // Check-in: arrivato / non venuto / annulla. L'organizzatore può segnare tutti (è alla porta), il collega solo i suoi.
@@ -89,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!b || (b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent')) {
     return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
   }
-  const mine = followsClient(b, access.oh.agent_id, auth.agent, access.role)
+  const mine = followsClient(b, access.team, auth.agent, access.role)
   if (access.role === 'collega' && !mine) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
@@ -116,7 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!property?.brochure_url) return NextResponse.json({ error: 'Nessuna brochure caricata per questo immobile' }, { status: 400 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = b.gre_clients as any
-    const agentId = followerId(b, access.oh.agent_id)
+    const agentId = followerId(b, access.team)
     const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', agentId).maybeSingle()
     if (!client?.email || !agent) return NextResponse.json({ error: 'Email del cliente mancante' }, { status: 400 })
     try {
@@ -137,7 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof openHouseAccess>>>, me: { id: string }) {
+async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof openHouseAccess>>>, me: { id: string; qualifica?: string }) {
   const supabase = getSupabaseAdmin()
   const clean = (v: unknown, max = 120) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, max) : '')
   const nome = clean(body.nome, 80)
@@ -170,8 +169,8 @@ async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof o
     .from('gre_bookings').select('id').eq('open_house_id', oh.id).eq('client_id', client.id).neq('status', 'no_show').maybeSingle()
   if (existing) return NextResponse.json({ error: `${client.nome} ${client.cognome} è già nell'elenco: cercalo e segnalo come arrivato` }, { status: 409 })
 
-  // il cliente è di chi lo inserisce (se è un collega), altrimenti di chi organizza
-  const referente = me.id !== oh.agent_id ? me.id : null
+  // il cliente è di chi lo inserisce (se è un collega abilitato), altrimenti degli organizzatori
+  const referente = !access.team.ids.includes(me.id) && me.qualifica !== 'assistente' ? me.id : null
   const { data: booking, error: bErr } = await supabase
     .from('gre_bookings')
     .insert({
@@ -196,7 +195,7 @@ async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof o
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const property = oh.gre_properties as any
   if (property?.brochure_url) {
-    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', referente || oh.agent_id).maybeSingle()
+    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', followerId({ agente_referente_id: referente }, access.team) || '').maybeSingle()
     if (agent) {
       try {
         await sendAsAgent(client.email, brochureEmail({ client, agent, property, benvenuto: true }), agent.id)

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error
 
     const supabaseAdmin = getSupabaseAdmin()
-    const { email, nome, cognome, role } = await request.json()
+    const { email, nome, cognome, role, qualifica } = await request.json()
 
     if (!['admin', 'agent', 'collaborator'].includes(role)) {
       return NextResponse.json({ error: 'Ruolo non valido' }, { status: 400 })
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
         nome,
         cognome,
         role,
+        qualifica: qualifica === 'assistente' ? 'assistente' : 'agente',
         is_active: true,
         password_changed: false
       })

@@ -15,6 +15,7 @@ interface Agent {
   nome: string
   cognome: string
   role: 'admin' | 'agent' | 'collaborator'
+  qualifica?: 'agente' | 'assistente'
   is_active: boolean
   google_oauth_enabled: boolean
   created_at: string
@@ -34,11 +35,13 @@ export default function AgentsManagement() {
     nome: string
     cognome: string
     role: 'admin' | 'agent' | 'collaborator'
+    qualifica: 'agente' | 'assistente'
   }>({
     email: '',
     nome: '',
     cognome: '',
-    role: 'agent'
+    role: 'agent',
+    qualifica: 'agente'
   })
 
   // Redirect se non è admin
@@ -80,7 +83,8 @@ export default function AgentsManagement() {
           .update({
             nome: formData.nome,
             cognome: formData.cognome,
-            role: formData.role
+            role: formData.role,
+            qualifica: formData.qualifica
           })
           .eq('id', editingAgent.id)
 
@@ -93,7 +97,8 @@ export default function AgentsManagement() {
             email: formData.email,
             nome: formData.nome,
             cognome: formData.cognome,
-            role: formData.role
+            role: formData.role,
+            qualifica: formData.qualifica
           })
         })
 
@@ -107,7 +112,7 @@ export default function AgentsManagement() {
       }
 
       // Reset form and reload
-      setFormData({ email: '', nome: '', cognome: '', role: 'agent' })
+      setFormData({ email: '', nome: '', cognome: '', role: 'agent', qualifica: 'agente' })
       setShowAddForm(false)
       setEditingAgent(null)
       loadAgents()
@@ -187,7 +192,8 @@ export default function AgentsManagement() {
       email: agent.email,
       nome: agent.nome,
       cognome: agent.cognome,
-      role: agent.role
+      role: agent.role,
+      qualifica: agent.qualifica === 'assistente' ? 'assistente' : 'agente'
     })
     setShowAddForm(true)
   }
@@ -235,7 +241,7 @@ export default function AgentsManagement() {
             onClick={() => {
               setShowAddForm(true)
               setEditingAgent(null)
-              setFormData({ email: '', nome: '', cognome: '', role: 'agent' })
+              setFormData({ email: '', nome: '', cognome: '', role: 'agent', qualifica: 'agente' })
             }}
             className="btn-primary px-6 py-3 nav-text"
           >
@@ -279,6 +285,24 @@ export default function AgentsManagement() {
                   <option value="collaborator">Collaboratore</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-dark)' }}>
+                  Qualifica
+                </label>
+                <select
+                  value={formData.qualifica}
+                  onChange={(e) => setFormData({ ...formData, qualifica: e.target.value as 'agente' | 'assistente' })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="agente">Agente immobiliare abilitato</option>
+                  <option value="assistente">Assistente immobiliare</option>
+                </select>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
+                  L’assistente organizza e accoglie, ma non è mai indicato come agente di riferimento e non riceve le richieste di offerta.
+                </p>
               </div>
 
               <div>
@@ -385,6 +409,9 @@ export default function AgentsManagement() {
                           'bg-green-100 text-green-800'
                         }`}>
                           {agentItem.role.toUpperCase()}
+                        </span>
+                        <span className={`ml-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${agentItem.qualifica === 'assistente' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'}`}>
+                          {agentItem.qualifica === 'assistente' ? 'ASSISTENTE' : 'AGENTE ABILITATO'}
                         </span>
                       </td>
                       <td className="px-6 py-4">

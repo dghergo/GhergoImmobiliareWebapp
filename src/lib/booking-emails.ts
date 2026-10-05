@@ -2,6 +2,7 @@ import { bookingAlertEmail, feedbackRequestEmail, sendAsAgent } from './feedback
 import { sendEmail, createEmailTemplate } from './gmail'
 import { createOpenHouseEvent } from './calendar'
 import { getSupabaseAdmin } from './server-auth'
+import { followerId, isTeamClient, loadTeam } from './oh-access'
 
 const escapeHtml = (v: unknown) =>
   String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
@@ -49,6 +50,8 @@ export async function sendBookingEmail(
     const openHouse = bookingData.gre_open_houses
     const property = openHouse.gre_properties
     const organizer = openHouse.gre_agents
+    // Chi gestisce l'Open House (fino a due persone) e chi è l'agente abilitato di riferimento
+    const team = await loadTeam(openHouse)
     // Il cliente è di chi lo porta: tutto ciò che riguarda il cliente parte dall'agente che lo segue
     let referente: { id: string; nome: string; cognome: string; email: string } | null = null
     if (bookingData.agente_referente_id) {
@@ -56,8 +59,12 @@ export async function sendBookingEmail(
         .from('gre_agents').select('id, nome, cognome, email').eq('id', bookingData.agente_referente_id).maybeSingle()
       referente = ref
     }
-    const stessoAgente = !!referente && referente.id === organizer.id
-    const agent = referente && !stessoAgente ? referente : organizer
+    const stessoAgente = isTeamClient(bookingData, team)
+    // verso il cliente: sempre un agente abilitato (mai un assistente)
+    const fid = followerId(bookingData, team)
+    const agent = (stessoAgente ? team.members.find(m => m.id === fid) : referente) || organizer
+    // gli assistenti che lo accolgono all'Open House (indicati come assistenti, non come agenti)
+    const assistenti = stessoAgente ? team.assistenti : []
 
     // Template email di conferma per il cliente
     if (type === 'client_confirmation') {
@@ -66,7 +73,8 @@ export async function sendBookingEmail(
         property,
         openHouse,
         timeSlot,
-        agent
+        agent,
+        assistenti
       })
 
       await sendEmail({
@@ -130,7 +138,8 @@ export async function sendBookingEmail(
         property,
         openHouse,
         timeSlot,
-        agent
+        agent,
+        assistenti
       })
 
       await sendEmail({
@@ -210,11 +219,16 @@ export async function sendBookingEmail(
         slot: timeSlot,
         note: bookingData.note_cliente,
       }
-      await sendAsAgent(organizer.email, bookingAlertEmail({ ...base, ruolo: 'organizzatore', destinatario: organizer }), organizer.id)
+      // entrambi gli organizzatori ricevono l'avviso
+      const organizzatori = team.members.length ? team.members : [organizer]
+      for (const o of organizzatori) {
+        if (!o?.email) continue
+        await sendAsAgent(o.email, bookingAlertEmail({ ...base, organizzatore: o, ruolo: 'organizzatore', destinatario: o }), o.id)
+      }
       if (referente?.email && !stessoAgente) {
         await sendAsAgent(referente.email, bookingAlertEmail({ ...base, ruolo: 'referente', destinatario: referente }), referente.id)
       }
-      console.log(`✅ Avviso prenotazione inviato (${organizer.email}${referente && !stessoAgente ? ` + ${referente.email}` : ''})`)
+      console.log(`✅ Avviso prenotazione inviato (${organizzatori.map(o => o.email).join(', ')}${referente && !stessoAgente ? ` + ${referente.email}` : ''})`)
     }
 
     // Template email per richiesta feedback

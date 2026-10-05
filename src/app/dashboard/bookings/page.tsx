@@ -150,8 +150,7 @@ function AgentBookingsContent() {
   const loadProperties = async () => {
     if (!agent) return
     try {
-      let query = supabase.from('gre_properties').select('id, titolo, zona')
-      if (!admin) query = query.eq('agent_id', agent.id)
+      const query = supabase.from('gre_properties').select('id, titolo, zona')
       const { data, error } = await query
       if (error) throw error
       setAllProperties(data || [])
@@ -180,7 +179,7 @@ function AgentBookingsContent() {
 
     setLoadingData(true)
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_bookings')
         .select(`
           id,
@@ -210,9 +209,7 @@ function AgentBookingsContent() {
         `)
         .order('created_at', { ascending: false })
 
-      if (!admin) {
-        query = query.eq('agent_id', agent.id)
-      }
+      // l'RLS mostra i clienti che segui: Open House tuoi o gestiti insieme, e i clienti che hai portato
 
       const { data, error } = await query
 
@@ -255,14 +252,11 @@ function AgentBookingsContent() {
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_bookings')
         .update({ status: newStatus })
         .eq('id', bookingId)
 
-      if (!admin) {
-        query = query.eq('agent_id', agent!.id)
-      }
 
       const { error } = await query
 
@@ -285,7 +279,7 @@ function AgentBookingsContent() {
     }
 
     try {
-      let query = supabase
+      const query = supabase
         .from('gre_bookings')
         .update({
           status: 'no_show',
@@ -294,9 +288,6 @@ function AgentBookingsContent() {
         })
         .eq('id', bookingId)
 
-      if (!admin) {
-        query = query.eq('agent_id', agent!.id)
-      }
 
       const { error } = await query
 

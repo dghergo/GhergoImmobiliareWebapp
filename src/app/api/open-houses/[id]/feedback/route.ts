@@ -18,13 +18,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const access = await openHouseAccess(id, auth.agent)
   if (!access) return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
-  const { oh, role } = access
+  const { oh, role, team } = access
 
   const { data: bookings } = await getSupabaseAdmin().from('gre_bookings').select(SELECT).eq('open_house_id', id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows = (bookings || []).filter((b: any) =>
-    !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent') && followsClient(b, oh.agent_id, auth.agent, role)
+    !(b.status === 'no_show' && b.cancellation_reason === 'cancelled_by_agent') && followsClient(b, team, auth.agent, role)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ).map((b: any) => ({
     id: b.id,
@@ -53,7 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = getSupabaseAdmin()
   const { data: booking } = await supabase
     .from('gre_bookings').select('id, agente_referente_id').eq('id', String(body.bookingId || '')).eq('open_house_id', id).maybeSingle()
-  if (!booking || !followsClient(booking, access.oh.agent_id, auth.agent, access.role)) {
+  if (!booking || !followsClient(booking, access.team, auth.agent, access.role)) {
     return NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 })
   }
 

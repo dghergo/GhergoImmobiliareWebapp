@@ -117,7 +117,7 @@ export default function ReportsPage() {
         .order('data_evento', { ascending: false })
 
       if (!admin) {
-        ohQuery = ohQuery.eq('agent_id', agent.id)
+        ohQuery = ohQuery.or(`agent_id.eq.${agent.id},co_agent_id.eq.${agent.id}`)
       }
 
       const { data: ohData } = await ohQuery
@@ -128,7 +128,7 @@ export default function ReportsPage() {
       })) as OpenHouseOption[])
 
       // Carica feedback
-      let feedbackQuery = supabase
+      const feedbackQuery = supabase
         .from('gre_feedback_responses')
         .select(`
           id,
@@ -150,9 +150,6 @@ export default function ReportsPage() {
         `)
         .order('submitted_at', { ascending: false })
 
-      if (!admin) {
-        feedbackQuery = feedbackQuery.eq('gre_bookings.agent_id', agent.id)
-      }
 
       const { data: feedbackData, error: feedbackError } = await feedbackQuery
 
@@ -168,14 +165,11 @@ export default function ReportsPage() {
       const interessati = feedbackData?.filter(f => f.interesse_acquisto).length || 0
 
       // Conta totale bookings per tasso risposta
-      let bookingsCountQuery = supabase
+      const bookingsCountQuery = supabase
         .from('gre_bookings')
         .select('*', { count: 'exact', head: true })
         .in('status', ['confirmed', 'completed'])
 
-      if (!admin) {
-        bookingsCountQuery = bookingsCountQuery.eq('agent_id', agent.id)
-      }
 
       const { count: totalBookings } = await bookingsCountQuery
 

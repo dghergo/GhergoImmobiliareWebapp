@@ -20,6 +20,8 @@ export interface StaffAgent {
   role: 'admin' | 'agent' | 'collaborator'
   nome: string
   cognome: string
+  /** agente immobiliare abilitato o assistente immobiliare */
+  qualifica?: 'agente' | 'assistente'
 }
 
 /**
@@ -48,7 +50,7 @@ export async function requireStaff(
 
   const { data: agent } = await supabaseAdmin
     .from('gre_agents')
-    .select('id, email, role, nome, cognome, is_active')
+    .select('id, email, role, nome, cognome, is_active, qualifica')
     .ilike('email', email.replace(/[\\%_]/g, '\\$&'))
     .eq('is_active', true)
     .maybeSingle()

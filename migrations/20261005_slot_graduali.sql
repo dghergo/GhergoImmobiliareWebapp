@@ -1,3 +1,4 @@
+-- DA APPLICARE DOPO 20261005_coorganizzatore_assistenti_titoli.sql (usa gre_agents.qualifica)
 -- Riempimento graduale degli orari + gestione manuale degli slot.
 -- 1) Di default 3 posti per orario; i posti si aprono "a giri": prima un posto per ogni orario,
 --    poi il secondo, poi il terzo. Così i prenotati si distribuiscono su tutto l'Open House.
@@ -117,7 +118,8 @@ BEGIN
     WHERE id = v_client_id;
   END IF;
 
-  SELECT id INTO v_referente FROM gre_agents WHERE id = p_agente_referente_id AND is_active;
+  -- un assistente immobiliare non è mai agente di riferimento del cliente
+  SELECT id INTO v_referente FROM gre_agents WHERE id = p_agente_referente_id AND is_active AND qualifica IS DISTINCT FROM 'assistente';
 
   INSERT INTO gre_bookings (open_house_id, time_slot_id, client_id, agent_id, agente_referente_id,
                             status, questionnaire_completed, confirmation_email_sent, brochure_email_sent, note_cliente)
