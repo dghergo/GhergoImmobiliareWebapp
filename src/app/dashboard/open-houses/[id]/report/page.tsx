@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { authFetch } from '@/lib/api'
 import { niceText } from '@/lib/text'
-import { ASPETTI, PREZZO, PROSSIMO_PASSO } from '@/lib/feedback'
+import { calcolaReport, creaReportPdf } from '@/lib/report-pdf'
 import type { FeedbackRow } from '@/components/dashboard/FeedbackPanel'
 import Photo from '@/components/public/Photo'
 
@@ -21,7 +21,7 @@ interface OH {
 }
 
 const BLU = '#203162'
-const SKY = '#00AEEF'
+const SKY = '#5b6fae'
 
 function Bar({ label, value, total, color = SKY }: { label: string; value: number; total: number; color?: string }) {
   const pct = total ? Math.round((value / total) * 100) : 0
@@ -56,40 +56,29 @@ export default function ReportVenditore() {
     })()
   }, [agent, id])
 
-  const s = useMemo(() => {
-    const prenotati = rows.length
-    const visitatori = rows.filter(r => r.status !== 'no_show')
-    const fb = visitatori.filter(r => r.feedback).map(r => r.feedback!)
-    const strutt = fb.filter(f => f.risposte)
-    const voti = fb.filter(f => f.rating).map(f => f.rating!)
-    const count = (key: 'piaciuto' | 'non_convinto') => {
-      const m = new Map<string, number>()
-      strutt.forEach(f => f.risposte![key].forEach(v => m.set(v, (m.get(v) || 0) + 1)))
-      return ASPETTI.map(a => ({ ...a, n: m.get(a.value) || 0 })).filter(a => a.n > 0).sort((a, b) => b.n - a.n)
+  const s = useMemo(() => calcolaReport(rows), [rows])
+  const [creo, setCreo] = useState(false)
+
+  const scarica = async () => {
+    if (!oh || creo) return
+    setCreo(true)
+    try {
+      const bytes = await creaReportPdf(oh, s)
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Report Open House - ${niceText(oh.gre_properties.titolo).replace(/[\\/:*?"<>|]/g, '')} - ${oh.data_evento}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (e) {
+      console.error('PDF report non creato:', e)
+      setError('Non sono riuscito a creare il PDF, riprova.')
+    } finally {
+      setCreo(false)
     }
-    const passo = (v: string) =>
-      fb.filter(f => (f.risposte ? f.risposte.prossimo_passo === v : v === 'offerta' ? f.interesse_acquisto : v === 'rivedere' ? f.richiesta_appuntamento : false)).length
-    const q = visitatori.map(r => r.q).filter(Boolean) as Record<string, string>[]
-    return {
-      prenotati,
-      visitatori: visitatori.length,
-      risposte: fb.length,
-      strutturate: strutt.length,
-      media: voti.length ? voti.reduce((a, b) => a + b, 0) / voti.length : 0,
-      prezzo: PREZZO.map(p => ({ ...p, n: strutt.filter(f => f.risposte!.prezzo === p.value).length })),
-      passi: PROSSIMO_PASSO.map(p => ({ ...p, n: passo(p.value) })),
-      forti: count('piaciuto'),
-      deboli: count('non_convinto'),
-      commenti: fb.filter(f => f.commenti && f.commenti.trim()).map(f => ({ testo: f.commenti!.trim(), voto: f.rating })),
-      qualificati: {
-        totale: q.length,
-        senza_mutuo: q.filter(x => x.necessita_mutuo === 'no').length,
-        banca: q.filter(x => x.necessita_mutuo && x.necessita_mutuo !== 'no' && ['pre_delibera', 'simulazione'].includes(x.stato_mutuo)).length,
-        vendere: q.filter(x => x.vendita_immobile?.startsWith('si')).length,
-        entro3: q.filter(x => ['entro_30_giorni', 'entro_3_mesi'].includes(x.tempistiche_acquisto)).length,
-      },
-    }
-  }, [rows])
+  }
 
   if (error) return <div className="p-10 text-center">{error}</div>
   if (!oh) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2" style={{ borderColor: BLU }} /></div>
@@ -136,8 +125,7 @@ export default function ReportVenditore() {
 
       <div className="rp-toolbar">
         <button onClick={() => router.push(`/dashboard/open-houses/${id}`)} className="bg-white">← Cruscotto</button>
-        <span className="text-sm text-gray-600 hidden sm:block">Nel riquadro di stampa scegli “Salva come PDF”</span>
-        <button onClick={() => window.print()} className="text-white" style={{ background: BLU }}>⬇ Scarica PDF</button>
+        <button onClick={scarica} disabled={creo} className="text-white disabled:opacity-60" style={{ background: BLU }}>{creo ? 'Creo il PDF…' : '⬇ Scarica PDF'}</button>
       </div>
 
       <div className="rp-page">
