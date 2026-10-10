@@ -63,11 +63,11 @@ export default function VenditoriPanel({ openHouseId, agentName }: { openHouseId
     if (tipo === 'vendita') {
       return `Ciao ${nome}, sono ${agentName} di Ghergo Immobiliare. Grazie ancora per essere venuto all'Open House di ${titolo}!\n\n` +
         `Hai visto da vicino il metodo che usiamo per vendere: in un solo giorno abbiamo accolto ${d.open_house.visitatori} persone interessate. Ti è piaciuto?\n\n` +
-        `Mi avevi detto che hai anche una casa da vendere: possiamo fare lo stesso anche per la tua. Se vuoi fissare un appuntamento per valutarne la vendita, siamo a disposizione.`
+        `Mi avevi detto che hai anche una casa da vendere: se devi vendere per comprare, questo è il modo giusto per trovare l'acquirente che te lo permette. L'abbiamo già fatto per centinaia di clienti e possiamo farlo anche per te. Se vuoi fissare un appuntamento per valutare la vendita della tua casa, siamo a disposizione.`
     }
     return `Ciao ${nome}, sono ${agentName} di Ghergo Immobiliare. Ti aggiorno: l'immobile di ${titolo} che avevi visitato è stato venduto! 🎉\n\n` +
       `Ecco il risultato dell'Open House: ${d.open_house.visitatori} persone in visita${giorni !== null && giorni >= 0 ? ` e la vendita ${giorni === 0 ? 'il giorno stesso' : `in ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`}` : ''}.\n\n` +
-      `Lo stesso risultato possiamo ottenerlo anche per la tua casa. Se vuoi, fissiamo un appuntamento e ti spiego come lo organizzeremmo.`
+      `Lo stesso risultato possiamo ottenerlo anche per la tua casa: se devi vendere per comprare, è il modo giusto per trovare l'acquirente che te lo permette, come abbiamo già fatto per centinaia di clienti. Se vuoi, fissiamo un appuntamento e ti spiego come lo organizzeremmo.`
   }
 
   const segnaInviato = async (r: Row, tipo: 'vendita' | 'venduto') => {

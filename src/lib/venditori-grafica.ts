@@ -91,7 +91,7 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   ctx.fillRect(0, 0, W, H)
 
   // foto in alto con sfumatura verso il blu
-  const fh = 560
+  const fh = 500
   if (foto) {
     cover(ctx, foto, 0, 0, W, fh)
     const s = ctx.createLinearGradient(0, fh * 0.35, 0, fh)
@@ -114,14 +114,16 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   if (tipo === 'venduto') {
     // timbro VENDUTO
     ctx.save()
-    ctx.translate(W - 290, 330)
+    const conGiorni = d.giorni !== null && d.giorni >= 0
+    ctx.translate(W - 290, 300)
     ctx.rotate(-0.16)
-    roundRect(ctx, -250, -78, 500, 156, 24)
+    roundRect(ctx, -250, -78, 500, conGiorni ? 210 : 156, 24)
     ctx.fillStyle = AMBRA
     ctx.fill()
     ctx.fillStyle = BLU
     ctx.textAlign = 'center'
     fit(ctx, 'VENDUTO', 0, 36, 440, 900, 104)
+    if (conGiorni) fit(ctx, d.giorni === 0 ? 'il giorno dell’Open House' : `in ${d.giorni} ${d.giorni === 1 ? 'giorno' : 'giorni'} dall’Open House`, 0, 100, 440, 700, 36)
     ctx.restore()
     ctx.textAlign = 'left'
   }
@@ -140,32 +142,22 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   ctx.font = '700 46px Gotham, Montserrat, sans-serif'
   const etichetta = wrap(ctx, tipo === 'venduto' ? 'persone hanno visitato la casa' : 'persone in visita in un solo giorno', W - PAD * 2 - nw - 30)
   etichetta.forEach((l, i) => ctx.fillText(l, PAD + nw + 30, y + 120 + i * 56 - (etichetta.length - 2) * 28))
-  y += 250
+  y += 240
 
-  if (tipo === 'venduto' && d.giorni !== null && d.giorni >= 0) {
-    roundRect(ctx, PAD, y, W - PAD * 2, 110, 28)
-    ctx.fillStyle = 'rgba(255,255,255,.1)'
-    ctx.fill()
-    ctx.fillStyle = VERDE
-    ctx.beginPath()
-    ctx.arc(PAD + 60, y + 55, 22, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#fff'
-    fit(ctx, d.giorni === 0 ? 'Venduto il giorno stesso dell’Open House' : `Venduto in ${d.giorni} ${d.giorni === 1 ? 'giorno' : 'giorni'} dall’Open House`, PAD + 110, y + 72, W - PAD * 2 - 140, 700, 48)
-    y += 150
-  } else if (tipo === 'metodo') {
-    ctx.font = '500 38px Gotham, Montserrat, sans-serif'
-    for (const t of ['Visite su prenotazione, in un solo giorno', 'Acquirenti già qualificati sul mutuo', 'Report completo per il proprietario']) {
-      ctx.fillStyle = VERDE
-      ctx.beginPath()
-      ctx.arc(PAD + 16, y + 2, 14, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = '#fff'
-      ctx.fillText(t, PAD + 50, y + 15)
-      y += 60
-    }
-    y += 20
-  }
+  // il messaggio chiave: chi deve vendere per comprare
+  const boxH = 232
+  roundRect(ctx, PAD, y, W - PAD * 2, boxH, 28)
+  ctx.fillStyle = 'rgba(255,255,255,.1)'
+  ctx.fill()
+  ctx.fillStyle = AMBRA
+  roundRect(ctx, PAD, y, 12, boxH, 6)
+  ctx.fill()
+  fit(ctx, 'Devi vendere per comprare casa?', PAD + 44, y + 62, W - PAD * 2 - 80, 900, 46)
+  ctx.fillStyle = '#fff'
+  ctx.font = '500 34px Gotham, Montserrat, sans-serif'
+  wrap(ctx, 'È il modo giusto per trovare l’acquirente che te lo permette: l’abbiamo già fatto per centinaia di clienti.', W - PAD * 2 - 80)
+    .slice(0, 3)
+    .forEach((l, i) => ctx.fillText(l, PAD + 44, y + 115 + i * 42))
 
   // invito finale
   const bh = 220
