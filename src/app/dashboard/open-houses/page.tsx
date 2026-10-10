@@ -20,6 +20,7 @@ interface Property {
     nome: string
     cognome: string
   }
+  venduto_il?: string | null
 }
 
 interface OpenHouse {
@@ -126,7 +127,8 @@ function OpenHousesManagementContent() {
             id,
             titolo,
             zona,
-            indirizzo
+            indirizzo,
+            venduto_il
           ),
           gre_agents (
             nome,
@@ -686,6 +688,15 @@ function OpenHousesManagementContent() {
                           <span className="bg-gray-200 text-gray-600 px-2 py-1 text-xs font-semibold rounded-full">
                             CONCLUSO
                           </span>
+                        )}
+                        {openHouse.gre_properties.venduto_il && (
+                          <button
+                            onClick={() => router.push(`/dashboard/open-houses/${openHouse.id}`)}
+                            className="bg-green-600 text-white px-2 py-1 text-xs font-semibold rounded-full hover:bg-green-700"
+                            title="Fai sapere ai clienti che è stato venduto"
+                          >
+                            🎉 VENDUTO · avvisa i clienti
+                          </button>
                         )}
                       </div>
 

@@ -68,7 +68,10 @@ function cover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, 
   ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h)
 }
 
-export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): Promise<Blob> {
+export async function creaGrafica(tipoIn: 'metodo' | 'venduto' | 'venduto_cliente', d: DatiGrafica): Promise<Blob> {
+  // 'venduto_cliente': stessa grafica "venduto" per chi non deve vendere casa (cerca ancora casa)
+  const cliente = tipoIn === 'venduto_cliente'
+  const tipo: 'metodo' | 'venduto' = tipoIn === 'metodo' ? 'metodo' : 'venduto'
   await Promise.all([
     document.fonts.load('900 100px Gotham'),
     document.fonts.load('700 50px Gotham'),
@@ -152,10 +155,10 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   ctx.fillStyle = AMBRA
   roundRect(ctx, PAD, y, 12, boxH, 6)
   ctx.fill()
-  fit(ctx, 'Devi vendere per comprare casa?', PAD + 44, y + 62, W - PAD * 2 - 80, 900, 46)
+  fit(ctx, cliente ? 'Stai ancora cercando casa?' : 'Devi vendere per comprare casa?', PAD + 44, y + 62, W - PAD * 2 - 80, 900, 46)
   ctx.fillStyle = '#fff'
   ctx.font = '500 34px Gotham, Montserrat, sans-serif'
-  wrap(ctx, 'È il modo giusto per trovare l’acquirente che te lo permette: l’abbiamo già fatto per centinaia di clienti.', W - PAD * 2 - 80)
+  wrap(ctx, cliente ? 'Ti aggiorniamo sui prossimi Open House e ti segnaliamo per primo gli immobili adatti a te.' : 'È il modo giusto per trovare l’acquirente che te lo permette: l’abbiamo già fatto per centinaia di clienti.', W - PAD * 2 - 80)
     .slice(0, 3)
     .forEach((l, i) => ctx.fillText(l, PAD + 44, y + 115 + i * 42))
 
@@ -166,8 +169,8 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   ctx.fillStyle = '#fff'
   ctx.fill()
   ctx.fillStyle = BLU
-  fit(ctx, tipo === 'venduto' ? 'Lo stesso risultato per la tua casa' : 'Possiamo farlo anche per la tua casa', PAD + 46, by + 90, W - PAD * 2 - 92, 900, 52)
-  fit(ctx, tipo === 'venduto' ? 'Fissiamo un appuntamento: 071 9257300' : 'Valutiamo insieme la vendita: 071 9257300', PAD + 46, by + 160, W - PAD * 2 - 92, 500, 40)
+  fit(ctx, cliente ? 'Grazie per aver partecipato!' : tipo === 'venduto' ? 'Lo stesso risultato per la tua casa' : 'Possiamo farlo anche per la tua casa', PAD + 46, by + 90, W - PAD * 2 - 92, 900, 52)
+  fit(ctx, cliente ? 'Prossimi Open House: openhouse.ghergoimmobiliare.com' : tipo === 'venduto' ? 'Fissiamo un appuntamento: 071 9257300' : 'Valutiamo insieme la vendita: 071 9257300', PAD + 46, by + 160, W - PAD * 2 - 92, 500, 40)
 
   return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('Grafica non creata'))), 'image/jpeg', 0.9))
 }

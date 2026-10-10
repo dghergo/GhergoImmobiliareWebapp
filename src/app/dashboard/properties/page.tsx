@@ -10,6 +10,8 @@ import { sized, compressForUpload } from '@/lib/img'
 import DashboardHeader from '@/components/DashboardHeader'
 import DashboardNav from '@/components/DashboardNav'
 import AgentSelector from '@/components/AgentSelector'
+import ImmobileVendita, { type OffertaImmobile } from '@/components/dashboard/ImmobileVendita'
+import { authFetch } from '@/lib/api'
 
 interface DatiFoglio {
   riferimento: string
@@ -38,6 +40,7 @@ interface Property {
   immagini: string[]
   brochure_url: string | null
   is_active: boolean
+  venduto_il?: string | null
   created_at: string
   updated_at: string
   gre_agents?: {
@@ -53,6 +56,7 @@ export default function PropertiesManagement() {
   // Rimosso searchParams per ora a causa di problemi con Next.js 15
   // const searchParams = useSearchParams()
   const [properties, setProperties] = useState<Property[]>([])
+  const [offerte, setOfferte] = useState<Record<string, OffertaImmobile[]>>({})
   const [loadingProperties, setLoadingProperties] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
@@ -119,6 +123,9 @@ export default function PropertiesManagement() {
 
       if (error) throw error
       setProperties(data || [])
+      authFetch('/api/properties/vendita', { cache: 'no-store' })
+        .then(async r => { if (r.ok) setOfferte((await r.json()).offerte || {}) })
+        .catch(() => undefined)
     } catch (error) {
       console.error('Error loading properties:', error)
     } finally {
@@ -1083,6 +1090,13 @@ export default function PropertiesManagement() {
                         : formatPrice(property.prezzo)
                       }
                     </p>
+
+                    <ImmobileVendita
+                      propertyId={property.id}
+                      vendutoIl={property.venduto_il || null}
+                      offerte={offerte[property.id] || []}
+                      onVenduto={d => setProperties(ps => ps.map(x => (x.id === property.id ? { ...x, venduto_il: d } : x)))}
+                    />
 
                     {/* Agent Badge (admin only) */}
                     {admin && property.gre_agents && (
