@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import VideoProposta from '@/components/public/VideoProposta'
 import Photo from '@/components/public/Photo'
 import { niceText } from '@/lib/text'
 import { ASPETTI, OFFERTA_QUANDO, PREZZO, PROSSIMO_PASSO } from '@/lib/feedback'
@@ -164,12 +163,6 @@ function FeedbackForm() {
               ? 'Abbiamo già ricevuto le tue impressioni su questa visita.'
               : 'Le tue impressioni ci aiutano davvero. Se cambi idea o hai domande, scrivi pure al tuo agente.'}
           </p>
-          {offerta && (
-            <div className="mt-8 text-left">
-              <p className="font-semibold mb-2" style={{ color: 'var(--ink)' }}>🎬 Nel frattempo: come si presenta la proposta</p>
-              <VideoProposta />
-            </div>
-          )}
           <Link href="/" className="pub-btn mt-8">Guarda gli altri Open House</Link>
         </main>
       </div>
@@ -199,8 +192,6 @@ function FeedbackForm() {
             <p className="text-lg font-bold" style={{ color: 'var(--ink)' }}>🔑 Ottimo! Quando puoi passare in ufficio per l&apos;offerta?</p>
             <p className="pub-muted text-sm mb-3">{info?.agente || 'Il tuo agente'} ti contatta subito per confermare. Poi completa le domande qui sotto.</p>
             <Chips options={OFFERTA_QUANDO} value={[quando]} onToggle={setQuando} />
-            <p className="font-semibold mt-5 mb-2" style={{ color: 'var(--ink)' }}>🎬 Come si presenta la proposta (3 minuti)</p>
-            <VideoProposta />
           </div>
         )}
 
@@ -255,8 +246,6 @@ function FeedbackForm() {
                 <p className="font-bold" style={{ color: 'var(--ink)' }}>Quando puoi passare in ufficio per formalizzare l&apos;offerta?</p>
                 <p className="pub-muted text-sm mb-3">{info?.agente || 'Il tuo agente'} ti contatta subito per confermare.</p>
                 <Chips options={OFFERTA_QUANDO} value={[quando]} onToggle={setQuando} />
-                <p className="font-semibold mt-5 mb-2" style={{ color: 'var(--ink)' }}>🎬 Come si presenta la proposta (3 minuti)</p>
-                <VideoProposta />
               </div>
             )}
           </Step>
