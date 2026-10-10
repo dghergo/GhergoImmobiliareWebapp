@@ -10,6 +10,7 @@ import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
 import ReminderPanel from '@/components/dashboard/ReminderPanel'
 import SlotManager from '@/components/dashboard/SlotManager'
+import VenditoriPanel from '@/components/dashboard/VenditoriPanel'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -413,6 +414,8 @@ export default function OpenHouseCruscotto() {
               eventEnd={openHouse.ora_fine}
               showReport={role !== 'collega'}
             />
+
+            <VenditoriPanel openHouseId={openHouse.id} agentName={`${agent.nome} ${agent.cognome}`} />
 
             {/* Elenco clienti */}
             <div className="bg-white rounded-lg shadow-md">
