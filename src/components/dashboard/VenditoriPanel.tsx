@@ -62,12 +62,12 @@ export default function VenditoriPanel({ openHouseId, agentName }: { openHouseId
     const nome = niceText(r.client.nome)
     if (tipo === 'vendita') {
       return `Ciao ${nome}, sono ${agentName} di Ghergo Immobiliare. Grazie ancora per essere venuto all'Open House di ${titolo}!\n\n` +
-        `Mi avevi detto che hai anche una casa da vendere: ti è piaciuto il nostro metodo? In un solo giorno abbiamo accolto ${d.open_house.visitatori} persone interessate.\n\n` +
-        `Se ti va, fissiamo un appuntamento per valutare insieme la tua casa e darti qualche consiglio su come venderla al meglio. Quando ti farebbe comodo?`
+        `Hai visto da vicino il metodo che usiamo per vendere: in un solo giorno abbiamo accolto ${d.open_house.visitatori} persone interessate. Ti è piaciuto?\n\n` +
+        `Mi avevi detto che hai anche una casa da vendere: possiamo fare lo stesso anche per la tua. Se vuoi fissare un appuntamento per valutarne la vendita, siamo a disposizione.`
     }
     return `Ciao ${nome}, sono ${agentName} di Ghergo Immobiliare. Ti aggiorno: l'immobile di ${titolo} che avevi visitato è stato venduto! 🎉\n\n` +
-      `All'Open House sono passate ${d.open_house.visitatori} persone${giorni !== null && giorni >= 0 ? ` e la vendita è arrivata ${giorni === 0 ? 'il giorno stesso' : `in ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`}` : ''}.\n\n` +
-      `Vuoi che facciamo lo stesso percorso per vendere la tua casa? Fissiamo un appuntamento e ti spiego come lo organizzeremmo.`
+      `Ecco il risultato dell'Open House: ${d.open_house.visitatori} persone in visita${giorni !== null && giorni >= 0 ? ` e la vendita ${giorni === 0 ? 'il giorno stesso' : `in ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`}` : ''}.\n\n` +
+      `Lo stesso risultato possiamo ottenerlo anche per la tua casa. Se vuoi, fissiamo un appuntamento e ti spiego come lo organizzeremmo.`
   }
 
   const segnaInviato = async (r: Row, tipo: 'vendita' | 'venduto') => {

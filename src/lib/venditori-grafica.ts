@@ -127,9 +127,8 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   }
 
   let y = fh + 20
-  ctx.font = '500 34px Gotham, Montserrat, sans-serif'
   ctx.fillStyle = AMBRA
-  ctx.fillText((tipo === 'venduto' ? 'Open House di ' : 'Il nostro Open House di ').concat(luogo).toUpperCase().slice(0, 48), PAD, y)
+  fit(ctx, (tipo === 'venduto' ? `Il risultato dell'Open House di ${luogo}` : `Il nostro metodo · Open House di ${luogo}`).toUpperCase(), PAD, y, W - PAD * 2, 500, 34)
   y += 30
 
   // numero grande
@@ -175,8 +174,8 @@ export async function creaGrafica(tipo: 'metodo' | 'venduto', d: DatiGrafica): P
   ctx.fillStyle = '#fff'
   ctx.fill()
   ctx.fillStyle = BLU
-  fit(ctx, tipo === 'venduto' ? 'La prossima può essere la tua casa' : 'Vuoi vendere casa con questo metodo?', PAD + 46, by + 90, W - PAD * 2 - 92, 900, 52)
-  fit(ctx, 'Fissiamo un appuntamento: 071 9257300', PAD + 46, by + 160, W - PAD * 2 - 92, 500, 40)
+  fit(ctx, tipo === 'venduto' ? 'Lo stesso risultato per la tua casa' : 'Possiamo farlo anche per la tua casa', PAD + 46, by + 90, W - PAD * 2 - 92, 900, 52)
+  fit(ctx, tipo === 'venduto' ? 'Fissiamo un appuntamento: 071 9257300' : 'Valutiamo insieme la vendita: 071 9257300', PAD + 46, by + 160, W - PAD * 2 - 92, 500, 40)
 
   return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('Grafica non creata'))), 'image/jpeg', 0.9))
 }
