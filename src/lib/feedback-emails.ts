@@ -45,6 +45,13 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
         <div style="font-size:15px; margin:8px 0 16px; color:#374151;">Prenota subito il tuo appuntamento in ufficio per fare un'offerta.</div>
         <a href="${link}?passo=offerta" style="background:${BLU}; color:#fff; padding:15px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800; font-size:16px;">Voglio fare un'offerta</a>
       </div>
+      <div style="margin:22px 0; text-align:center;">
+        <div style="font-size:16px; font-weight:800; color:${BLU}; margin-bottom:10px;">🎬 Come si presenta una proposta? Te lo spieghiamo in 3 minuti</div>
+        <a href="${SITE()}/proposta" style="display:block; text-decoration:none;">
+          <img src="${SITE()}/video/proposta-anteprima.jpg" width="560" alt="Guarda il video: come presentare la proposta d'acquisto" style="width:100%; max-width:560px; height:auto; border-radius:14px; border:0; display:block; margin:0 auto;">
+        </a>
+        <div style="font-size:13px; color:#6b7280; margin-top:8px;">Documenti da portare, prezzo, tempistiche, mutuo e assegni</div>
+      </div>
       <p>Altrimenti, mi aiuti con <strong>30 secondi</strong>? Bastano pochi tocchi: le tue impressioni servono a me e ai proprietari.</p>
       <div style="text-align:center; background:#fff; border-radius:12px; padding:18px; margin:22px 0;">
         <div style="font-size:14px; color:#6b7280; margin-bottom:8px;">Che voto dai all'immobile?</div>
