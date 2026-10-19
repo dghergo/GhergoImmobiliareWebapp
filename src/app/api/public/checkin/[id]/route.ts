@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/server-auth'
 import { verifyCheckinToken } from '@/lib/checkin-link'
 import { isTeamClient, loadTeam, teamNames } from '@/lib/oh-access'
 
-// Check-in alla porta per i colleghi che hanno il link: solo nome, orario, telefono e due indicatori (senza mutuo / deve vendere).
+// Check-in alla porta per i colleghi che hanno il link: nome, orario, telefono, due indicatori (senza mutuo / deve vendere) e conferma di visita firmata.
 // Niente questionario completo, niente note, nessun altro Open House.
 
 function denied(check: string) {
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .maybeSingle(),
     supabase
       .from('gre_bookings')
-      .select('id, status, cancellation_reason, agente_referente_id, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine), gre_prequalification_responses (response_data), referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)')
+      .select('id, status, cancellation_reason, agente_referente_id, foglio_visita_firmato_at, gre_clients!inner (nome, cognome, telefono), gre_time_slots (ora_inizio, ora_fine), gre_prequalification_responses (response_data), referente:gre_agents!gre_bookings_agente_referente_id_fkey (nome, cognome)')
       .eq('open_house_id', id)
   ])
   if (!oh || error) return NextResponse.json({ error: 'Open House non trovato' }, { status: 404 })
@@ -47,7 +47,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     portato_da: !isTeamClient(b, team) && b.referente ? `${b.referente.nome} ${b.referente.cognome}` : null,
     senza_mutuo: b.gre_prequalification_responses?.[0]?.response_data?.necessita_mutuo === 'no',
     deve_vendere: String(b.gre_prequalification_responses?.[0]?.response_data?.vendita_immobile || '').startsWith('si'),
-    slot: b.gre_time_slots
+    slot: b.gre_time_slots,
+    foglio_firmato_at: b.foglio_visita_firmato_at,
   }))
 
   return NextResponse.json({ openHouse: { ...oh, gestori: teamNames(team) }, rows }, { headers: { 'Cache-Control': 'no-store' } })
