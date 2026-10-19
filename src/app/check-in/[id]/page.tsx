@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { niceText } from '@/lib/text'
 import ClientBadges from '@/components/ClientBadges'
 
@@ -17,6 +17,7 @@ interface Row {
   status: Status
   client: { nome: string; cognome: string; telefono: string }
   slot: { ora_inizio: string; ora_fine: string } | null
+  foglio_firmato_at?: string | null
 }
 interface OH {
   id: string
@@ -38,6 +39,7 @@ const wa = (phone: string) => {
 function CheckInCollega() {
   const params = useParams<{ id: string }>()
   const k = useSearchParams().get('k') || ''
+  const router = useRouter()
   const id = params?.id
 
   const [oh, setOh] = useState<OH | null>(null)
@@ -213,6 +215,20 @@ function CheckInCollega() {
                         <a href={`tel:${r.client.telefono}`} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center" aria-label="Chiama">📞</a>
                         <a href={`https://wa.me/${wa(r.client.telefono)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center" aria-label="WhatsApp">💬</a>
                       </div>}
+                    </div>
+
+                    <div className="mt-2">
+                      {r.foglio_firmato_at ? (
+                        <span className="text-sm font-semibold text-green-700">✍️ Visita confermata</span>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/check-in/${id}/foglio/${r.id}?k=${encodeURIComponent(k)}`)}
+                          className="w-full py-2.5 rounded-lg font-semibold border-2"
+                          style={{ borderColor: 'var(--primary-blue)', color: 'var(--primary-blue)' }}
+                        >
+                          ✍️ Conferma di visita
+                        </button>
+                      )}
                     </div>
 
                     {r.status === 'confirmed' ? (
