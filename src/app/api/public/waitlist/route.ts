@@ -43,10 +43,10 @@ export async function POST(request: Request) {
   if (!oh || !oh.is_active) return NextResponse.json({ error: 'Questo Open House non è più attivo.' }, { status: 409 })
   if (!oh.sold_out) return NextResponse.json({ error: 'Le prenotazioni sono di nuovo aperte: scegli un orario.', code: 'reopened' }, { status: 409 })
 
-  // l'agente di riferimento vale solo se è un agente abilitato attivo
+  // il riferimento (agente o assistente) vale solo se è attivo
   let referente: string | null = null
   if (UUID_RE.test(ref)) {
-    const { data: a } = await supabase.from('gre_agents').select('id').eq('id', ref).eq('is_active', true).neq('qualifica', 'assistente').maybeSingle()
+    const { data: a } = await supabase.from('gre_agents').select('id').eq('id', ref).eq('is_active', true).maybeSingle()
     referente = a?.id || null
   }
 

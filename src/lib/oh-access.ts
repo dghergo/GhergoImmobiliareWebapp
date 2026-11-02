@@ -5,7 +5,8 @@ import { getSupabaseAdmin, type StaffAgent } from './server-auth'
 // Regola dell'agenzia: il cliente è di chi lo porta. Se il cliente ha indicato come agente di riferimento
 // un collega che non gestisce l'Open House, solo quel collega ne vede contatti, questionario e feedback.
 // Gli organizzatori vedono comunque nome, cognome e orario (serve alla porta). L'admin vede tutto.
-// Un assistente immobiliare può organizzare, ma verso il cliente l'agente di riferimento è sempre un agente abilitato.
+// Un assistente immobiliare può organizzare e mandare il proprio link: i clienti arrivati dal suo link li segue lui/lei
+// (indicato come assistente immobiliare). Le offerte restano agli agenti abilitati.
 
 export type OhRole = 'admin' | 'organizzatore' | 'collega'
 export type Qualifica = 'agente' | 'assistente'
@@ -65,12 +66,12 @@ export const isTeamClient = (b: BookingOwnership, team: Team) => !b.agente_refer
 
 /**
  * Chi segue il cliente verso l'esterno (casella da cui partono le email, firma, avvisi offerte):
- * il collega che l'ha portato; per i clienti degli organizzatori il referente scelto se è un agente abilitato,
+ * il collega che l'ha portato; per i clienti degli organizzatori il referente scelto (agente o assistente),
  * altrimenti l'agente abilitato di riferimento dell'Open House.
  */
 export function followerId(b: BookingOwnership, team: Team): string | null {
   if (!isTeamClient(b, team)) return b.agente_referente_id
-  const scelto = team.members.find(m => m.id === b.agente_referente_id && m.qualifica === 'agente')
+  const scelto = team.members.find(m => m.id === b.agente_referente_id)
   return scelto?.id || team.lead?.id || team.ids[0] || null
 }
 

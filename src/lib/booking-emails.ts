@@ -53,14 +53,14 @@ export async function sendBookingEmail(
     // Chi gestisce l'Open House (fino a due persone) e chi è l'agente abilitato di riferimento
     const team = await loadTeam(openHouse)
     // Il cliente è di chi lo porta: tutto ciò che riguarda il cliente parte dall'agente che lo segue
-    let referente: { id: string; nome: string; cognome: string; email: string } | null = null
+    let referente: { id: string; nome: string; cognome: string; email: string; qualifica?: string | null } | null = null
     if (bookingData.agente_referente_id) {
       const { data: ref } = await supabase
-        .from('gre_agents').select('id, nome, cognome, email').eq('id', bookingData.agente_referente_id).maybeSingle()
+        .from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', bookingData.agente_referente_id).maybeSingle()
       referente = ref
     }
     const stessoAgente = isTeamClient(bookingData, team)
-    // verso il cliente: sempre un agente abilitato (mai un assistente)
+    // verso il cliente: chi lo segue (un assistente è indicato come assistente immobiliare, mai come agente)
     const fid = followerId(bookingData, team)
     const agent = (stessoAgente ? team.members.find(m => m.id === fid) : referente) || organizer
     // gli assistenti che lo accolgono all'Open House (indicati come assistenti, non come agenti)

@@ -159,6 +159,9 @@ function accoglienza(data: any): string {
   return `<p>All'Open House la accoglierà <strong>${nomi}</strong>, ${a.length > 1 ? 'assistenti immobiliari' : 'assistente immobiliare'} di Ghergo Immobiliare.</p>`
 }
 
+// Un assistente immobiliare non va mai presentato come agente
+const isAssistente = (a: unknown) => !!a && typeof a === 'object' && (a as { qualifica?: string }).qualifica === 'assistente'
+
 export function createEmailTemplate(
   type: 'confirmation' | 'confirmation_with_brochure' | 'brochure' | 'feedback_request' | 'agent_offer_notification',
   data: any
@@ -194,8 +197,8 @@ export function createEmailTemplate(
 
               <hr style="margin: 20px 0;">
 
-              <h4 style="color: #1e40af;">Agente di riferimento</h4>
-              <p><strong>${data.agent.nome} ${data.agent.cognome}</strong></p>
+              <h4 style="color: #1e40af;">${isAssistente(data.agent) ? 'Il suo riferimento' : 'Agente di riferimento'}</h4>
+              <p><strong>${data.agent.nome} ${data.agent.cognome}</strong>${isAssistente(data.agent) ? '<br><span style="font-size:12px; color:#6b7280;">Assistente immobiliare</span>' : ''}</p>
               <p>Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
               ${accoglienza(data)}
             </div>
@@ -204,7 +207,7 @@ export function createEmailTemplate(
               <h4 style="margin-top: 0; color: #1e40af;">Prossimi passi</h4>
               <ol>
                 <li>Si presenti all'appuntamento con un documento di identità</li>
-                <li>L'agente la contatterà per eventuali dettagli</li>
+                <li>${isAssistente(data.agent) ? 'La contatteremo' : 'L\'agente la contatterà'} per eventuali dettagli</li>
               </ol>
             </div>
 
@@ -268,8 +271,8 @@ export function createEmailTemplate(
 
               <hr style="margin: 20px 0;">
 
-              <h4 style="color: #1e40af;">Agente di riferimento</h4>
-              <p><strong>${data.agent.nome} ${data.agent.cognome}</strong></p>
+              <h4 style="color: #1e40af;">${isAssistente(data.agent) ? 'Il suo riferimento' : 'Agente di riferimento'}</h4>
+              <p><strong>${data.agent.nome} ${data.agent.cognome}</strong>${isAssistente(data.agent) ? '<br><span style="font-size:12px; color:#6b7280;">Assistente immobiliare</span>' : ''}</p>
               <p>Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
               ${accoglienza(data)}
             </div>
@@ -278,7 +281,7 @@ export function createEmailTemplate(
               <h4 style="margin-top: 0; color: #1e40af;">Prossimi passi</h4>
               <ol>
                 <li>Si presenti all'appuntamento con un documento di identità</li>
-                <li>L'agente la contatterà per eventuali dettagli</li>
+                <li>${isAssistente(data.agent) ? 'La contatteremo' : 'L\'agente la contatterà'} per eventuali dettagli</li>
               </ol>
             </div>
 
@@ -318,8 +321,8 @@ export function createEmailTemplate(
               </a>
             </div>
 
-            <p>Per qualsiasi domanda, non esiti a contattare il suo agente di riferimento:</p>
-            <p><strong>${data.agent.nome} ${data.agent.cognome}</strong><br>
+            <p>Per qualsiasi domanda, non esiti a contattare il suo ${isAssistente(data.agent) ? 'riferimento' : 'agente di riferimento'}:</p>
+            <p><strong>${data.agent.nome} ${data.agent.cognome}</strong><br>${isAssistente(data.agent) ? '<span style="font-size:12px; color:#6b7280;">Assistente immobiliare</span><br>' : ''}
             Email: <a href="mailto:${data.agent.email}">${data.agent.email}</a></p>
             ${accoglienza(data)}
 
@@ -364,7 +367,7 @@ export function createEmailTemplate(
 
             <p>Cordiali saluti,<br>
             <strong>${data.agent.nome} ${data.agent.cognome}</strong><br>
-            Ghergo Immobiliare</p>
+            ${isAssistente(data.agent) ? 'Assistente immobiliare · ' : ''}Ghergo Immobiliare</p>
           </div>
 
           <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 12px; color: #64748b;">
