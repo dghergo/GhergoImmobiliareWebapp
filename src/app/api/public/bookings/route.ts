@@ -100,6 +100,13 @@ export async function POST(request: Request) {
 
   const bookingId = result.booking_id as string
 
+  // Il cliente arrivato dal link di un assistente lo segue l'assistente
+  // (la funzione del database registra solo gli agenti abilitati: l'assistente si aggiunge qui)
+  if (UUID_RE.test(referente)) {
+    const { data: ass } = await supabase.from('gre_agents').select('id').eq('id', referente).eq('is_active', true).eq('qualifica', 'assistente').maybeSingle()
+    if (ass) await supabase.from('gre_bookings').update({ agente_referente_id: ass.id }).eq('id', bookingId).is('agente_referente_id', null)
+  }
+
   // Risposte del questionario, salvate insieme alla prenotazione
   const { error: qError } = await supabase
     .from('gre_prequalification_responses')

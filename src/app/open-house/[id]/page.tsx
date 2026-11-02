@@ -171,7 +171,7 @@ export default function OpenHouseDetail() {
     privacy_accepted: false,
     marketing_accepted: false
   })
-  const [referenceAgents, setReferenceAgents] = useState<Array<{ id: string; nome: string; cognome: string }>>([])
+  const [referenceAgents, setReferenceAgents] = useState<Array<{ id: string; nome: string; cognome: string; assistente?: boolean }>>([])
   const [loadingAgents, setLoadingAgents] = useState(false)
 
   // Modal questionnaire state
@@ -677,11 +677,14 @@ export default function OpenHouseDetail() {
                   </label>
                   {referenceAgents.length > 0 && (
                     <label className="pub-field">
-                      <span>Agente di riferimento (facoltativo)</span>
+                      <span>Il tuo riferimento in agenzia (facoltativo)</span>
                       <select value={formData.agente_referente_id} onChange={e => setFormData({ ...formData, agente_referente_id: e.target.value })} disabled={loadingAgents}>
                         <option value="">Nessuno</option>
-                        {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                        {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}{a.assistente ? ' · assistente immobiliare' : ''}</option>)}
                       </select>
+                      {referenceAgents.find(a => a.id === formData.agente_referente_id)?.assistente && (
+                        <small className="block mt-1 pub-muted text-xs">Assistente immobiliare</small>
+                      )}
                     </label>
                   )}
                   <label className="pub-field">
@@ -758,11 +761,14 @@ export default function OpenHouseDetail() {
                     <input type="tel" required autoComplete="tel" inputMode="tel" value={formData.telefono} onChange={e => setFormData({ ...formData, telefono: e.target.value })} />
                   </label>
                   <label className="pub-field">
-                    <span>Agente di riferimento (facoltativo)</span>
+                    <span>Il tuo riferimento in agenzia (facoltativo)</span>
                     <select value={formData.agente_referente_id} onChange={e => setFormData({ ...formData, agente_referente_id: e.target.value })} disabled={loadingAgents}>
                       <option value="">Nessuno</option>
-                      {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}{a.assistente ? ' · assistente immobiliare' : ''}</option>)}
                     </select>
+                    {referenceAgents.find(a => a.id === formData.agente_referente_id)?.assistente && (
+                      <small className="block mt-1 pub-muted text-xs">Assistente immobiliare</small>
+                    )}
                   </label>
                   <label className="pub-field">
                     <span>Messaggio (facoltativo)</span>

@@ -301,7 +301,7 @@ export default function AgentsManagement() {
                   <option value="assistente">Assistente immobiliare</option>
                 </select>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>
-                  L’assistente organizza e accoglie, ma non è mai indicato come agente di riferimento e non riceve le richieste di offerta.
+                  L’assistente organizza, accoglie e può mandare il proprio link ai clienti (è indicato come assistente immobiliare). Non ritira le offerte: le richieste arrivano anche agli agenti abilitati.
                 </p>
               </div>
 

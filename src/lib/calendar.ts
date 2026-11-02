@@ -144,7 +144,7 @@ ${client.telefono ? `📞 Telefono: ${client.telefono}` : ''}
 
 🕒 Slot: ${timeSlot.ora_inizio} - ${timeSlot.ora_fine}
 
-👨‍💼 Agente: ${agent.nome} ${agent.cognome}
+👨‍💼 ${(agent as { qualifica?: string }).qualifica === 'assistente' ? 'Riferimento' : 'Agente'}: ${agent.nome} ${agent.cognome}${(agent as { qualifica?: string }).qualifica === 'assistente' ? ' (assistente immobiliare)' : ''}
 
 Evento creato automaticamente dal sistema Ghergo Immobiliare.
     `.trim(),

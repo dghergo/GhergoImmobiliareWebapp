@@ -68,8 +68,9 @@ export async function POST(request: Request) {
     if (!destinatari.length) destinatari = team.members
     if (!isTeamClient(booking, team)) {
       const { data: ref } = await supabase
-        .from('gre_agents').select('id, nome, cognome, email').eq('id', booking.agente_referente_id).maybeSingle()
-      if (ref) destinatari = [ref]
+        .from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', booking.agente_referente_id).maybeSingle()
+      // l'offerta non la ritira un assistente: con lui/lei avvisati anche gli agenti abilitati dell'Open House
+      if (ref) destinatari = ref.qualifica === 'assistente' ? [ref, ...team.members.filter(m => m.qualifica === 'agente' && m.id !== ref.id)] : [ref]
     }
     for (const agent of destinatari) {
       if (!agent.email) continue

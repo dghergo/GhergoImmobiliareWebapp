@@ -182,7 +182,7 @@ export function bookingAlertEmail(p: {
   const banner = p.ruolo === 'referente'
     ? `<div style="background:#EAF8FE; border-left:4px solid ${SKY}; padding:14px 16px; border-radius:8px; margin-bottom:16px;">
          <div style="font-size:18px; font-weight:800;">🔗 Un tuo cliente ha prenotato</div>
-         <div style="margin-top:4px;">${esc(p.client.nome)} ${esc(p.client.cognome)} ha prenotato l'Open House di <strong>${esc(titolo)}</strong> indicando te come agente di riferimento (dal tuo link o scegliendoti nel modulo).
+         <div style="margin-top:4px;">${esc(p.client.nome)} ${esc(p.client.cognome)} ha prenotato l'Open House di <strong>${esc(titolo)}</strong> indicando te come riferimento (dal tuo link o scegliendoti nel modulo).
          ${p.stessoAgente ? '' : `<br>L'Open House è organizzato da <strong>${esc(p.organizzatore.nome)} ${esc(p.organizzatore.cognome)}</strong>, ma il cliente lo segui tu dalla visita all'offerta: i suoi dati e i feedback li vedi solo tu.`}</div>
        </div>`
     : viaCollega

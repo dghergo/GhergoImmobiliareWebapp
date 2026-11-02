@@ -40,10 +40,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .in('status', ['confirmed', 'completed']),
     supabase
       .from('gre_agents')
-      .select('id, nome, cognome')
+      .select('id, nome, cognome, qualifica')
       .eq('is_active', true)
-      // come agente di riferimento si sceglie solo un agente immobiliare abilitato
-      .neq('qualifica', 'assistente')
+      // si possono scegliere agenti e assistenti (questi indicati come assistenti immobiliari)
       .order('cognome'),
     // Orari prenotabili adesso (riempimento graduale): stessa regola usata alla prenotazione
     supabase.rpc('gre_slot_aperti', { p_open_house_id: id })
@@ -84,6 +83,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     openHouse: { ...rest, property: { ...propertyPublic, has_brochure: !!brochure_url }, agent: lead ? { nome: lead.nome, cognome: lead.cognome, email: lead.email } : gre_agents, accoglienza: team.members.map(m => ({ nome: m.nome, cognome: m.cognome, qualifica: m.qualifica })) },
     timeSlots,
     totalBookings: (bookings || []).length,
-    referenceAgents: agents || []
+    referenceAgents: (agents || []).map(a => ({ id: a.id, nome: a.nome, cognome: a.cognome, assistente: a.qualifica === 'assistente' }))
   }, { headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=30' } })
 }
