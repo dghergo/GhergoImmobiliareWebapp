@@ -43,6 +43,13 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
 }) {
   const [rows, setRows] = useState<FeedbackRow[]>([])
   const [loading, setLoading] = useState(true)
+  // risposta arrivata su WhatsApp da incollare a mano (id della prenotazione aperta)
+  const [incolla, setIncolla] = useState<string | null>(null)
+
+  const reload = async () => {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/feedback`, { cache: 'no-store' })
+    if (res.ok) setRows((await res.json()).rows)
+  }
 
   useEffect(() => {
     let alive = true
@@ -54,6 +61,18 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
     })()
     return () => { alive = false }
   }, [openHouseId])
+
+  const salvaManuale = async (bookingId: string, dati: { testo: string; voto: number | null; offerta: boolean; rivedere: boolean }) => {
+    const res = await authFetch(`/api/open-houses/${openHouseId}/feedback`, { method: 'POST', body: JSON.stringify({ bookingId, action: 'manual_feedback', ...dati }) })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Non salvato, riprova')
+      return false
+    }
+    await reload()
+    setIncolla(null)
+    return true
+  }
 
   const act = async (bookingId: string, action: string) => {
     const res = await authFetch(`/api/open-houses/${openHouseId}/feedback`, { method: 'POST', body: JSON.stringify({ bookingId, action }) })
@@ -161,7 +180,7 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
           <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--text-dark)' }}>Non hanno ancora risposto ({mancanti.length})</h3>
           <ul className="divide-y border rounded-lg">
             {mancanti.map(r => (
-              <li key={r.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2">
+              <li key={r.id} className="px-3 py-2 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium" style={{ color: 'var(--text-dark)' }}>{r.client.nome} {r.client.cognome}</div>
                   <div className="text-xs" style={{ color: 'var(--text-gray)' }}>
@@ -179,6 +198,10 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
                 >
                   💬 {r.feedback_whatsapp_at ? 'Manda di nuovo' : 'Chiedi su WhatsApp'}
                 </a>
+                <button onClick={() => setIncolla(incolla === r.id ? null : r.id)} className="px-3 py-2 rounded text-sm font-semibold border" style={{ color: 'var(--primary-blue)' }}>
+                  📝 Incolla risposta
+                </button>
+                {incolla === r.id && <div className="w-full sm:basis-full"><IncollaRisposta onSave={d => salvaManuale(r.id, d)} onCancel={() => setIncolla(null)} /></div>}
               </li>
             ))}
           </ul>
@@ -208,13 +231,79 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
                       {a.non_convinto.map(v => <span key={'n' + v} className="px-2 py-0.5 rounded bg-red-50 text-red-700">– {labelOf(ASPETTI, v)}</span>)}
                     </div>
                   )}
-                  {f.commenti && <p className="text-sm italic mt-1.5" style={{ color: 'var(--text-gray)' }}>“{f.commenti}”</p>}
+                  {f.commenti && <p className="text-sm italic mt-1.5 whitespace-pre-line" style={{ color: 'var(--text-gray)' }}>“{f.commenti}”</p>}
+                  {incolla === r.id ? (
+                    <IncollaRisposta aggiunta onSave={d => salvaManuale(r.id, d)} onCancel={() => setIncolla(null)} />
+                  ) : (
+                    <button onClick={() => setIncolla(r.id)} className="text-xs underline mt-1.5" style={{ color: 'var(--primary-blue)' }}>+ Aggiungi un messaggio WhatsApp</button>
+                  )}
                 </li>
               )
             })}
           </ul>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Modulo per incollare la risposta che il cliente ha mandato su WhatsApp. */
+function IncollaRisposta({ onSave, onCancel, aggiunta = false }: {
+  onSave: (d: { testo: string; voto: number | null; offerta: boolean; rivedere: boolean }) => Promise<boolean>
+  onCancel: () => void
+  aggiunta?: boolean
+}) {
+  const [testo, setTesto] = useState('')
+  const [voto, setVoto] = useState<number | null>(null)
+  const [offerta, setOfferta] = useState(false)
+  const [rivedere, setRivedere] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  const incollaDaAppunti = async () => {
+    try {
+      const t = await navigator.clipboard.readText()
+      if (t) setTesto(prev => (prev ? `${prev}\n${t}` : t))
+    } catch { /* il browser non lo permette: si incolla a mano */ }
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border p-3 space-y-3 bg-gray-50">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-dark)' }}>{aggiunta ? 'Aggiungi il messaggio ricevuto su WhatsApp' : 'Risposta ricevuta su WhatsApp'}</span>
+        <button type="button" onClick={incollaDaAppunti} className="text-xs underline" style={{ color: 'var(--primary-blue)' }}>📋 Incolla</button>
+      </div>
+      <textarea
+        rows={4}
+        value={testo}
+        onChange={e => setTesto(e.target.value)}
+        placeholder="Copia il messaggio del cliente da WhatsApp e incollalo qui"
+        className="w-full border rounded-lg p-2 text-sm bg-white"
+        autoFocus
+      />
+      {!aggiunta && (
+        <div className="flex items-center gap-2 text-sm">
+          <span style={{ color: 'var(--text-gray)' }}>Voto (facoltativo):</span>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button key={n} type="button" onClick={() => setVoto(voto === n ? null : n)} className="text-xl leading-none" style={{ color: voto && n <= voto ? '#f59e0b' : '#d1d5db' }} aria-label={`${n} stelle`}>★</button>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={offerta} onChange={e => setOfferta(e.target.checked)} className="w-5 h-5" /> Vuole fare un’offerta</label>
+        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={rivedere} onChange={e => setRivedere(e.target.checked)} className="w-5 h-5" /> Vuole rivederlo</label>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={busy || (!testo.trim() && !voto && !offerta && !rivedere)}
+          onClick={async () => { setBusy(true); await onSave({ testo, voto, offerta, rivedere }); setBusy(false) }}
+          className="btn-primary px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy ? 'Salvo…' : 'Salva'}
+        </button>
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm rounded bg-white border">Annulla</button>
+      </div>
+      <p className="text-xs" style={{ color: 'var(--text-gray)' }}>Il messaggio finisce tra i commenti anche nel report per il venditore, senza nome. Togli eventuali dati personali prima di salvare.</p>
     </div>
   )
 }
