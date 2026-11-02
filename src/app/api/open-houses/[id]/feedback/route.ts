@@ -6,7 +6,7 @@ import { followsClient, openHouseAccess } from '@/lib/oh-access'
 // I clienti portati da un collega li vede (e li sollecita) solo il collega.
 
 const SELECT = `
-  id, status, cancellation_reason, agente_referente_id, promemoria_inviato_at, feedback_email_sent, feedback_completed, feedback_whatsapp_at,
+  id, status, cancellation_reason, agente_referente_id, nota_agente, nota_agente_at, promemoria_inviato_at, feedback_email_sent, feedback_completed, feedback_whatsapp_at,
   gre_clients (nome, cognome, telefono, email),
   gre_time_slots (ora_inizio),
   gre_feedback_responses (id, rating, commenti, interesse_acquisto, richiesta_appuntamento, risposte, offerta_quando, offerta_gestita_at, submitted_at)
@@ -36,6 +36,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     client: b.gre_clients,
     ora: b.gre_time_slots?.ora_inizio || null,
     feedback: b.gre_feedback_responses?.[0] || null,
+    nota: b.nota_agente || null,
+    nota_at: b.nota_agente_at || null,
   }))
 
   return NextResponse.json({ openHouse: oh, role, rows }, { headers: { 'Cache-Control': 'no-store' } })

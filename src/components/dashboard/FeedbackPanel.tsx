@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { authFetch } from '@/lib/api'
 import { ASPETTI, OFFERTA_QUANDO, PREZZO, PROSSIMO_PASSO, labelOf, type FeedbackAnswers } from '@/lib/feedback'
 import { niceText } from '@/lib/text'
+import NotaCliente from './NotaCliente'
 
 export interface FeedbackRow {
   id: string
@@ -13,6 +14,8 @@ export interface FeedbackRow {
   feedback_whatsapp_at: string | null
   client: { nome: string; cognome: string; telefono: string; email: string }
   ora: string | null
+  nota?: string | null
+  nota_at?: string | null
   feedback: {
     rating: number | null
     commenti: string | null
@@ -232,6 +235,8 @@ export default function FeedbackPanel({ openHouseId, titolo, agentName, eventDat
                     </div>
                   )}
                   {f.commenti && <p className="text-sm italic mt-1.5 whitespace-pre-line" style={{ color: 'var(--text-gray)' }}>“{f.commenti}”</p>}
+                  <NotaCliente key={`nota-${r.id}-${r.nota_at || ''}`} openHouseId={openHouseId} bookingId={r.id} nota={r.nota || null} notaAt={r.nota_at || null}
+                    onSaved={(nota, at) => setRows(rs => rs.map(x => (x.id === r.id ? { ...x, nota, nota_at: at } : x)))} />
                   {incolla === r.id ? (
                     <IncollaRisposta aggiunta onSave={d => salvaManuale(r.id, d)} onCancel={() => setIncolla(null)} />
                   ) : (
