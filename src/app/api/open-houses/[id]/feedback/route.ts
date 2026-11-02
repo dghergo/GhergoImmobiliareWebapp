@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json({ openHouse: oh, role, rows }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
-// Azioni: sollecito WhatsApp inviato, richiesta di offerta gestita (solo sui propri clienti)
+// Azioni: sollecito WhatsApp inviato, richiesta di offerta gestita, risposta incollata a mano (solo sui propri clienti)
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireStaff(request)
   if (auth.error) return auth.error
@@ -65,6 +65,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .from('gre_feedback_responses')
       .update({ offerta_gestita_at: body.action === 'offer_handled' ? now : null })
       .eq('booking_id', booking.id)
+  } else if (body.action === 'manual_feedback') {
+    // Risposta arrivata su WhatsApp (o a voce): l'agente la incolla qui, così i feedback stanno tutti nello stesso posto
+    const testo = typeof body.testo === 'string' ? body.testo.trim().slice(0, 4000) : ''
+    const voto = Number(body.voto)
+    const rating = Number.isInteger(voto) && voto >= 1 && voto <= 5 ? voto : null
+    if (!testo && !rating && !body.offerta && !body.rivedere) {
+      return NextResponse.json({ error: 'Incolla il messaggio del cliente' }, { status: 400 })
+    }
+    const { data: esistente } = await supabase
+      .from('gre_feedback_responses').select('id, commenti, rating').eq('booking_id', booking.id).maybeSingle()
+    if (esistente) {
+      // il cliente aveva già risposto: il messaggio si aggiunge a quello che c'è
+      const upd: Record<string, unknown> = {}
+      if (testo) upd.commenti = esistente.commenti ? `${esistente.commenti}\n\n${testo}` : testo
+      if (rating && !esistente.rating) upd.rating = rating
+      if (body.offerta) upd.interesse_acquisto = true
+      if (body.rivedere) upd.richiesta_appuntamento = true
+      if (Object.keys(upd).length) await supabase.from('gre_feedback_responses').update(upd).eq('id', esistente.id)
+    } else {
+      const { error } = await supabase.from('gre_feedback_responses').insert({
+        booking_id: booking.id,
+        rating,
+        commenti: testo || null,
+        interesse_acquisto: !!body.offerta,
+        richiesta_appuntamento: !!body.rivedere,
+        risposte: null,
+        submitted_at: now,
+      })
+      if (error) return NextResponse.json({ error: 'Non salvato, riprova' }, { status: 500 })
+    }
+    // risposta ricevuta: niente più email di richiesta feedback a questo cliente
+    await supabase.from('gre_bookings').update({ feedback_completed: true }).eq('id', booking.id)
   } else {
     return NextResponse.json({ error: 'Azione non valida' }, { status: 400 })
   }
