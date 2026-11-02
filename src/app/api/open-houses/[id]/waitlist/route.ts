@@ -8,13 +8,14 @@ import { followsClient, isTeamClient, openHouseAccess, type OhRole, type Team } 
 
 async function load(id: string, agent: StaffAgent, role: OhRole, team: Team) {
   const supabase = getSupabaseAdmin()
-  const [{ data: oh }, { data: rows }] = await Promise.all([
-    supabase.from('gre_open_houses').select('sold_out').eq('id', id).maybeSingle(),
+  const [{ data: oh }, { data: rows }, { count: prenotati }] = await Promise.all([
+    supabase.from('gre_open_houses').select('sold_out, created_at, gre_properties (titolo, zona, immagini)').eq('id', id).maybeSingle(),
     supabase
       .from('gre_waitlist')
       .select('id, nome, cognome, email, telefono, messaggio, agente_referente_id, created_at, contattato_at, referente:gre_agents!gre_waitlist_agente_referente_id_fkey (nome, cognome)')
       .eq('open_house_id', id)
       .order('created_at'),
+    supabase.from('gre_bookings').select('id', { count: 'exact', head: true }).eq('open_house_id', id).in('status', ['confirmed', 'completed']),
   ])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lista = (rows || []).flatMap((r: any) => {
@@ -34,7 +35,11 @@ async function load(id: string, agent: StaffAgent, role: OhRole, team: Team) {
       contattato_at: r.contattato_at,
     }]
   })
-  return { sold_out: !!oh?.sold_out, puo_gestire: role !== 'collega', lista, io: { nome: agent.nome, qualifica: agent.qualifica === 'assistente' ? 'assistente' : 'agente' } }
+  // dati per la storia Sold Out: visite prenotate e giorni dalla pubblicazione
+  const prop = (oh?.gre_properties || {}) as unknown as { titolo?: string; zona?: string; immagini?: string[] | null }
+  const giorni = oh?.created_at ? Math.floor((Date.now() - new Date(oh.created_at).getTime()) / 86400000) : null
+  const storia = { titolo: prop.titolo || '', zona: prop.zona || '', immagini: prop.immagini || [], prenotati: prenotati || 0, giorni }
+  return { sold_out: !!oh?.sold_out, puo_gestire: role !== 'collega', lista, storia, io: { nome: agent.nome, qualifica: agent.qualifica === 'assistente' ? 'assistente' : 'agente' } }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

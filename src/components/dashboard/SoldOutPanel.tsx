@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/api'
+import SoldOutStoryMaker, { type SoldOutStoryInfo } from './SoldOutStoryMaker'
 
 // Sold Out e lista d'attesa: chiude le prenotazioni senza togliere l'Open House dall'elenco
 // e raccoglie i contatti di chi arriva dopo.
@@ -36,8 +37,11 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
   const [msg, setMsg] = useState('')
   const [io, setIo] = useState<{ nome: string; qualifica: 'agente' | 'assistente' } | null>(null)
   const [festa, setFesta] = useState(false)
+  const [storia, setStoria] = useState<SoldOutStoryInfo | null>(null)
+  const [showStoria, setShowStoria] = useState(false)
 
-  const apply = (data: { sold_out: boolean; puo_gestire: boolean; lista: Attesa[]; io?: { nome: string; qualifica: 'agente' | 'assistente' } }) => {
+  const apply = (data: { sold_out: boolean; puo_gestire: boolean; lista: Attesa[]; io?: { nome: string; qualifica: 'agente' | 'assistente' }; storia?: SoldOutStoryInfo }) => {
+    if (data.storia) setStoria(data.storia)
     if (data.io) setIo(data.io)
     setSoldOut(data.sold_out)
     setPuoGestire(data.puo_gestire)
@@ -153,7 +157,14 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
         </div>
       )}
 
-      {festa && <Complimenti io={io} onClose={() => setFesta(false)} />}
+      {soldOut && storia && (
+        <button onClick={() => setShowStoria(true)} className="mt-3 px-4 py-2 rounded-lg font-semibold text-sm border-2" style={{ borderColor: BLU, color: BLU }}>
+          📲 Crea la storia Sold Out
+        </button>
+      )}
+
+      {festa && <Complimenti io={io} onClose={() => setFesta(false)} onStoria={storia ? () => { setFesta(false); setShowStoria(true) } : undefined} />}
+      {showStoria && storia && <SoldOutStoryMaker info={storia} onClose={() => setShowStoria(false)} />}
     </div>
   )
 }
@@ -165,7 +176,7 @@ const femminile = (nome: string) => {
   return n.endsWith('a') && !MASCHILI_IN_A.includes(n)
 }
 
-function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' | 'assistente' } | null; onClose: () => void }) {
+function Complimenti({ io, onClose, onStoria }: { io: { nome: string; qualifica: 'agente' | 'assistente' } | null; onClose: () => void; onStoria?: () => void }) {
   const nome = (io?.nome || '').split('_')[0]
   const f = femminile(nome)
   return (
@@ -187,7 +198,10 @@ function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' 
               </ul>
               <p>Continua così e ti contraddistinguerai come <b>{f ? 'una vera Top Producer' : 'un vero Top Producer'}</b>. 🚀</p>
             </>
-          <button onClick={onClose} className="w-full mt-2 px-5 py-3 rounded-lg font-bold text-white" style={{ background: BLU }}>Grazie!</button>
+          {onStoria && (
+            <button onClick={onStoria} className="w-full mt-2 px-5 py-3 rounded-lg font-bold text-white" style={{ background: '#00AEEF' }}>📲 Crea la storia Sold Out</button>
+          )}
+          <button onClick={onClose} className="w-full px-5 py-3 rounded-lg font-bold text-white" style={{ background: BLU }}>Grazie!</button>
         </div>
       </div>
     </div>
