@@ -168,7 +168,6 @@ const femminile = (nome: string) => {
 function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' | 'assistente' } | null; onClose: () => void }) {
   const nome = (io?.nome || '').split('_')[0]
   const f = femminile(nome)
-  const assistente = io?.qualifica === 'assistente'
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-6" onClick={onClose}>
       <div className="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="so-title">
@@ -177,17 +176,6 @@ function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' 
           <h2 id="so-title" className="text-2xl font-bold mt-2 tracking-wide">Open House Sold Out!</h2>
         </div>
         <div className="px-6 py-6 space-y-4 text-[15px] leading-relaxed" style={{ color: 'var(--text-dark)' }}>
-          {assistente ? (
-            <>
-              <p>Complimenti <b>{nome}</b>, questo risultato porta anche la tua firma. Un Open House che va sold out nasce da un&apos;acquisizione fatta bene e da una promozione eccellente, e tu hai contribuito a farlo conoscere nel modo giusto.</p>
-              <p>Adesso il lavoro è trasformarlo in un successo completo:</p>
-              <ul className="space-y-1.5 pl-1">
-                <li>• <b>nella pubblicità</b>, facendo vedere a tutti questo risultato;</li>
-                <li>• <b>nell&apos;accoglienza</b>, perché ogni cliente che entra deve uscire convinto della professionalità di Ghergo Immobiliare.</li>
-              </ul>
-              <p>Continua così: sono risultati che fanno la differenza per tutta la squadra. 🚀</p>
-            </>
-          ) : (
             <>
               <p>Complimenti <b>{nome}</b>, questo risultato è tutto merito tuo. Un Open House che va sold out non è fortuna: nasce da un&apos;acquisizione fatta bene e da una promozione eccellente. Hai scelto l&apos;immobile giusto, l&apos;hai preso al prezzo giusto e l&apos;hai fatto conoscere nel modo giusto.</p>
               <p className="font-semibold">Sono traguardi che raggiungono solo i grandi agenti immobiliari.</p>
@@ -199,7 +187,6 @@ function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' 
               </ul>
               <p>Continua così e ti contraddistinguerai come <b>{f ? 'una vera Top Producer' : 'un vero Top Producer'}</b>. 🚀</p>
             </>
-          )}
           <button onClick={onClose} className="w-full mt-2 px-5 py-3 rounded-lg font-bold text-white" style={{ background: BLU }}>Grazie!</button>
         </div>
       </div>
