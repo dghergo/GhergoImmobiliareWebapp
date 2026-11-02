@@ -82,29 +82,23 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
 
   return (
     <div className="bg-white rounded-lg shadow-md mb-6 px-4 md:px-6 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-bold text-lg flex items-center gap-2" style={{ color: BLU }}>
-            Sold Out e lista d&apos;attesa
-            {soldOut && <span className="px-2 py-0.5 rounded text-xs font-bold tracking-widest text-white" style={{ background: BLU }}>SOLD OUT</span>}
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-gray)' }}>
+      <h2 className="font-bold text-lg flex items-center gap-2" style={{ color: BLU }}>
+        Sold Out e lista d&apos;attesa
+        {soldOut && <span className="px-2 py-0.5 rounded text-xs font-bold tracking-widest text-white" style={{ background: BLU }}>SOLD OUT</span>}
+      </h2>
+      {puoGestire ? (
+        <label className={`mt-3 flex gap-3 items-start p-3 rounded-lg border-2 cursor-pointer ${soldOut ? 'bg-blue-50' : 'border-gray-200'}`} style={soldOut ? { borderColor: BLU } : undefined}>
+          <input type="checkbox" checked={soldOut} disabled={busy} onChange={toggleSoldOut} className="mt-0.5 w-6 h-6 shrink-0" style={{ accentColor: BLU }} />
+          <span className="text-sm leading-snug">
+            <b>Open House Sold Out</b><br />
             {soldOut
-              ? 'Prenotazioni chiuse: l\'evento resta in elenco e raccoglie la lista d\'attesa.'
-              : 'Quando non vuoi più prenotazioni, chiudi l\'Open House senza toglierlo dall\'elenco.'}
-          </p>
-        </div>
-        {puoGestire && (
-          <button
-            disabled={busy}
-            onClick={toggleSoldOut}
-            className="px-4 py-2 rounded-lg font-semibold text-sm border-2 disabled:opacity-50"
-            style={soldOut ? { borderColor: BLU, color: BLU } : { background: BLU, borderColor: BLU, color: '#fff' }}
-          >
-            {soldOut ? 'Riapri prenotazioni' : 'Segna come Sold Out'}
-          </button>
-        )}
-      </div>
+              ? 'Tutti gli orari risultano occupati, sulla foto e nell\'elenco compare SOLD OUT e chi arriva lascia i contatti nella lista d\'attesa. Togli la spunta per riaprire le prenotazioni.'
+              : 'Con la spunta tutti gli orari risultano occupati, sulla foto e nell\'elenco compare SOLD OUT e chi arriva può lasciare i contatti nella lista d\'attesa. Le prenotazioni già fatte non cambiano.'}
+          </span>
+        </label>
+      ) : (
+        <p className="text-sm" style={{ color: 'var(--text-gray)' }}>{soldOut ? 'Prenotazioni chiuse: l\'Open House è in Sold Out.' : 'Prenotazioni aperte.'}</p>
+      )}
 
       {msg && <p className="text-sm text-red-600 mt-3">{msg}</p>}
 

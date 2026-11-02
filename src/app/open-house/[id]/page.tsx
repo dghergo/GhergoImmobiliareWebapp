@@ -499,6 +499,7 @@ export default function OpenHouseDetail() {
           )}
         </div>
         <div className="pub-hero-shade" aria-hidden="true" />
+        {soldOut && <div className="pub-soldout pub-soldout-hero" aria-hidden="true"><span>Sold Out</span></div>}
 
         <header className="pub-hero-top pub-wrap">
           <button onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')} aria-label="Ghergo Immobiliare, tutti gli Open House">
@@ -514,7 +515,7 @@ export default function OpenHouseDetail() {
         </header>
 
         <div className="pub-wrap pub-hero-body">
-          <p className="pub-hero-kicker">{niceText(property.zona)}{soldOut && <span className="pub-soldout-badge ml-3 align-middle">Sold Out</span>}</p>
+          <p className="pub-hero-kicker">{niceText(property.zona)}</p>
           <h1 className="pub-display pub-hero-title pub-hero-title-oh">
             <span className="pub-line"><span>{niceText(property.titolo)}</span></span>
           </h1>
@@ -629,6 +630,22 @@ export default function OpenHouseDetail() {
                 </div>
               ) : (
                 <form onSubmit={handleWaitlistSubmit} className="space-y-5">
+                  {timeSlots.length > 0 && (
+                    <div>
+                      <div className="flex items-baseline justify-between mb-4">
+                        <h2 className="pub-h3">Orari</h2>
+                        <span className="pub-muted text-sm">Tutto prenotato</span>
+                      </div>
+                      <div className="pub-slots" role="list">
+                        {timeSlots.map(slot => (
+                          <div key={slot.id} role="listitem" className="pub-slot is-full" aria-disabled="true">
+                            <span className="pub-slot-time">{formatTime(slot.ora_inizio)}</span>
+                            <span className="pub-slot-state">Completo</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="pub-soldout-box">
                     <span className="pub-soldout-badge">Sold Out</span>
                     <h2 className="pub-h3 mt-3">Open House al completo</h2>

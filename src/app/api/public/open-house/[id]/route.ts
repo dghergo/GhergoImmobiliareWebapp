@@ -55,6 +55,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (b.time_slot_id) occupiedBySlot.set(b.time_slot_id, (occupiedBySlot.get(b.time_slot_id) || 0) + 1)
   }
 
+  // Sold Out: tutti gli orari si mostrano occupati (le prenotazioni sono chiuse)
+  const soldOut = !!oh.sold_out
   const timeSlots = (slots || [])
     .filter(s => s.is_available !== false)
     .map(s => {
@@ -62,11 +64,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       const cap = s.max_partecipanti || 1
       return {
         ...s,
-        posti_occupati: occ,
+        posti_occupati: soldOut ? cap : occ,
         posti_disponibili: cap,
         // completo = tutti i posti presi; aperto = prenotabile adesso
-        completo: occ >= cap,
-        aperto: occ < cap && (apertiIds ? apertiIds.has(s.id) : true),
+        completo: soldOut || occ >= cap,
+        aperto: !soldOut && occ < cap && (apertiIds ? apertiIds.has(s.id) : true),
       }
     })
     // gli orari non ancora aperti (giro successivo) non si mostrano
