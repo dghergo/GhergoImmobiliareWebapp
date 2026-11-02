@@ -40,6 +40,7 @@ interface OpenHouse {
   descrizione?: string
   descrizione_evento?: string | null
   is_active: boolean
+  sold_out?: boolean
   property: Property
   agent: {
     id: string
@@ -178,6 +179,10 @@ export default function OpenHouseDetail() {
   const [submittingQuestionnaire, setSubmittingQuestionnaire] = useState(false)
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  // Lista d'attesa (Open House in Sold Out)
+  const [waitSubmitting, setWaitSubmitting] = useState(false)
+  const [waitDone, setWaitDone] = useState(false)
+  const [waitError, setWaitError] = useState('')
   const [shareTooltip, setShareTooltip] = useState('')
   const [showGallery, setShowGallery] = useState(false)
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null)
@@ -316,6 +321,17 @@ export default function OpenHouseDetail() {
       })
       const result = await response.json().catch(() => ({}))
 
+      if (!response.ok && result.code === 'sold_out') {
+        // nel frattempo l'Open House è andato in Sold Out: si passa alla lista d'attesa con i dati già inseriti
+        await loadOpenHouseData()
+        setShowQuestionnaire(false)
+        setShowBookingForm(false)
+        setSelectedSlot(null)
+        setWaitError(result.error)
+        setTimeout(scrollToBooking, 100)
+        return
+      }
+
       if (!response.ok) {
         alert(result.error || 'Errore durante la prenotazione. Riprova.')
         // Aggiorna gli orari (potrebbe essere stato preso da un altro) e torna alla scelta
@@ -366,6 +382,46 @@ export default function OpenHouseDetail() {
   const property = openHouse?.property
   const images = property?.immagini || []
   const isPast = openHouse ? new Date(`${openHouse.data_evento}T${openHouse.ora_fine}`) < new Date() : false
+  const soldOut = !!openHouse?.sold_out && !isPast
+
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setWaitError('')
+    if (!formData.privacy_accepted) {
+      setWaitError('Per iscriverti è necessario accettare l\'informativa privacy.')
+      return
+    }
+    setWaitSubmitting(true)
+    try {
+      const res = await fetch('/api/public/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          openHouseId,
+          nome: formData.nome,
+          cognome: formData.cognome,
+          email: formData.email,
+          telefono: formData.telefono,
+          messaggio: formData.messaggio,
+          agente_referente_id: formData.agente_referente_id || null,
+          privacy_accepted: formData.privacy_accepted,
+          marketing_accepted: formData.marketing_accepted,
+        }),
+      })
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setWaitError(result.error || 'Iscrizione non riuscita. Riprova.')
+        // prenotazioni riaperte: si torna agli orari
+        if (result.code === 'reopened') await loadOpenHouseData()
+        return
+      }
+      setWaitDone(true)
+    } catch {
+      setWaitError('Iscrizione non riuscita. Controlla la connessione e riprova.')
+    } finally {
+      setWaitSubmitting(false)
+    }
+  }
   const eventDate = openHouse
     ? new Date(openHouse.data_evento + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
     : ''
@@ -443,6 +499,7 @@ export default function OpenHouseDetail() {
           )}
         </div>
         <div className="pub-hero-shade" aria-hidden="true" />
+        {soldOut && <div className="pub-soldout pub-soldout-hero" aria-hidden="true"><span>Sold Out</span></div>}
 
         <header className="pub-hero-top pub-wrap">
           <button onClick={() => router.push(agent && isAdmin(agent) ? '/admin/dashboard' : '/')} aria-label="Ghergo Immobiliare, tutti gli Open House">
@@ -528,7 +585,7 @@ export default function OpenHouseDetail() {
               <div>
                 <h2 className="pub-h3 mb-2">Brochure</h2>
                 <p className="pub-body">Puoi scaricarla dopo la prenotazione e la riceverai anche per email.</p>
-                {!isPast && <button onClick={scrollToBooking} className="pub-link mt-2 inline-block">Prenota la visita</button>}
+                {!isPast && <button onClick={scrollToBooking} className="pub-link mt-2 inline-block">{soldOut ? 'Lista d\'attesa' : 'Prenota la visita'}</button>}
               </div>
             )}
           </div>
@@ -555,7 +612,7 @@ export default function OpenHouseDetail() {
               </div>
             )}
 
-            {totalBookings > 5 && !isPast && (
+            {(soldOut ? totalBookings > 1 : totalBookings > 5) && !isPast && (
               <p className="pub-proof mt-5">{totalBookings} persone hanno già prenotato la visita</p>
             )}
 
@@ -563,6 +620,87 @@ export default function OpenHouseDetail() {
 
             {isPast ? (
               <p className="pub-body">Questo Open House si è concluso.</p>
+            ) : soldOut ? (
+              waitDone ? (
+                <div className="pub-soldout-box">
+                  <h2 className="pub-h3">Sei in lista d&apos;attesa</h2>
+                  <p className="pub-body mt-2">
+                    Grazie {formData.nome}. Ti abbiamo inviato una conferma per email: se si libera un posto o organizziamo un&apos;altra occasione di visita, ti contattiamo noi.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="space-y-5">
+                  {timeSlots.length > 0 && (
+                    <div>
+                      <div className="flex items-baseline justify-between mb-4">
+                        <h2 className="pub-h3">Orari</h2>
+                        <span className="pub-muted text-sm">Tutto prenotato</span>
+                      </div>
+                      <div className="pub-slots" role="list">
+                        {timeSlots.map(slot => (
+                          <div key={slot.id} role="listitem" className="pub-slot is-full" aria-disabled="true">
+                            <span className="pub-slot-time">{formatTime(slot.ora_inizio)}</span>
+                            <span className="pub-slot-state">Completo</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="pub-soldout-box">
+                    <span className="pub-soldout-badge">Sold Out</span>
+                    <h2 className="pub-h3 mt-3">Open House al completo</h2>
+                    <p className="pub-body mt-2">
+                      Abbiamo raggiunto il numero massimo di prenotazioni che possiamo accogliere, per garantire a ogni visitatore il tempo e l&apos;attenzione che merita.
+                    </p>
+                    <p className="pub-body mt-2">
+                      Lascia i tuoi contatti nella <strong className="font-semibold">lista d&apos;attesa</strong>: se si libera un posto o organizziamo un&apos;altra occasione di visita, ti contattiamo per primo.
+                    </p>
+                  </div>
+                  {waitError && <p className="text-sm" style={{ color: '#B42318' }}>{waitError}</p>}
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="pub-field">
+                      <span>Nome</span>
+                      <input type="text" required autoComplete="given-name" value={formData.nome} onChange={e => setFormData({ ...formData, nome: e.target.value })} />
+                    </label>
+                    <label className="pub-field">
+                      <span>Cognome</span>
+                      <input type="text" required autoComplete="family-name" value={formData.cognome} onChange={e => setFormData({ ...formData, cognome: e.target.value })} />
+                    </label>
+                  </div>
+                  <label className="pub-field">
+                    <span>Telefono</span>
+                    <input type="tel" required autoComplete="tel" inputMode="tel" value={formData.telefono} onChange={e => setFormData({ ...formData, telefono: e.target.value })} />
+                  </label>
+                  <label className="pub-field">
+                    <span>Email</span>
+                    <input type="email" required autoComplete="email" inputMode="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  </label>
+                  {referenceAgents.length > 0 && (
+                    <label className="pub-field">
+                      <span>Agente di riferimento (facoltativo)</span>
+                      <select value={formData.agente_referente_id} onChange={e => setFormData({ ...formData, agente_referente_id: e.target.value })} disabled={loadingAgents}>
+                        <option value="">Nessuno</option>
+                        {referenceAgents.map(a => <option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <label className="pub-field">
+                    <span>Messaggio (facoltativo)</span>
+                    <textarea rows={2} value={formData.messaggio} onChange={e => setFormData({ ...formData, messaggio: e.target.value })} placeholder="Ad esempio i giorni in cui saresti disponibile" />
+                  </label>
+                  <div className="space-y-3 pt-1">
+                    <label className="pub-check">
+                      <input type="checkbox" checked={formData.privacy_accepted} onChange={e => setFormData({ ...formData, privacy_accepted: e.target.checked })} />
+                      <span>Ho letto l&apos;informativa privacy e acconsento al trattamento dei dati per essere ricontattato su questo immobile (obbligatorio)</span>
+                    </label>
+                    <label className="pub-check">
+                      <input type="checkbox" checked={formData.marketing_accepted} onChange={e => setFormData({ ...formData, marketing_accepted: e.target.checked })} />
+                      <span>Voglio ricevere novità e nuovi immobili da Ghergo Immobiliare</span>
+                    </label>
+                  </div>
+                  <button type="submit" disabled={waitSubmitting} className="pub-btn w-full">{waitSubmitting ? 'Invio…' : 'Iscrivimi alla lista d\'attesa'}</button>
+                </form>
+              )
             ) : timeSlots.length === 0 ? (
               <p className="pub-body">Gli orari di visita non sono ancora disponibili.</p>
             ) : (
@@ -595,7 +733,7 @@ export default function OpenHouseDetail() {
 
             {/* Modulo dati (dopo la scelta dell'orario) */}
             <div ref={bookingFormRef} className="scroll-mt-24">
-              {showBookingForm && selectedSlotData && !isPast && (
+              {showBookingForm && selectedSlotData && !isPast && !soldOut && (
                 <form onSubmit={handleFormSubmit} className="mt-8 space-y-5">
                   <div className="pub-divider mb-6" />
                   <p className="pub-body">
@@ -661,7 +799,16 @@ export default function OpenHouseDetail() {
       </footer>
 
       {/* Barra mobile per arrivare alla prenotazione */}
-      {!isPast && !showBookingForm && !showQuestionnaire && timeSlots.length > 0 && (
+      {soldOut && !waitDone && (
+        <div className="pub-mobilebar lg:hidden">
+          <div>
+            <p className="text-sm font-semibold">Sold Out</p>
+            <p className="text-xs opacity-80">Prenotazioni chiuse</p>
+          </div>
+          <button onClick={scrollToBooking} className="pub-btn pub-btn-sm">Lista d&apos;attesa</button>
+        </div>
+      )}
+      {!isPast && !soldOut && !showBookingForm && !showQuestionnaire && timeSlots.length > 0 && (
         <div className="pub-mobilebar lg:hidden">
           <div>
             <p className="text-sm font-semibold first-letter:uppercase">{eventDate}</p>

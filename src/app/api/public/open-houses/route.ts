@@ -11,6 +11,7 @@ export async function GET() {
       data_evento,
       ora_inizio,
       ora_fine,
+      sold_out,
       gre_properties!inner (titolo, descrizione, prezzo, tipologia, zona, caratteristiche, immagini, is_active),
       gre_agents!inner (nome, cognome, email)
     `)
@@ -29,6 +30,7 @@ export async function GET() {
     data_evento: item.data_evento,
     ora_inizio: item.ora_inizio,
     ora_fine: item.ora_fine,
+    sold_out: !!item.sold_out,
     property: item.gre_properties,
     agent: item.gre_agents
   }))

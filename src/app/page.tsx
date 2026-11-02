@@ -13,6 +13,7 @@ interface OpenHouse {
   data_evento: string
   ora_inizio: string
   ora_fine: string
+  sold_out?: boolean
   property: {
     titolo: string
     descrizione: string
@@ -219,9 +220,11 @@ export default function Home() {
                           <b>{day(oh.data_evento)}</b>
                           <small>{month(oh.data_evento)}</small>
                         </div>
+                        {oh.sold_out && <div className="pub-soldout" aria-hidden="true"><span>Sold Out</span></div>}
                       </div>
                       <p className="mt-5 text-sm font-semibold first-letter:uppercase" style={{ color: 'var(--ink)' }}>
                         {formatDate(oh.data_evento)}, {t(oh.ora_inizio)}–{t(oh.ora_fine)}
+                        {oh.sold_out && <span className="pub-muted font-normal"> · Prenotazioni chiuse</span>}
                       </p>
                       <h3 className="pub-display pub-card-title mt-2">{niceText(oh.property.titolo)}</h3>
                       <p className="pub-muted mt-1">{niceText(oh.property.zona)}</p>
