@@ -12,6 +12,7 @@ import ReminderPanel from '@/components/dashboard/ReminderPanel'
 import SlotManager from '@/components/dashboard/SlotManager'
 import SoldOutPanel from '@/components/dashboard/SoldOutPanel'
 import VenditoriPanel from '@/components/dashboard/VenditoriPanel'
+import NotaCliente from '@/components/dashboard/NotaCliente'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -43,6 +44,8 @@ interface BookingRow {
   portato_da: string | null
   senza_prenotazione?: boolean
   foglio_firmato_at?: string | null
+  nota?: string | null
+  nota_at?: string | null
   id: string
   status: 'confirmed' | 'completed' | 'no_show'
   cancellation_reason: string | null
@@ -456,6 +459,16 @@ export default function OpenHouseCruscotto() {
                             <span key={i} className={`px-2 py-0.5 rounded text-xs ${tg.cls}`}>{tg.text}</span>
                           ))}
                         </div>
+                        {b.mine && (
+                          <NotaCliente
+                            key={`nota-${b.id}`}
+                            openHouseId={openHouse.id}
+                            bookingId={b.id}
+                            nota={b.nota || null}
+                            notaAt={b.nota_at || null}
+                            onSaved={(nota, at) => setBookings(bs => bs.map(x => (x.id === b.id ? { ...x, nota, nota_at: at } : x)))}
+                          />
+                        )}
                       </div>
                       {b.mine && <div className="flex gap-2 text-sm">
                         <a href={`tel:${b.client.telefono}`} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">📞</a>

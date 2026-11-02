@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: bookings } = await getSupabaseAdmin()
     .from('gre_bookings')
     .select(`
-      id, status, cancellation_reason, questionnaire_completed, note_cliente, agente_referente_id, client_id, senza_prenotazione, foglio_visita_firmato_at,
+      id, status, cancellation_reason, questionnaire_completed, note_cliente, nota_agente, nota_agente_at, agente_referente_id, client_id, senza_prenotazione, foglio_visita_firmato_at,
       gre_clients (nome, cognome, email, telefono),
       gre_time_slots (ora_inizio, ora_fine),
       gre_prequalification_responses (response_data),
@@ -59,6 +59,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         telefono: mine ? b.gre_clients?.telefono || '' : '',
       },
       note_cliente: mine ? b.note_cliente : null,
+      // nota personale: solo chi segue il cliente
+      nota: mine ? b.nota_agente : null,
+      nota_at: mine ? b.nota_agente_at : null,
       slot: b.gre_time_slots || null,
       q: mine ? qq : null,
     }]
@@ -91,6 +94,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const mine = followsClient(b, access.team, auth.agent, access.role)
   if (access.role === 'collega' && !mine) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
+  }
+
+  // Nota personale sul cliente per questa visita (solo chi lo segue; mai nel report né nelle email)
+  if (action === 'nota') {
+    if (!mine) return NextResponse.json({ error: 'La nota la scrive chi segue il cliente' }, { status: 403 })
+    const nota = String(body.nota || '').trim().slice(0, 4000)
+    const at = new Date().toISOString()
+    const { error } = await supabase.from('gre_bookings').update({ nota_agente: nota || null, nota_agente_at: nota ? at : null }).eq('id', b.id)
+    if (error) return NextResponse.json({ error: 'Nota non salvata' }, { status: 500 })
+    return NextResponse.json({ ok: true, nota: nota || null, nota_at: nota ? at : null })
   }
 
   // Modifica di telefono / email del cliente (solo chi lo segue)
