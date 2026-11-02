@@ -34,8 +34,11 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [io, setIo] = useState<{ nome: string; qualifica: 'agente' | 'assistente' } | null>(null)
+  const [festa, setFesta] = useState(false)
 
-  const apply = (data: { sold_out: boolean; puo_gestire: boolean; lista: Attesa[] }) => {
+  const apply = (data: { sold_out: boolean; puo_gestire: boolean; lista: Attesa[]; io?: { nome: string; qualifica: 'agente' | 'assistente' } }) => {
+    if (data.io) setIo(data.io)
     setSoldOut(data.sold_out)
     setPuoGestire(data.puo_gestire)
     setLista(data.lista || [])
@@ -62,15 +65,18 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
     const res = await authFetch(`/api/open-houses/${openHouseId}/waitlist`, { method: 'POST', body: JSON.stringify(payload) })
     const data = await res.json().catch(() => ({}))
     setBusy(false)
-    if (!res.ok) { setMsg(data.error || 'Non salvato'); return }
+    if (!res.ok) { setMsg(data.error || 'Non salvato'); return false }
     apply(data)
+    return true
   }
 
-  const toggleSoldOut = () => {
-    const ok = soldOut
-      ? window.confirm('Riaprire le prenotazioni? I clienti potranno di nuovo scegliere gli orari liberi.')
-      : window.confirm('Segnare l\'Open House come SOLD OUT?\n\nLe prenotazioni si chiudono, l\'evento resta in elenco con la scritta Sold Out e chi arriva può lasciare i contatti nella lista d\'attesa. Le prenotazioni già fatte non cambiano.')
-    if (ok) act({ action: 'sold_out', on: !soldOut })
+  const segnaSoldOut = async () => {
+    const ok = window.confirm('Confermi che l\'Open House è SOLD OUT?\n\nTutti gli orari risulteranno occupati, sulla foto e nell\'elenco comparirà SOLD OUT e chi arriva potrà lasciare i contatti nella lista d\'attesa. Le prenotazioni già fatte non cambiano.')
+    if (ok && await act({ action: 'sold_out', on: true })) setFesta(true)
+  }
+
+  const riapri = () => {
+    if (window.confirm('Riaprire le prenotazioni? I clienti potranno di nuovo scegliere gli orari liberi.')) act({ action: 'sold_out', on: false })
   }
 
   if (!loaded) return null
@@ -87,15 +93,19 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
         {soldOut && <span className="px-2 py-0.5 rounded text-xs font-bold tracking-widest text-white" style={{ background: BLU }}>SOLD OUT</span>}
       </h2>
       {puoGestire ? (
-        <label className={`mt-3 flex gap-3 items-start p-3 rounded-lg border-2 cursor-pointer ${soldOut ? 'bg-blue-50' : 'border-gray-200'}`} style={soldOut ? { borderColor: BLU } : undefined}>
-          <input type="checkbox" checked={soldOut} disabled={busy} onChange={toggleSoldOut} className="mt-0.5 w-6 h-6 shrink-0" style={{ accentColor: BLU }} />
-          <span className="text-sm leading-snug">
-            <b>Open House Sold Out</b><br />
-            {soldOut
-              ? 'Tutti gli orari risultano occupati, sulla foto e nell\'elenco compare SOLD OUT e chi arriva lascia i contatti nella lista d\'attesa. Togli la spunta per riaprire le prenotazioni.'
-              : 'Con la spunta tutti gli orari risultano occupati, sulla foto e nell\'elenco compare SOLD OUT e chi arriva può lasciare i contatti nella lista d\'attesa. Le prenotazioni già fatte non cambiano.'}
-          </span>
-        </label>
+        soldOut ? (
+          <p className="text-sm mt-1" style={{ color: 'var(--text-gray)' }}>
+            Tutti gli orari risultano occupati e chi arriva lascia i contatti nella lista d&apos;attesa.{' '}
+            <button disabled={busy} onClick={riapri} className="underline" style={{ color: BLU }}>Riapri prenotazioni</button>
+          </p>
+        ) : (
+          <div className="mt-3">
+            <button disabled={busy} onClick={segnaSoldOut} className="px-5 py-3 rounded-lg font-bold text-white disabled:opacity-50" style={{ background: BLU }}>
+              🏆 Open House Sold Out
+            </button>
+            <p className="text-xs mt-2" style={{ color: 'var(--text-gray)' }}>Quando non vuoi più prenotazioni: l&apos;evento resta in elenco con la scritta SOLD OUT e raccoglie la lista d&apos;attesa.</p>
+          </div>
+        )
       ) : (
         <p className="text-sm" style={{ color: 'var(--text-gray)' }}>{soldOut ? 'Prenotazioni chiuse: l\'Open House è in Sold Out.' : 'Prenotazioni aperte.'}</p>
       )}
@@ -142,6 +152,57 @@ export default function SoldOutPanel({ openHouseId, onChange }: { openHouseId: s
           )}
         </div>
       )}
+
+      {festa && <Complimenti io={io} onClose={() => setFesta(false)} />}
+    </div>
+  )
+}
+
+// Nomi maschili che finiscono in -a (il programma non registra il sesso: lo si deduce dal nome)
+const MASCHILI_IN_A = ['andrea', 'luca', 'gianluca', 'nicola', 'mattia', 'elia', 'enea', 'tobia', 'battista', 'giosuè', 'giona', 'evangelista', 'zaccaria', 'geremia', 'isaia', 'mosè', 'costa']
+const femminile = (nome: string) => {
+  const n = nome.trim().split(/[\s_]+/)[0].toLowerCase()
+  return n.endsWith('a') && !MASCHILI_IN_A.includes(n)
+}
+
+function Complimenti({ io, onClose }: { io: { nome: string; qualifica: 'agente' | 'assistente' } | null; onClose: () => void }) {
+  const nome = (io?.nome || '').split('_')[0]
+  const f = femminile(nome)
+  const assistente = io?.qualifica === 'assistente'
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-0 md:p-6" onClick={onClose}>
+      <div className="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="so-title">
+        <div className="px-6 pt-7 pb-5 text-center text-white rounded-t-2xl" style={{ background: BLU }}>
+          <div className="text-5xl" aria-hidden="true">🏆</div>
+          <h2 id="so-title" className="text-2xl font-bold mt-2 tracking-wide">Open House Sold Out!</h2>
+        </div>
+        <div className="px-6 py-6 space-y-4 text-[15px] leading-relaxed" style={{ color: 'var(--text-dark)' }}>
+          {assistente ? (
+            <>
+              <p>Complimenti <b>{nome}</b>, questo risultato porta anche la tua firma. Un Open House che va sold out nasce da un&apos;acquisizione fatta bene e da una promozione eccellente, e tu hai contribuito a farlo conoscere nel modo giusto.</p>
+              <p>Adesso il lavoro è trasformarlo in un successo completo:</p>
+              <ul className="space-y-1.5 pl-1">
+                <li>• <b>nella pubblicità</b>, facendo vedere a tutti questo risultato;</li>
+                <li>• <b>nell&apos;accoglienza</b>, perché ogni cliente che entra deve uscire convinto della professionalità di Ghergo Immobiliare.</li>
+              </ul>
+              <p>Continua così: sono risultati che fanno la differenza per tutta la squadra. 🚀</p>
+            </>
+          ) : (
+            <>
+              <p>Complimenti <b>{nome}</b>, questo risultato è tutto merito tuo. Un Open House che va sold out non è fortuna: nasce da un&apos;acquisizione fatta bene e da una promozione eccellente. Hai scelto l&apos;immobile giusto, l&apos;hai preso al prezzo giusto e l&apos;hai fatto conoscere nel modo giusto.</p>
+              <p className="font-semibold">Sono traguardi che raggiungono solo i grandi agenti immobiliari.</p>
+              <p>Adesso il lavoro non è solo vendere questo immobile, ma trasformarlo in un successo completo:</p>
+              <ul className="space-y-1.5 pl-1">
+                <li>• <b>nelle acquisizioni</b>, raccontando ai proprietari che cosa sai ottenere;</li>
+                <li>• <b>nella pubblicità</b>, facendo vedere a tutti questo risultato;</li>
+                <li>• <b>nella tua reputazione</b>, perché ogni cliente che entra deve uscire convinto della tua professionalità.</li>
+              </ul>
+              <p>Continua così e ti contraddistinguerai come <b>{f ? 'una vera Top Producer' : 'un vero Top Producer'}</b>. 🚀</p>
+            </>
+          )}
+          <button onClick={onClose} className="w-full mt-2 px-5 py-3 rounded-lg font-bold text-white" style={{ background: BLU }}>Grazie!</button>
+        </div>
+      </div>
     </div>
   )
 }

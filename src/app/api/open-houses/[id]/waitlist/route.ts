@@ -34,7 +34,7 @@ async function load(id: string, agent: StaffAgent, role: OhRole, team: Team) {
       contattato_at: r.contattato_at,
     }]
   })
-  return { sold_out: !!oh?.sold_out, puo_gestire: role !== 'collega', lista }
+  return { sold_out: !!oh?.sold_out, puo_gestire: role !== 'collega', lista, io: { nome: agent.nome, qualifica: agent.qualifica === 'assistente' ? 'assistente' : 'agente' } }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
