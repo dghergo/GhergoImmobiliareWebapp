@@ -261,3 +261,41 @@ export function foglioEmail(p: {
         `),
       }
 }
+
+/** Lista d'attesa (Open House in Sold Out): conferma al cliente, a nome dell'agente che lo segue. */
+export function waitlistClientEmail(p: { client: Person; agent: Person; property: Property; dataEvento: string }) {
+  const titolo = niceText(p.property.titolo)
+  const data = new Date(p.dataEvento + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })
+  return {
+    subject: `Sei in lista d'attesa – Open House ${titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>grazie per l'interesse verso <strong>${esc(titolo)}</strong>. L'Open House di <span style="text-transform:capitalize;">${esc(data)}</span> ha raggiunto il numero massimo di visite che possiamo accogliere dedicando a ciascuno il tempo giusto.</p>
+      <p>Abbiamo inserito i tuoi dati nella <strong>lista d'attesa</strong>: se si libera un posto o se organizziamo un'altra occasione di visita, ti contattiamo noi.</p>
+      <p style="margin-top:22px;">A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+    `),
+  }
+}
+
+/** Avviso all'agente: un nuovo contatto in lista d'attesa. */
+export function waitlistAgentEmail(p: { destinatario: Person; client: Person; property: Property; dataEvento: string; messaggio: string | null; openHouseId: string }) {
+  const titolo = niceText(p.property.titolo)
+  const tel = p.client.telefono || ''
+  return {
+    subject: `Lista d'attesa – ${p.client.nome} ${p.client.cognome} per ${titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.destinatario.nome)}</strong>,</p>
+      <p>l'Open House di <strong>${esc(titolo)}</strong> è in Sold Out e un nuovo contatto si è iscritto alla lista d'attesa.</p>
+      <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px;">
+        ${row('Cliente', `${esc(p.client.nome)} ${esc(p.client.cognome)}`)}
+        ${row('Telefono', tel ? `<a href="tel:${esc(tel)}">${esc(tel)}</a>` : '')}
+        ${row('Email', esc(p.client.email))}
+      </table>
+      ${p.messaggio ? `<p style="background:#fff; padding:12px 14px; border-radius:8px; font-style:italic; white-space:pre-line;">“${esc(p.messaggio)}”</p>` : ''}
+      <div style="margin:18px 0;">
+        ${tel ? `<a href="https://wa.me/${wa(tel)}" style="background:#16a34a; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700; margin:0 6px 6px 0;">💬 WhatsApp</a>` : ''}
+        <a href="${SITE()}/dashboard/open-houses/${p.openHouseId}" style="background:${BLU}; color:#fff; padding:11px 18px; border-radius:999px; text-decoration:none; display:inline-block; font-weight:700;">Apri la lista d'attesa</a>
+      </div>
+    `),
+  }
+}

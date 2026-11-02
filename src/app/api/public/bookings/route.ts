@@ -57,6 +57,16 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin()
+
+  // Open House in Sold Out: le prenotazioni sono chiuse (anche per chi aveva la pagina già aperta)
+  const { data: stato } = await supabase.from('gre_open_houses').select('sold_out').eq('id', openHouseId).maybeSingle()
+  if (stato?.sold_out) {
+    return NextResponse.json(
+      { error: 'Questo Open House ha appena raggiunto il numero massimo di visite. Puoi lasciare i tuoi contatti nella lista d\'attesa.', code: 'sold_out' },
+      { status: 409 }
+    )
+  }
+
   const { data, error } = await supabase.rpc('gre_create_booking', {
     p_open_house_id: openHouseId,
     p_slot_id: slotId,

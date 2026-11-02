@@ -10,6 +10,7 @@ import DashboardNav from '@/components/DashboardNav'
 import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
 import ReminderPanel from '@/components/dashboard/ReminderPanel'
 import SlotManager from '@/components/dashboard/SlotManager'
+import SoldOutPanel from '@/components/dashboard/SoldOutPanel'
 import VenditoriPanel from '@/components/dashboard/VenditoriPanel'
 
 interface Questionnaire {
@@ -396,6 +397,8 @@ export default function OpenHouseCruscotto() {
               <SmallStat cat="non_presentati" label="Non presentati" value={stats.non_presentati} />
               <SmallStat cat="cancellate" label="Cancellate" value={stats.cancellate} />
             </div>
+
+            <SoldOutPanel openHouseId={openHouse.id} />
 
             {role !== 'collega' && <SlotManager openHouseId={openHouse.id} />}
 
