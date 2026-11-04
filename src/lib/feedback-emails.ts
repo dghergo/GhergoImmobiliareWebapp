@@ -299,3 +299,42 @@ export function waitlistAgentEmail(p: { destinatario: Person; client: Person; pr
     `),
   }
 }
+
+/** "Prepara la tua visita": video della casa e video su come si fa una proposta, a nome di chi segue il cliente. */
+export function presentationEmail(p: {
+  client: Person; agent: Person & { qualifica?: string | null }; property: Property
+  dataEvento: string; ora: string | null; videoCasa: string; videoProposta: string | null
+}) {
+  const giorno = quandoGiorno(p.dataEvento)
+  const ora = p.ora ? p.ora.slice(0, 5) : ''
+  const titolo = niceText(p.property.titolo)
+  const luogo = [p.property.indirizzo, p.property.zona].filter(Boolean).join(', ')
+  const maps = luogo ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}` : ''
+  const btn = (href: string, label: string, bg: string) =>
+    `<a href="${esc(href)}" style="background:${bg}; color:#fff; padding:14px 26px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">${label}</a>`
+  return {
+    subject: `Prepara la tua visita – Open House ${titolo}`,
+    html: shell(`
+      <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
+      <p>manca poco all'Open House di <strong>${esc(titolo)}</strong>. Per farti arrivare alla visita con tutte le informazioni, abbiamo preparato due brevi video: guardali con calma, quando vuoi.</p>
+      <div style="background:#fff; border-radius:12px; padding:18px; margin:18px 0; border-left:4px solid ${SKY};">
+        <div style="font-size:20px; font-weight:800; color:${BLU};">${esc(giorno.charAt(0).toUpperCase() + giorno.slice(1))}${ora ? ` alle ${esc(ora)}` : ''}</div>
+        ${luogo ? `<div style="margin-top:6px;">📍 ${esc(luogo)}${maps ? ` · <a href="${maps}" style="color:${SKY};">Apri la mappa</a>` : ''}</div>` : ''}
+      </div>
+      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:22px; margin:18px 0; text-align:center;">
+        <div style="font-size:18px; font-weight:800;">🏡 Scopri la casa</div>
+        <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Una visita virtuale con tutti i dettagli dell'immobile.</div>
+        ${btn(p.videoCasa, 'Guarda il video della casa', SKY)}
+      </div>
+      ${p.videoProposta ? `
+      <div style="background:#fff; border-radius:14px; padding:22px; margin:18px 0; text-align:center; border:2px solid ${BLU};">
+        <div style="font-size:18px; font-weight:800; color:${BLU};">✍️ Come si fa una proposta</div>
+        <div style="font-size:14px; color:#4b5563; margin:6px 0 14px;">Se l'immobile ti piace: cosa serve, i tempi e come ti accompagniamo fino al rogito.</div>
+        ${btn(p.videoProposta, 'Guarda il video', BLU)}
+      </div>` : ''}
+      <p>Dopo l'Open House riceverai un'email per lasciarci il tuo parere: se ci dici che vuoi fare una proposta, ti mandiamo la bozza e ti richiamiamo per fissare l'appuntamento.</p>
+      <p>Per qualsiasi domanda rispondi pure a questa email.</p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${p.agent.qualifica === 'assistente' ? 'Assistente immobiliare · ' : ''}Ghergo Immobiliare</span></p>
+    `),
+  }
+}

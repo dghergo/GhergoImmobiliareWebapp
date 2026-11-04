@@ -11,6 +11,7 @@ import FeedbackPanel from '@/components/dashboard/FeedbackPanel'
 import ReminderPanel from '@/components/dashboard/ReminderPanel'
 import SlotManager from '@/components/dashboard/SlotManager'
 import SoldOutPanel from '@/components/dashboard/SoldOutPanel'
+import PresentazionePanel from '@/components/dashboard/PresentazionePanel'
 import VenditoriPanel from '@/components/dashboard/VenditoriPanel'
 import NotaCliente from '@/components/dashboard/NotaCliente'
 
@@ -402,6 +403,8 @@ export default function OpenHouseCruscotto() {
             </div>
 
             <SoldOutPanel openHouseId={openHouse.id} />
+
+            {role !== 'collega' && <PresentazionePanel openHouseId={openHouse.id} eventDate={openHouse.data_evento} eventEnd={openHouse.ora_fine} />}
 
             {role !== 'collega' && <SlotManager openHouseId={openHouse.id} />}
 
