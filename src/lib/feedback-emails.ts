@@ -310,27 +310,35 @@ export function presentationEmail(p: {
   const titolo = niceText(p.property.titolo)
   const luogo = [p.property.indirizzo, p.property.zona].filter(Boolean).join(', ')
   const maps = luogo ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}` : ''
+  const n = p.videoProposta ? 2 : 1
   const btn = (href: string, label: string, bg: string) =>
-    `<a href="${esc(href)}" style="background:${bg}; color:#fff; padding:14px 26px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">${label}</a>`
+    `<a href="${esc(href)}" style="background:${bg}; color:#fff; padding:15px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800; font-size:16px;">${label}</a>`
+  const num = (k: number) => `<div style="display:inline-block; width:34px; height:34px; line-height:34px; border-radius:50%; background:${SKY}; color:#fff; font-weight:800; font-size:17px; margin-bottom:8px;">${k}</div>`
   return {
-    subject: `Prepara la tua visita – Open House ${titolo}`,
+    subject: `IMPORTANTE prima della visita di ${giorno}: guarda ${n === 2 ? 'questi 2 video' : 'questo video'} – ${titolo}`,
     html: shell(`
+      <div style="background:#FEF3C7; border:2px solid #F59E0B; border-radius:12px; padding:16px 18px; margin-bottom:18px;">
+        <div style="font-size:19px; font-weight:800; color:${BLU};">⚠️ Da guardare prima dell'Open House</div>
+        <div style="margin-top:6px;">${n === 2 ? 'I due video qui sotto contengono' : 'Il video qui sotto contiene'} <strong>informazioni importanti</strong> per la tua visita: ti chiediamo di ${n === 2 ? 'guardarli entrambi' : 'guardarlo'} prima di venire.</div>
+      </div>
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
-      <p>manca poco all'Open House di <strong>${esc(titolo)}</strong>. Per farti arrivare alla visita con tutte le informazioni, abbiamo preparato due brevi video: guardali con calma, quando vuoi.</p>
+      <p>all'Open House di <strong>${esc(titolo)}</strong> saremo in tanti: durante la visita non riusciremo a dare a ciascuno tutte le spiegazioni con calma. Per questo abbiamo preparato ${n === 2 ? 'due video' : 'un video'} con tutto quello che è importante sapere, così arrivi alla visita già informato e puoi concentrarti sull'immobile.</p>
       <div style="background:#fff; border-radius:12px; padding:18px; margin:18px 0; border-left:4px solid ${SKY};">
         <div style="font-size:20px; font-weight:800; color:${BLU};">${esc(giorno.charAt(0).toUpperCase() + giorno.slice(1))}${ora ? ` alle ${esc(ora)}` : ''}</div>
         ${luogo ? `<div style="margin-top:6px;">📍 ${esc(luogo)}${maps ? ` · <a href="${maps}" style="color:${SKY};">Apri la mappa</a>` : ''}</div>` : ''}
       </div>
-      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:22px; margin:18px 0; text-align:center;">
-        <div style="font-size:18px; font-weight:800;">🏡 Scopri la casa</div>
-        <div style="font-size:14px; opacity:.85; margin:6px 0 14px;">Una visita virtuale con tutti i dettagli dell'immobile.</div>
+      <div style="background:${BLU}; color:#fff; border-radius:14px; padding:24px 22px; margin:18px 0; text-align:center;">
+        ${n === 2 ? num(1) : ''}
+        <div style="font-size:19px; font-weight:800;">🏡 Il video con tutti i dettagli della casa</div>
+        <div style="font-size:14px; opacity:.9; margin:8px 0 16px;"><strong>È un video nuovo</strong>, diverso da quello che hai già visto nell'annuncio: ti accompagniamo stanza per stanza con tutte le informazioni sull'immobile.</div>
         ${btn(p.videoCasa, 'Guarda il video della casa', SKY)}
       </div>
       ${p.videoProposta ? `
-      <div style="background:#fff; border-radius:14px; padding:22px; margin:18px 0; text-align:center; border:2px solid ${BLU};">
-        <div style="font-size:18px; font-weight:800; color:${BLU};">✍️ Come si fa una proposta</div>
-        <div style="font-size:14px; color:#4b5563; margin:6px 0 14px;">Se l'immobile ti piace: cosa serve, i tempi e come ti accompagniamo fino al rogito.</div>
-        ${btn(p.videoProposta, 'Guarda il video', BLU)}
+      <div style="background:#fff; border-radius:14px; padding:24px 22px; margin:18px 0; text-align:center; border:2px solid ${BLU};">
+        ${num(2)}
+        <div style="font-size:19px; font-weight:800; color:${BLU};">✍️ Come si fa una proposta</div>
+        <div style="font-size:14px; color:#4b5563; margin:8px 0 16px;">Se l'immobile ti piace: cosa serve, entro quando presentarla e come ti accompagniamo fino al rogito. <strong>Da vedere prima della visita</strong>, per non trovarti impreparato.</div>
+        ${btn(p.videoProposta, 'Guarda il video della proposta', BLU)}
       </div>` : ''}
       <p>Dopo l'Open House riceverai un'email per lasciarci il tuo parere: se ci dici che vuoi fare una proposta, ti mandiamo la bozza e ti richiamiamo per fissare l'appuntamento.</p>
       <p>Per qualsiasi domanda rispondi pure a questa email.</p>
