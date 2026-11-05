@@ -10,7 +10,7 @@ interface State {
   attiva: boolean
   video_casa_url: string
   video_proposta_url: string
-  video_proposta_suggerito: string
+  puo_cambiare_proposta: boolean
   prenotati: number
   inviate: number
 }
@@ -19,13 +19,14 @@ const BLU = '#203162'
 
 export default function PresentazionePanel({ openHouseId, eventDate, eventEnd }: { openHouseId: string; eventDate: string; eventEnd: string }) {
   const [s, setS] = useState<State | null>(null)
-  const [form, setForm] = useState({ attiva: false, video_casa_url: '', video_proposta_url: '' })
+  const [form, setForm] = useState({ attiva: false, video_casa_url: '' })
+  const [nuovaProposta, setNuovaProposta] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const apply = (d: State) => {
     setS(d)
-    setForm({ attiva: d.attiva, video_casa_url: d.video_casa_url, video_proposta_url: d.video_proposta_url || d.video_proposta_suggerito })
+    setForm({ attiva: d.attiva, video_casa_url: d.video_casa_url })
   }
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function PresentazionePanel({ openHouseId, eventDate, eventEnd }:
   if (!s) return null
   if (new Date(`${eventDate}T${eventEnd}`) < new Date()) return null
 
-  const salvata = s.attiva === form.attiva && s.video_casa_url === form.video_casa_url && s.video_proposta_url === form.video_proposta_url
+  const salvata = s.attiva === form.attiva && s.video_casa_url === form.video_casa_url
   const daInviare = s.prenotati - s.inviate
   const salva = () => call({ action: 'salva', ...form })
 
@@ -79,11 +80,21 @@ export default function PresentazionePanel({ openHouseId, eventDate, eventEnd }:
           <span className="font-semibold" style={{ color: 'var(--text-dark)' }}>Link del video della casa</span>
           <input type="url" value={form.video_casa_url} onChange={e => setForm({ ...form, video_casa_url: e.target.value })} placeholder="https://youtu.be/…" className="mt-1 w-full border rounded-lg px-3 py-2" />
         </label>
-        <label className="text-sm">
-          <span className="font-semibold" style={{ color: 'var(--text-dark)' }}>Link del video della proposta</span>
-          <input type="url" value={form.video_proposta_url} onChange={e => setForm({ ...form, video_proposta_url: e.target.value })} placeholder="https://youtu.be/…" className="mt-1 w-full border rounded-lg px-3 py-2" />
-          {!s.video_proposta_url && s.video_proposta_suggerito && <span className="text-xs" style={{ color: 'var(--text-gray)' }}>Proposto quello usato l&apos;ultima volta</span>}
-        </label>
+        <div className="text-sm">
+          <span className="font-semibold" style={{ color: 'var(--text-dark)' }}>Video della proposta</span>
+          <div className="mt-1 px-3 py-2 rounded-lg border bg-gray-50 flex flex-wrap items-center gap-2">
+            <span>🔒 Video standard dell&apos;agenzia, incluso in automatico</span>
+            {s.video_proposta_url && <a href={s.video_proposta_url} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: BLU }}>Guarda</a>}
+            {s.puo_cambiare_proposta && nuovaProposta === null && <button onClick={() => setNuovaProposta(s.video_proposta_url)} className="underline text-xs" style={{ color: BLU }}>Cambia (solo admin)</button>}
+          </div>
+          {s.puo_cambiare_proposta && nuovaProposta !== null && (
+            <div className="mt-2 flex gap-2">
+              <input type="url" value={nuovaProposta} onChange={e => setNuovaProposta(e.target.value)} placeholder="https://youtu.be/…" className="flex-1 border rounded-lg px-3 py-2" />
+              <button disabled={busy} onClick={async () => { if (window.confirm('Cambio il video della proposta per tutti gli Open House?') && (await call({ action: 'video_proposta', video_proposta_url: nuovaProposta }))) setNuovaProposta(null) }} className="px-3 py-2 rounded-lg text-white text-sm font-semibold" style={{ background: BLU }}>Salva</button>
+              <button onClick={() => setNuovaProposta(null)} className="px-3 py-2 rounded-lg border text-sm">Annulla</button>
+            </div>
+          )}
+        </div>
       </div>
       <p className="text-xs mt-1" style={{ color: 'var(--text-gray)' }}>Usa link che chiunque può aprire (per esempio YouTube come &quot;non in elenco&quot;).</p>
 

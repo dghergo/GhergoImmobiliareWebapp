@@ -2,25 +2,25 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
 import { openHouseAccess } from '@/lib/oh-access'
 import { presentationEmail, sendAsAgent } from '@/lib/feedback-emails'
-import { sendPresentation, URL_RE } from '@/lib/presentazione'
+import { sendPresentation, URL_RE, videoPropostaStandard } from '@/lib/presentazione'
 
 export const maxDuration = 300
 
 // "Prepara la tua visita": facoltativa per ogni Open House. La gestisce chi organizza (e l'admin).
-async function load(id: string) {
+async function load(id: string, admin = false) {
   const supabase = getSupabaseAdmin()
-  const [{ data: oh }, { data: bookings }, { data: ultimo }] = await Promise.all([
-    supabase.from('gre_open_houses').select('presentazione_attiva, video_casa_url, video_proposta_url').eq('id', id).maybeSingle(),
+  const [{ data: oh }, { data: bookings }, proposta] = await Promise.all([
+    supabase.from('gre_open_houses').select('presentazione_attiva, video_casa_url').eq('id', id).maybeSingle(),
     supabase.from('gre_bookings').select('presentazione_inviata_at').eq('open_house_id', id).eq('status', 'confirmed'),
-    // il video della proposta è uguale per tutti: si propone l'ultimo usato
-    supabase.from('gre_open_houses').select('video_proposta_url').not('video_proposta_url', 'is', null).neq('id', id).order('created_at', { ascending: false }).limit(1),
+    videoPropostaStandard(),
   ])
   const all = bookings || []
   return {
     attiva: !!oh?.presentazione_attiva,
     video_casa_url: oh?.video_casa_url || '',
-    video_proposta_url: oh?.video_proposta_url || '',
-    video_proposta_suggerito: ultimo?.[0]?.video_proposta_url || '',
+    // il video della proposta è lo standard dell'agenzia: arriva in automatico, lo cambia solo l'admin
+    video_proposta_url: proposta || '',
+    puo_cambiare_proposta: admin,
     prenotati: all.length,
     inviate: all.filter(b => b.presentazione_inviata_at).length,
   }
@@ -39,7 +39,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const g = await guard(request, id)
   if (g.error) return g.error
-  return NextResponse.json(await load(id), { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json(await load(id, g.agent.role === 'admin'), { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -51,14 +51,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const bad = (msg: string) => NextResponse.json({ error: msg }, { status: 400 })
   const link = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 1000) : '')
 
+  const admin = g.agent.role === 'admin'
+
   if (body.action === 'salva') {
-    const casa = link(body.video_casa_url), proposta = link(body.video_proposta_url)
+    const casa = link(body.video_casa_url)
     if (casa && !URL_RE.test(casa)) return bad('Il link del video della casa deve iniziare con https://')
-    if (proposta && !URL_RE.test(proposta)) return bad('Il link del video della proposta deve iniziare con https://')
     if (body.attiva && !casa) return bad('Per attivare la presentazione serve il link del video della casa.')
-    const { error } = await supabase.from('gre_open_houses').update({ presentazione_attiva: !!body.attiva, video_casa_url: casa || null, video_proposta_url: proposta || null }).eq('id', id)
+    const { error } = await supabase.from('gre_open_houses').update({ presentazione_attiva: !!body.attiva, video_casa_url: casa || null }).eq('id', id)
     if (error) return bad('Non salvato, riprova')
-    return NextResponse.json({ ...(await load(id)), ok: 'Salvato' })
+    return NextResponse.json({ ...(await load(id, admin)), ok: 'Salvato' })
+  }
+
+  if (body.action === 'video_proposta') {
+    // video standard per tutti gli Open House: solo l'admin
+    if (!admin) return NextResponse.json({ error: 'Il video della proposta è quello standard dell\'agenzia: lo cambia solo l\'amministratore.' }, { status: 403 })
+    const url = link(body.video_proposta_url)
+    if (!URL_RE.test(url)) return bad('Il link deve iniziare con https://')
+    const { error } = await supabase.from('gre_settings').upsert({ key: 'video_proposta_url', value: url, updated_at: new Date().toISOString() })
+    if (error) return bad('Non salvato, riprova')
+    return NextResponse.json({ ...(await load(id, admin)), ok: 'Video standard della proposta aggiornato per tutti gli Open House' })
   }
 
   if (body.action === 'invia') {
@@ -66,12 +77,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (new Date(`${oh.data_evento}T${oh.ora_fine}`) < new Date(Date.now() - 2 * 3600 * 1000)) return bad('Questo Open House è già concluso.')
     const r = await sendPresentation(id)
     if (r.error) return bad(r.error)
-    return NextResponse.json({ ...(await load(id)), ok: `Inviata a ${r.sent} client${r.sent === 1 ? 'e' : 'i'}${r.failed.length ? ` · non riuscite: ${r.failed.join(', ')}` : ''}` })
+    return NextResponse.json({ ...(await load(id, admin)), ok: `Inviata a ${r.sent} client${r.sent === 1 ? 'e' : 'i'}${r.failed.length ? ` · non riuscite: ${r.failed.join(', ')}` : ''}` })
   }
 
   if (body.action === 'prova') {
     // anteprima a sé stessi, con i link salvati
-    const s = await load(id)
+    const s = await load(id, admin)
     if (!s.video_casa_url) return bad('Salva prima il link del video della casa.')
     const oh = g.access.oh
     const me = g.agent

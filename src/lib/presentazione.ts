@@ -8,11 +8,17 @@ import { presentationEmail, sendAsAgent } from './feedback-emails'
 
 export const URL_RE = /^https:\/\/[^\s<>"']+$/i
 
+/** Video standard dell'agenzia su come si fa una proposta: uguale per tutti gli Open House, lo cambia solo l'admin. */
+export async function videoPropostaStandard(): Promise<string | null> {
+  const { data } = await getSupabaseAdmin().from('gre_settings').select('value').eq('key', 'video_proposta_url').maybeSingle()
+  return data?.value && URL_RE.test(data.value) ? data.value : null
+}
+
 export async function sendPresentation(openHouseId: string) {
   const supabase = getSupabaseAdmin()
   const { data: oh } = await supabase
     .from('gre_open_houses')
-    .select('id, agent_id, co_agent_id, data_evento, ora_inizio, presentazione_attiva, video_casa_url, video_proposta_url, gre_properties (titolo, zona, indirizzo)')
+    .select('id, agent_id, co_agent_id, data_evento, ora_inizio, presentazione_attiva, video_casa_url, gre_properties (titolo, zona, indirizzo)')
     .eq('id', openHouseId)
     .maybeSingle()
   if (!oh || !oh.presentazione_attiva || !oh.video_casa_url || !URL_RE.test(oh.video_casa_url)) {
@@ -32,7 +38,7 @@ export async function sendPresentation(openHouseId: string) {
   const byId = new Map((agents || []).map(a => [a.id, a]))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const property = oh.gre_properties as any
-  const videoProposta = oh.video_proposta_url && URL_RE.test(oh.video_proposta_url) ? oh.video_proposta_url : null
+  const videoProposta = await videoPropostaStandard()
 
   let sent = 0
   const failed: string[] = []
