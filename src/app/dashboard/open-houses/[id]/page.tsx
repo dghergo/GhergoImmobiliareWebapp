@@ -14,6 +14,7 @@ import SoldOutPanel from '@/components/dashboard/SoldOutPanel'
 import PresentazionePanel from '@/components/dashboard/PresentazionePanel'
 import VenditoriPanel from '@/components/dashboard/VenditoriPanel'
 import NotaCliente from '@/components/dashboard/NotaCliente'
+import BrochurePoster from '@/components/dashboard/BrochurePoster'
 
 interface Questionnaire {
   vendita_immobile?: string
@@ -36,6 +37,8 @@ interface OpenHouseDetail {
     zona: string
     indirizzo: string | null
     prezzo: number | null
+    immagini?: string[] | null
+    brochure_url?: string | null
   }
   gre_agents?: { nome: string; cognome: string } | null
 }
@@ -120,6 +123,7 @@ export default function OpenHouseCruscotto() {
   const openHouseId = params?.id
 
   const [openHouse, setOpenHouse] = useState<OpenHouseDetail | null>(null)
+  const [poster, setPoster] = useState(false)
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -359,6 +363,9 @@ export default function OpenHouseCruscotto() {
                   >
                     📱 Check-in alla porta
                   </button>
+                  <button onClick={() => setPoster(true)} className="btn-secondary px-4 py-2 text-sm whitespace-nowrap">
+                    🖨️ Cartello brochure
+                  </button>
                   <button
                     onClick={() => router.push(`/dashboard/bookings?open_house=${openHouse.id}`)}
                     className="btn-secondary px-4 py-2 text-sm whitespace-nowrap"
@@ -368,6 +375,13 @@ export default function OpenHouseCruscotto() {
                 </div>
               </div>
             </div>
+
+            {poster && (
+              <BrochurePoster
+                property={{ titolo: openHouse.gre_properties.titolo, zona: openHouse.gre_properties.zona, indirizzo: openHouse.gre_properties.indirizzo, immagini: openHouse.gre_properties.immagini || [], brochure_url: openHouse.gre_properties.brochure_url || null }}
+                onClose={() => setPoster(false)}
+              />
+            )}
 
             {role === 'collega' && (
               <div className="rounded-lg p-4 mb-4 bg-amber-50 border border-amber-200 text-sm" style={{ color: 'var(--text-dark)' }}>
