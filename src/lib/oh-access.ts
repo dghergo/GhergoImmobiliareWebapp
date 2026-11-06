@@ -65,14 +65,37 @@ export async function openHouseAccess(openHouseId: string, agent: StaffAgent) {
 export const isTeamClient = (b: BookingOwnership, team: Team) => !b.agente_referente_id || team.ids.includes(b.agente_referente_id)
 
 /**
- * Chi segue il cliente verso l'esterno (casella da cui partono le email, firma, avvisi offerte):
+ * Chi segue il cliente verso l'esterno (casella da cui partono le email, firma):
  * il collega che l'ha portato; per i clienti degli organizzatori il referente scelto (agente o assistente),
- * altrimenti l'agente abilitato di riferimento dell'Open House.
+ * altrimenti chi organizza l'Open House (anche se è un assistente).
  */
 export function followerId(b: BookingOwnership, team: Team): string | null {
   if (!isTeamClient(b, team)) return b.agente_referente_id
   const scelto = team.members.find(m => m.id === b.agente_referente_id)
+  return scelto?.id || team.ids[0] || team.lead?.id || null
+}
+
+/**
+ * Agente abilitato indicato sui documenti (conferma di visita): mai un assistente.
+ * Il collega che ha portato il cliente; per i clienti degli organizzatori l'agente scelto o l'agente abilitato dell'Open House.
+ */
+export function agenteAbilitatoId(b: BookingOwnership, team: Team): string | null {
+  if (!isTeamClient(b, team)) return b.agente_referente_id
+  const scelto = team.members.find(m => m.id === b.agente_referente_id && m.qualifica === 'agente')
   return scelto?.id || team.lead?.id || team.ids[0] || null
+}
+
+/** Chi riceve gli avvisi su un cliente degli organizzatori: tutti e due gli organizzatori, mai uno solo. */
+export const teamRecipients = (team: Team) => team.members.filter(m => !!m.email)
+
+/**
+ * Per i clienti degli organizzatori le risposte del cliente arrivano a entrambi
+ * (Rispondi a: tutti e due), così nessuno perde il controllo. Vuoto se l'Open House lo gestisce una persona sola.
+ */
+export function teamReplyTo(b: BookingOwnership, team: Team): { replyTo?: string[] } {
+  if (!isTeamClient(b, team)) return {}
+  const emails = team.members.map(m => m.email).filter(Boolean)
+  return emails.length > 1 ? { replyTo: emails } : {}
 }
 
 /** true se chi guarda segue questo cliente (ne può vedere i dettagli). */

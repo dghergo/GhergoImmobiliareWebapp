@@ -9,6 +9,8 @@ interface EmailOptions {
   html: string
   from?: string
   agentId?: string  // ID dell'agente per recuperare i token OAuth
+  /** indirizzi a cui arrivano le risposte (es. entrambi gli organizzatori) */
+  replyTo?: string[]
   attachments?: Array<{
     filename: string
     path?: string
@@ -19,6 +21,8 @@ interface EmailOptions {
 
 /** Messaggio RFC 2822 (oggetto codificato: accenti ed emoji arrivano corretti; allegati opzionali). */
 export function buildRawEmail(options: EmailOptions): string {
+  const replyTo = (options.replyTo || []).filter(e => /^[^\s@,<>]+@[^\s@,<>]+$/.test(e))
+  const replyHeader = replyTo.length ? [`Reply-To: ${replyTo.join(', ')}`] : []
   // Crea il messaggio email in formato RFC 2822 (oggetto codificato: accenti ed emoji arrivano corretti)
   const subject = `=?UTF-8?B?${Buffer.from(options.subject, 'utf-8').toString('base64')}?=`
   const html64 = Buffer.from(options.html, 'utf-8').toString('base64').replace(/(.{76})/g, '$1\r\n')
@@ -47,6 +51,7 @@ export function buildRawEmail(options: EmailOptions): string {
     parts.push(`--${boundary}--`)
     email = [
       `To: ${options.to}`,
+      ...replyHeader,
       `Subject: ${subject}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -56,6 +61,7 @@ export function buildRawEmail(options: EmailOptions): string {
   } else {
     email = [
       `To: ${options.to}`,
+      ...replyHeader,
       `Subject: ${subject}`,
       'MIME-Version: 1.0',
       'Content-Type: text/html; charset=utf-8',

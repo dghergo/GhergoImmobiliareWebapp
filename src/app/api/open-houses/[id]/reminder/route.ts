@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
 import { reminderEmail, sendAsAgent } from '@/lib/feedback-emails'
-import { followerId, followsClient, isTeamClient, openHouseAccess } from '@/lib/oh-access'
+import { followerId, followsClient, isTeamClient, openHouseAccess, teamReplyTo } from '@/lib/oh-access'
 
 export const maxDuration = 300
 
@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // agenti che firmano le email (chi segue ciascun cliente)
   const ids = [...new Set(bookings.map(b => followerId(b, team)).filter(Boolean))] as string[]
-  const { data: agents } = await supabase.from('gre_agents').select('id, nome, cognome, email').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
+  const { data: agents } = await supabase.from('gre_agents').select('id, nome, cognome, email, qualifica').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
   const byId = new Map((agents || []).map(a => [a.id, a]))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,8 +47,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!client?.email || !agent) continue
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mail = reminderEmail({ client, agent, property, dataEvento: oh.data_evento, ora: (b.gre_time_slots as any)?.ora_inizio || null, assistenti: isTeamClient(b, team) ? team.assistenti : [] })
-      await sendAsAgent(client.email, mail, agent.id)
+      const mail = reminderEmail({ client, agent, property, dataEvento: oh.data_evento, ora: (b.gre_time_slots as any)?.ora_inizio || null, assistenti: isTeamClient(b, team) ? team.assistenti.filter(a => a.id !== agent.id) : [] })
+      await sendAsAgent(client.email, { ...mail, ...teamReplyTo(b, team) }, agent.id)
       await supabase.from('gre_bookings').update({ promemoria_inviato_at: new Date().toISOString() }).eq('id', b.id)
       sent++
     } catch (e) {

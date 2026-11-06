@@ -25,7 +25,10 @@ const shell = (inner: string) => `
   <div style="padding:24px; background:#f8fafc; border-radius: 0 0 12px 12px;">${inner}</div>
 </div>`
 
-interface Person { nome: string; cognome: string; email?: string; telefono?: string }
+interface Person { nome: string; cognome: string; email?: string; telefono?: string; qualifica?: string | null }
+
+/** Riga sotto la firma: un assistente è sempre indicato come assistente immobiliare, mai come agente. */
+const ruolo = (a: { qualifica?: string | null }) => `${a.qualifica === 'assistente' ? 'Assistente immobiliare · ' : ''}Ghergo Immobiliare`
 interface Property { titolo: string; zona?: string; indirizzo?: string | null }
 
 /** Richiesta di feedback al cliente, firmata dal suo agente e inviata dalla sua casella. */
@@ -53,7 +56,7 @@ export function feedbackRequestEmail(p: { client: Person; agent: Person; propert
       <div style="text-align:center; margin: 8px 0 22px;">
         <a href="${link}" style="background:${SKY}; color:#fff; padding:14px 30px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:700;">Rispondi in 30 secondi</a>
       </div>
-      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${ruolo(p.agent)}</span></p>
     `),
   }
 }
@@ -101,13 +104,13 @@ export function agentAlertEmail(p: {
 
 /** Invia dalla casella dell'agente; se non disponibile, dalla casella dell'agenzia. */
 type Attachment = { filename: string; content: Buffer; contentType: string }
-export async function sendAsAgent(to: string, mail: { subject: string; html: string; attachments?: Attachment[] }, agentId?: string | null) {
+export async function sendAsAgent(to: string, mail: { subject: string; html: string; attachments?: Attachment[]; replyTo?: string[] }, agentId?: string | null) {
   try {
-    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments, agentId: agentId || undefined })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments, replyTo: mail.replyTo, agentId: agentId || undefined })
   } catch (e) {
     if (!agentId) throw e
     console.error('Invio dalla casella dell\'agente non riuscito, uso quella dell\'agenzia:', e)
-    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments })
+    return await sendEmail({ to, subject: mail.subject, html: mail.html, attachments: mail.attachments, replyTo: mail.replyTo })
   }
 }
 
@@ -151,7 +154,7 @@ export function reminderEmail(p: {
       </div>` : ''}
       ${acc}
       <p>Se hai un imprevisto o vuoi cambiare orario, rispondi a questa email o scrivimi.</p>
-      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${ruolo(p.agent)}</span></p>
     `),
   }
 }
@@ -235,7 +238,7 @@ export function brochureEmail(p: { client: Person; agent: Person; property: Prop
         <a href="${esc(p.property.brochure_url)}" style="background:#fff; color:${BLU}; padding:13px 28px; text-decoration:none; border-radius:999px; display:inline-block; font-weight:800;">Scarica la brochure</a>
       </div>
       <p>Per qualsiasi domanda rispondi pure a questa email o scrivimi.</p>
-      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${ruolo(p.agent)}</span></p>
     `),
   }
 }
@@ -272,7 +275,7 @@ export function waitlistClientEmail(p: { client: Person; agent: Person; property
       <p>Ciao <strong>${esc(p.client.nome)}</strong>,</p>
       <p>grazie per l'interesse verso <strong>${esc(titolo)}</strong>. L'Open House di <span style="text-transform:capitalize;">${esc(data)}</span> ha raggiunto il numero massimo di visite che possiamo accogliere dedicando a ciascuno il tempo giusto.</p>
       <p>Abbiamo inserito i tuoi dati nella <strong>lista d'attesa</strong>: se si libera un posto o se organizziamo un'altra occasione di visita, ti contattiamo noi.</p>
-      <p style="margin-top:22px;">A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">Ghergo Immobiliare</span></p>
+      <p style="margin-top:22px;">A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${ruolo(p.agent)}</span></p>
     `),
   }
 }
@@ -342,7 +345,7 @@ export function presentationEmail(p: {
       </div>` : ''}
       <p>Dopo l'Open House riceverai un'email per lasciarci il tuo parere: se ci dici che vuoi fare una proposta, ti mandiamo la bozza e ti richiamiamo per fissare l'appuntamento.</p>
       <p>Per qualsiasi domanda rispondi pure a questa email.</p>
-      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${p.agent.qualifica === 'assistente' ? 'Assistente immobiliare · ' : ''}Ghergo Immobiliare</span></p>
+      <p>A presto,<br><strong>${esc(p.agent.nome)} ${esc(p.agent.cognome)}</strong><br><span style="color:#6b7280;">${ruolo(p.agent)}</span></p>
     `),
   }
 }

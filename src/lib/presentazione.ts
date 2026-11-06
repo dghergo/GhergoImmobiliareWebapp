@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from './server-auth'
-import { followerId, loadTeam } from './oh-access'
+import { followerId, loadTeam, teamReplyTo } from './oh-access'
 import { presentationEmail, sendAsAgent } from './feedback-emails'
 
 // Email "Prepara la tua visita" (video della casa + video della proposta) ai prenotati confermati.
@@ -55,7 +55,7 @@ export async function sendPresentation(openHouseId: string) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mail = presentationEmail({ client, agent, property, dataEvento: oh.data_evento, ora: (b.gre_time_slots as any)?.ora_inizio || null, videoCasa: oh.video_casa_url, videoProposta })
-      await sendAsAgent(client.email, mail, agent.id)
+      await sendAsAgent(client.email, { ...mail, ...teamReplyTo(b, team) }, agent.id)
       sent++
     } catch (e) {
       console.error(`Presentazione non inviata (${b.id}):`, e)

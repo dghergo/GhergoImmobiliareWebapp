@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
-import { followerId, loadTeam } from '@/lib/oh-access'
+import { followerId, isTeamClient, loadTeam, teamRecipients, teamReplyTo } from '@/lib/oh-access'
 import { sendAsAgent, waitlistAgentEmail, waitlistClientEmail } from '@/lib/feedback-emails'
 
 export const maxDuration = 60
@@ -70,14 +70,17 @@ export async function POST(request: Request) {
     const team = await loadTeam(oh)
     const segueId = followerId({ agente_referente_id: referente }, team)
     const { data: segue } = segueId
-      ? await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', segueId).maybeSingle()
+      ? await supabase.from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', segueId).maybeSingle()
       : { data: null }
     const property = (oh.gre_properties || { titolo: "" }) as unknown as { titolo: string; zona?: string; indirizzo?: string | null }
     const client = { nome, cognome, email, telefono }
     if (segue) {
+      const own = { agente_referente_id: referente }
+      // l'avviso arriva a entrambi gli organizzatori (o al collega che ha portato il cliente)
+      const avvisati = isTeamClient(own, team) ? teamRecipients(team) : [segue]
       await Promise.all([
-        sendAsAgent(email, waitlistClientEmail({ client, agent: segue, property, dataEvento: oh.data_evento }), segue.id),
-        sendAsAgent(segue.email, waitlistAgentEmail({ destinatario: segue, client, property, dataEvento: oh.data_evento, messaggio: messaggio || null, openHouseId }), segue.id),
+        sendAsAgent(email, { ...waitlistClientEmail({ client, agent: segue, property, dataEvento: oh.data_evento }), ...teamReplyTo(own, team) }, segue.id),
+        ...avvisati.map(d => sendAsAgent(d.email, waitlistAgentEmail({ destinatario: d, client, property, dataEvento: oh.data_evento, messaggio: messaggio || null, openHouseId }), d.id)),
       ])
     }
   } catch (e) {

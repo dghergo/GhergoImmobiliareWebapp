@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/server-auth'
 import { verifyCheckinToken } from '@/lib/checkin-link'
-import { followerId, loadTeam, OH_SELECT } from '@/lib/oh-access'
+import { agenteAbilitatoId, followerId, isTeamClient, teamRecipients, teamReplyTo, loadTeam, OH_SELECT } from '@/lib/oh-access'
 import { ANAGRAFICA_VUOTA, dichiarazioni } from '@/lib/foglio-visita'
 import { agenteDi, BOOKING_FOGLIO_SELECT, datiFoglio, firmaFoglio, maskEmail, maskTel } from '@/lib/foglio-server'
 
@@ -25,10 +25,14 @@ async function load(id: string, k: string | null, bookingId: string) {
     return { error: NextResponse.json({ error: 'Prenotazione non trovata' }, { status: 404 }) }
   }
   const team = await loadTeam(oh)
-  const agent = await agenteDi(followerId(b, team))
+  // sul documento c'è sempre un agente abilitato; le email partono da chi segue il cliente e la copia va a entrambi gli organizzatori
+  const agent = await agenteDi(agenteAbilitatoId(b, team))
+  const invio = isTeamClient(b, team)
+    ? { daId: followerId(b, team), copie: teamRecipients(team), ...teamReplyTo(b, team) }
+    : undefined
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dati = datiFoglio(oh as any, b, agent)
-  return { b, agent, dati }
+  return { b, agent, dati, invio }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -50,5 +54,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}))
   const r = await load(id, body.k, String(body.bookingId || ''))
   if (r.error) return r.error
-  return firmaFoglio({ request, openHouseId: id, b: r.b, agent: r.agent, dati: r.dati, body, raccoltoDa: null, ruolo: 'link_check_in' })
+  return firmaFoglio({ request, openHouseId: id, b: r.b, agent: r.agent, dati: r.dati, body, raccoltoDa: null, ruolo: 'link_check_in', invio: r.invio })
 }

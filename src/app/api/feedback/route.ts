@@ -61,11 +61,10 @@ export async function POST(request: Request) {
   if (answers.prossimo_passo === 'offerta' || answers.prossimo_passo === 'rivedere') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const oh = booking.gre_open_houses as any
-    // avvisa solo chi segue il cliente: il collega che lo ha portato,
-    // altrimenti gli agenti abilitati che gestiscono l'Open House (le offerte non le ritira un assistente)
+    // avvisa chi segue il cliente: il collega che lo ha portato,
+    // altrimenti entrambi gli organizzatori (assistente compreso: mai uno solo)
     const team = await loadTeam(oh || { agent_id: null })
-    let destinatari: { id: string; nome: string; cognome: string; email: string }[] = team.members.filter(m => m.qualifica === 'agente')
-    if (!destinatari.length) destinatari = team.members
+    let destinatari: { id: string; nome: string; cognome: string; email: string }[] = team.members
     if (!isTeamClient(booking, team)) {
       const { data: ref } = await supabase
         .from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', booking.agente_referente_id).maybeSingle()

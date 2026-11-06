@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
-import { followerId, followsClient, openHouseAccess } from '@/lib/oh-access'
+import { agenteAbilitatoId, followerId, isTeamClient, teamRecipients, teamReplyTo, followsClient, openHouseAccess } from '@/lib/oh-access'
 import { ANAGRAFICA_VUOTA, dichiarazioni } from '@/lib/foglio-visita'
 import { agenteDi, BOOKING_FOGLIO_SELECT, BUCKET, datiFoglio, firmaFoglio, maskEmail, maskTel } from '@/lib/foglio-server'
 
@@ -19,9 +19,13 @@ async function load(request: Request, id: string, bookingId: string) {
   const mine = followsClient(b, access.team, auth.agent, access.role)
   // il collega lavora solo sui suoi clienti; l'organizzatore può far firmare tutti alla porta
   if (access.role === 'collega' && !mine) return { error: NextResponse.json({ error: 'Non autorizzato' }, { status: 403 }) }
-  const agent = await agenteDi(followerId(b, access.team))
+  // sul documento c'è sempre un agente abilitato; le email partono da chi segue il cliente e la copia va a entrambi gli organizzatori
+  const agent = await agenteDi(agenteAbilitatoId(b, access.team))
+  const invio = isTeamClient(b, access.team)
+    ? { daId: followerId(b, access.team), copie: teamRecipients(access.team), ...teamReplyTo(b, access.team) }
+    : undefined
   const dati = datiFoglio(access.oh, b, agent)
-  return { auth, access, b, mine, agent, dati }
+  return { auth, access, b, mine, agent, dati, invio }
 }
 
 // Dati precompilati per la firma, oppure (download=1) il PDF firmato
@@ -58,5 +62,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json().catch(() => ({}))
   const r = await load(request, id, String(body.bookingId || ''))
   if (r.error) return r.error
-  return firmaFoglio({ request, openHouseId: id, b: r.b, agent: r.agent, dati: r.dati, body, raccoltoDa: r.auth.agent.id, ruolo: r.access.role })
+  return firmaFoglio({ request, openHouseId: id, b: r.b, agent: r.agent, dati: r.dati, body, raccoltoDa: r.auth.agent.id, ruolo: r.access.role, invio: r.invio })
 }
