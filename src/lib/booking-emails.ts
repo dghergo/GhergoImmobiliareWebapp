@@ -2,7 +2,7 @@ import { bookingAlertEmail, feedbackRequestEmail, sendAsAgent } from './feedback
 import { sendEmail, createEmailTemplate } from './gmail'
 import { createOpenHouseEvent } from './calendar'
 import { getSupabaseAdmin } from './server-auth'
-import { followerId, isTeamClient, loadTeam } from './oh-access'
+import { followerId, isTeamClient, loadTeam, teamRecipients, teamReplyTo } from './oh-access'
 
 const escapeHtml = (v: unknown) =>
   String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
@@ -63,8 +63,10 @@ export async function sendBookingEmail(
     // verso il cliente: chi lo segue (un assistente è indicato come assistente immobiliare, mai come agente)
     const fid = followerId(bookingData, team)
     const agent = (stessoAgente ? team.members.find(m => m.id === fid) : referente) || organizer
-    // gli assistenti che lo accolgono all'Open House (indicati come assistenti, non come agenti)
-    const assistenti = stessoAgente ? team.assistenti : []
+    // gli assistenti che lo accolgono all'Open House (indicati come assistenti, non come agenti; non chi firma)
+    const assistenti = stessoAgente ? team.assistenti.filter(a => a.id !== agent.id) : []
+    // le risposte del cliente arrivano a entrambi gli organizzatori
+    const { replyTo } = teamReplyTo(bookingData, team)
 
     // Template email di conferma per il cliente
     if (type === 'client_confirmation') {
@@ -81,6 +83,7 @@ export async function sendBookingEmail(
         to: client.email,
         subject: template.subject,
         html: template.html,
+        replyTo,
         agentId: agent.id
       })
 
@@ -146,6 +149,7 @@ export async function sendBookingEmail(
         to: client.email,
         subject: template.subject,
         html: template.html,
+        replyTo,
         agentId: agent.id
       })
 
@@ -234,7 +238,7 @@ export async function sendBookingEmail(
     // Template email per richiesta feedback
     if (type === 'feedback_request') {
       const template = feedbackRequestEmail({ client, agent, property, bookingId })
-      await sendAsAgent(client.email, template, agent.id)
+      await sendAsAgent(client.email, { ...template, replyTo }, agent.id)
 
       console.log(`✅ Email richiesta feedback inviata a ${client.email}`)
     }
@@ -250,14 +254,13 @@ export async function sendBookingEmail(
         commenti
       })
 
-      await sendEmail({
-        to: agent.email,
-        subject: template.subject,
-        html: template.html,
-        agentId: agent.id
-      })
+      // per i clienti degli organizzatori l'avviso arriva a entrambi, mai a uno solo
+      const destinatari = stessoAgente && team.members.length ? teamRecipients(team) : [agent]
+      for (const d of destinatari) {
+        await sendAsAgent(d.email, template, d.id)
+      }
 
-      console.log(`✅ Email notifica offerta inviata all'agente ${agent.email}`)
+      console.log(`✅ Email notifica offerta inviata a ${destinatari.map(d => d.email).join(', ')}`)
     }
 
     return { success: true }

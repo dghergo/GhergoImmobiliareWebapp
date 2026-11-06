@@ -64,6 +64,8 @@ export async function firmaFoglio(opts: {
   body: any
   raccoltoDa: string | null
   ruolo: string
+  /** casella da cui parte la copia al cliente (chi lo segue), chi riceve la copia interna e a chi rispondere */
+  invio?: { daId: string | null; copie: { id: string; email: string }[]; replyTo?: string[] }
 }) {
   const { request, openHouseId, b, agent, body } = opts
   const dati = { ...opts.dati, cliente: { ...opts.dati.cliente } }
@@ -117,9 +119,14 @@ export async function firmaFoglio(opts: {
   let emailOk = false
   if (agent) {
     try {
-      await sendAsAgent(dati.cliente.email, { ...foglioEmail({ dati, perAgente: false }), attachments: [{ filename, content: Buffer.from(pdf), contentType: 'application/pdf' }] }, agent.id)
+      const allegato = [{ filename, content: Buffer.from(pdf), contentType: 'application/pdf' }]
+      const daId = opts.invio?.daId || agent.id
+      await sendAsAgent(dati.cliente.email, { ...foglioEmail({ dati, perAgente: false }), attachments: allegato, replyTo: opts.invio?.replyTo }, daId)
       emailOk = true
-      await sendAsAgent(agent.email, { ...foglioEmail({ dati, perAgente: true }), attachments: [{ filename, content: Buffer.from(pdf), contentType: 'application/pdf' }] }, agent.id)
+      const copie = opts.invio?.copie?.length ? opts.invio.copie : [{ id: agent.id, email: agent.email }]
+      for (const c of copie) {
+        await sendAsAgent(c.email, { ...foglioEmail({ dati, perAgente: true }), attachments: allegato }, c.id)
+      }
     } catch (e) {
       console.error('Email foglio visita:', e)
     }

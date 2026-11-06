@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin, requireStaff } from '@/lib/server-auth'
-import { followerId, followsClient, isTeamClient, openHouseAccess, teamNames } from '@/lib/oh-access'
+import { followerId, followsClient, isTeamClient, openHouseAccess, teamNames, teamReplyTo } from '@/lib/oh-access'
 import { brochureEmail, sendAsAgent } from '@/lib/feedback-emails'
 
 export const maxDuration = 60
@@ -129,10 +129,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = b.gre_clients as any
     const agentId = followerId(b, access.team)
-    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', agentId).maybeSingle()
+    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', agentId).maybeSingle()
     if (!client?.email || !agent) return NextResponse.json({ error: 'Email del cliente mancante' }, { status: 400 })
     try {
-      await sendAsAgent(client.email, brochureEmail({ client, agent, property }), agent.id)
+      await sendAsAgent(client.email, { ...brochureEmail({ client, agent, property }), ...teamReplyTo(b, access.team) }, agent.id)
     } catch (e) {
       console.error('Brochure non inviata:', e)
       return NextResponse.json({ error: 'Invio non riuscito, riprova' }, { status: 500 })
@@ -208,10 +208,10 @@ async function walkIn(body: any, access: NonNullable<Awaited<ReturnType<typeof o
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const property = oh.gre_properties as any
   if (property?.brochure_url) {
-    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email').eq('id', followerId({ agente_referente_id: referente }, access.team) || '').maybeSingle()
+    const { data: agent } = await supabase.from('gre_agents').select('id, nome, cognome, email, qualifica').eq('id', followerId({ agente_referente_id: referente }, access.team) || '').maybeSingle()
     if (agent) {
       try {
-        await sendAsAgent(client.email, brochureEmail({ client, agent, property, benvenuto: true }), agent.id)
+        await sendAsAgent(client.email, { ...brochureEmail({ client, agent, property, benvenuto: true }), ...teamReplyTo({ agente_referente_id: referente }, access.team) }, agent.id)
         brochureInviata = true
       } catch (e) {
         console.error('Brochure walk-in non inviata:', e)
